@@ -4,13 +4,13 @@
 #  0.7
 #
 #  CHANGELOG
-#  2023-10-21 (v0.7), JanJK: Released
-#  2023-10-21 (v0.6), JanJK: Renamed some variables and optimized it's descriptions
-#  2023-10-18 (v0.5), JanJK: Fixed a bug that prevented pruning docker container backups
-#  2023-10-18 (v0.4), JanJK: Fixed a bug that caused container updates even if there is no update available
-#  2023-10-17 (v0.3), JanJK: Added possibility to prune containers
-#  2023-10-17 (v0.2), JanJK: Several bugfixes
-#  2023-10-07 (v0.1), JanJK: Created
+#  2023-10-21 (v0.7), janseppenrade2: Released
+#  2023-10-21 (v0.6), janseppenrade2: Renamed some variables and optimized it's descriptions
+#  2023-10-18 (v0.5), janseppenrade2: Fixed a bug that prevented pruning docker container backups
+#  2023-10-18 (v0.4), janseppenrade2: Fixed a bug that caused container updates even if there is no update available
+#  2023-10-17 (v0.3), janseppenrade2: Added possibility to prune containers
+#  2023-10-17 (v0.2), janseppenrade2: Several bugfixes
+#  2023-10-07 (v0.1), janseppenrade2: Created
 #
 #  DESCRIPTION
 #  This script is designed to automate the process of updating running and paused Docker container images while preserving their configurations. It also provides the option to specify exceptions by listing container names in the ignored_containers variable.
