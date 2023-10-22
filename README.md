@@ -14,7 +14,7 @@ To run pre or post-installation scripts for specific containers, place these scr
 3. For a fully automated experience, create a cron job to run this script periodically.
 
 # HINT
-For security reasons, this script is executed with enabled test mode by default. As soon as you review your log file created by this script after testing it on your system, which I highly recommend(!), you can disable the test mode by editing the variable "test_mode."
+For security reasons, this script is executed with enabled test mode by default. As soon as you review your log file created by this script after testing it on your system, which I highly recommend(!), you can disable the test mode by editing the variable "test_mode".
 
 # FUNCTIONALITY
 1. The script begins by checking if a previous instance is running to prevent multiple instances from running simultaneously.
