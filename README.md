@@ -38,11 +38,11 @@ For security reasons, this script is executed with enabled test mode by default.
 - log_retention_days: Sets the number of days to keep log entries.
 
 # TESTING ENVIRONMENT(S)
-## Tested on the following operating systems with standard Docker installations:
+## Tested on the following operating systems with standard Docker installations
 - CentOS Stream 9
 - Qnap QTS
 
-## Tested with the following Docker container images/tags:
+## Tested with the following Docker container images/tags
 - aalbng/glpi:10.0.9
 - adguard/adguardhome:v0.107.40
 - dpage/pgadmin4:7.8
