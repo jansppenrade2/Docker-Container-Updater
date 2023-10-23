@@ -1,9 +1,10 @@
 #  Docker Container Updater
 #
 #  VERSION
-#  0.7
+#  0.8
 #
 #  CHANGELOG
+#  2023-10-23 (v0.8), janseppenrade2: Improved regex filter creation (create_regex_filter())
 #  2023-10-21 (v0.7), janseppenrade2: Released
 #  2023-10-21 (v0.6), janseppenrade2: Renamed some variables and optimized it's descriptions
 #  2023-10-18 (v0.5), janseppenrade2: Fixed a bug that prevented pruning docker container backups
@@ -140,24 +141,18 @@
         local input="$1"
         local regex_filter=""
 
-        # Separate the input using dots
-        IFS='.' read -ra parts <<< "$input"
-
-        # Loop through the parts of the input and create the regex pattern
-        for part in "${parts[@]}"; do
-            # Check if the part is a consecutive number
-            if [[ "$part" =~ ^[0-9]+$ ]]; then
-            regex_filter="${regex_filter}[0-9]+"
+        # Loop through the input string
+        for ((i=0; i<${#input}; i++)); do
+            char="${input:$i:1}"
+            # Check if the character is a digit
+            if [[ "$char" =~ [0-9] ]]; then
+                regex_filter="${regex_filter}[0-9]"
             else
-            regex_filter="${regex_filter}${part}"
+                regex_filter="${regex_filter}${char}"
             fi
-            regex_filter="${regex_filter}\\."
         done
 
-        # Remove the last dot from the regex pattern
-        regex_filter="${regex_filter%\\.}"
-
-        echo "$regex_filter"
+        echo "^$regex_filter$"
     }
 
 # Informing about test mode
