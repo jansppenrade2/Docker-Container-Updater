@@ -1,9 +1,10 @@
 #  Docker Container Updater
 #
 #  VERSION
-#  0.8
+#  0.9
 #
 #  CHANGELOG
+#  2023-10-24 (v0.9), janseppenrade2: Added Tmpfs option
 #  2023-10-23 (v0.8), janseppenrade2: Improved regex filter creation (create_regex_filter())
 #  2023-10-21 (v0.7), janseppenrade2: Released
 #  2023-10-21 (v0.6), janseppenrade2: Renamed some variables and optimized it's descriptions
@@ -56,6 +57,7 @@
 #  Tested with the following docker container images/tags:
 #  - aalbng/glpi:10.0.9
 #  - adguard/adguardhome:v0.107.40
+#  - checkmk/check-mk-raw:2023.10.24
 #  - dpage/pgadmin4:7.8
 #  - linuxserver/dokuwiki:2023-04-04a-ls186
 #  - linuxserver/plex:1.32.6
@@ -273,6 +275,14 @@
             
             # Pause State
                 state_paused=$(echo "$container_config" | jq -r '.[0].State.Paused' | sed 's#^/##')
+
+            # Tmpfs
+                if [[ -n $(echo "$container_config" | jq -r '.[0].HostConfig.Tmpfs') && $(echo "$container_config" | jq -r '.[0].HostConfig.Tmpfs') != "null" ]]; then
+                    tmpfs_values=($(echo "$container_config" | jq -r '.[0].HostConfig.Tmpfs | to_entries[] | .key + ":" + .value'))
+                    for value in "${tmpfs_values[@]}"; do
+                        docker_run_cmd+=" --tmpfs $value"
+                    done
+                fi
 
             # Check if container is in the ignore list
                 for container_name in "${ignored_containers[@]}"; do
