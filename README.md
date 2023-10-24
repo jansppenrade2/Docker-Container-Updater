@@ -45,6 +45,7 @@ For security reasons, this script is executed with enabled test mode by default.
 ## Tested with the following Docker container images/tags
 - aalbng/glpi:10.0.9
 - adguard/adguardhome:v0.107.40
+- checkmk/check-mk-raw:2023.10.24
 - dpage/pgadmin4:7.8
 - linuxserver/dokuwiki:2023-04-04a-ls186
 - linuxserver/plex:1.32.6
