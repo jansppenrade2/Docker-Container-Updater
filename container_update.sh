@@ -3,7 +3,7 @@
 #  Docker Container Updater
 #
 #  VERSION
-#  2023.11.13-0
+#  2023.11.16-0
 #
 #  CHANGELOG
 #  2023.11.16-0, janseppenrade2: Changed versioning
@@ -34,7 +34,7 @@
 #  3. For a fully automated experience, create a cron job to run this script periodicly.
 #
 #  HINT
-#  For security reasons this script is executed with enabled test mode by default. As soon as you reviewed your log file created by this script after testing it on your system, which I higly recommend(!), you can disable the testmode by editing the variable "test_mode".
+#  For security reasons, this script is executed with enabled test mode by default. As soon as you review your log file created by this script after testing it on your system in "<scriptpath>\logs\container_update.sh.log", which I highly recommend(!), you can disable the test mode by editing the variable "test_mode".
 #
 #  CUSTOMIZABLE VARIABLES
 #  test_mode:                           Determines whether the script runs in test mode to prevent unwanted system changes (true/false).
