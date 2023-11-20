@@ -1,4 +1,5 @@
 # DOCKER CONTAINER UPDATER
+
 Automatic Docker Container Updater Script
  
 ## Description
