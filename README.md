@@ -1,30 +1,5 @@
 DOCKER CONTAINER UPDATER
 Automatic Docker Container Updater Script
-
-## Version
-2023.11.19-0
-
-## Changelog
-2023.11.19-0, janseppenrade2: Overhauled variable description
-2023.11.18-c, janseppenrade2: Optimized mail message
-2023.11.18-b, janseppenrade2: Added hint to notification mail in test mode
-2023.11.18-a, janseppenrade2: Bugfix with notification level
-2023.11.17-0, janseppenrade2: Optimized logging, added support for mail notifications via sendmail command
-2023.11.16-0, janseppenrade2: Changed versioning
-2023.11.13-0, janseppenrade2: Various bug fixes, regex filter creation optimization (create_regex_filter()) and improvements to major version recognition
-2023.11.08-0, janseppenrade2: Reduced timeout for test mode, various bug fixes
-2023.11.07-0, janseppenrade2: Bugfix in sorting list of available image tags from docker hub
-2023.10.26-0, janseppenrade2: Bugfix in container startup validation; Disabled image download in test mode
-2023.10.25-0, janseppenrade2: Bugfix in the order of Docker run parameters (tmpfs was missplaced); Added extended container startup validation; reduced value of $container_backups_retention_days from 14 to 7 as default
-2023.10.24-0, janseppenrade2: Added Tmpfs option
-2023.10.23-0, janseppenrade2: Improved regex filter creation (create_regex_filter())
-2023.10.21-1, janseppenrade2: Released
-2023.10.21-0, janseppenrade2: Renamed some variables and optimized it's descriptions
-2023.10.18-0, janseppenrade2: Fixed a bug that prevented pruning docker container backups
-2023.10.18-0, janseppenrade2: Fixed a bug that caused container updates even if there is no update available
-2023.10.17-1, janseppenrade2: Added possibility to prune containers
-2023.10.17-0, janseppenrade2: Several bugfixes
-2023.10.07-0, janseppenrade2: Created
  
 ## Description
 This script is designed to automate the process of updating running and paused Docker container images while preserving their configurations. It also provides the option to specify exceptions by listing container names in the `ignored_containers` variable.
