@@ -42,21 +42,21 @@ For security reasons, this script is executed with enabled test mode by default.
  
 ## Customizable variables
  
-| Variable                           | Description                                                                                                                                                                                                      | Example Values                                         |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `test_mode`                        | Determines whether the script runs in test mode to prevent unwanted system changes.                                                                                                                              | `true`/`false`                                         |
-| `docker_executable_path`           | Points to the location of the docker executable on your system.                                                                                                                                                  | `"/usr/bin/"`                                          |
-| `sendmail_executable_path`         | Points to the location of the sendmail executable on your system.                                                                                                                                                | `"/usr/sbin/"`                                         |
-| `ignored_containers`               | An array storing container names to be ignored by the script.                                                                                                                                                    | `("MyContainer1" "MyContainer2" "MyContainer3")`       |
-| `prune_images`                     | Specifies whether to prune Docker images after each execution.                                                                                                                                                   | `true`/`false`                                         |
-| `prune_container_backups`          | Determines whether to prune Docker container backups after each execution or not. The very last backup is always kept.                                                                                           | `true`/`false`                                         |
-| `container_backups_retention_days` | Specifies the number of days for retaining container backups. The very last backup is always kept, regardless of its age!                                                                                        | `7`                                                    |
-| `log_retention_days`               | Sets the number of days to keep log entries.                                                                                                                                                                     | `7`                                                    |
-| `checkContainerStateTimeout`       | The duration in seconds to wait before performing a one-time check to determine if a Docker container has been successfully started.                                                                             | `120`                                                  |
-| `mail_recipients`                  | A comma seperated list with e-mail addresses for notifications.                                                                                                                                                  | `"notify@mydomain.com,my.mail@gmail.com"`              |
-| `mail_subject`                     | Any subject for your notification mails.                                                                                                                                                                         | `"Docker Container Update Report from $(hostname)"`    |
-| `mail_from`                        | The from-address the notification mails will sent from.                                                                                                                                                          | `"notify@mydomain.com"`                                |
-| `mail_notification_level`          | Level 1 informs you about available major updates, even if no updates have been made by this script. Level 2 just informs abaout available updates only if other updates have been made by this script.          | `1`/`2`                                                |
+| Variable                           | Description      | Example Values                                         |
+| ---------------------------------- | ---------------- | ------------------------------------------------------ |
+| `test_mode`                        | Determines whether the script runs in test mode to prevent unwanted system changes. | `true`/`false` |
+| `docker_executable_path`           | Points to the location of the docker executable on your system. | `"/usr/bin/"` |
+| `sendmail_executable_path`         | Points to the location of the sendmail executable on your system. | `"/usr/sbin/"` |
+| `ignored_containers`               | An array storing container names to be ignored by the script. | `("MyContainer1" "MyContainer2" "MyContainer3")` |
+| `prune_images`                     | Specifies whether to prune Docker images after each execution. | `true`/`false` |
+| `prune_container_backups`          | Determines whether to prune Docker container backups after each execution or not. The very last backup is always kept. | `true`/`false` |
+| `container_backups_retention_days` | Specifies the number of days for retaining container backups. The very last backup is always kept, regardless of its age! | `7` |
+| `log_retention_days`               | Sets the number of days to keep log entries. | `7` |
+| `checkContainerStateTimeout`       | The duration in seconds to wait before performing a one-time check to determine if a Docker container has been successfully started. | `120` |
+| `mail_recipients`                  | A comma seperated list with e-mail addresses for notifications. | `"notify@mydomain.com,my.mail@gmail.com"` |
+| `mail_subject`                     | Any subject for your notification mails. | `"Docker Container Update Report from $(hostname)"` |
+| `mail_from`                        | The from-address the notification mails will sent from. | `"notify@mydomain.com"` |
+| `mail_notification_level`          | Level 1 informs you about available major updates, even if no updates have been made by this script. Level 2 just informs abaout available updates only if other updates have been made by this script. | `1`/`2` |
  
 ## Testing environment(s)
 ### Operating Systems
