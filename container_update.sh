@@ -32,7 +32,7 @@
 # This script is designed to automate the process of updating running and paused Docker container images while preserving their configurations. It also provides the option to specify exceptions by listing container names in the `ignored_containers` variable.
 # It's important to note that only inter-major updates are automated; major updates must be performed manually for security reasons. For example, if a container is running version 2.1.0, updates to versions 2.1.1 and 2.2.0 will be handled by this script. If an update to version 3.0.0 is available, the script will inform you in the logs but not handle this update.
 # To run pre or post-installation scripts for specific containers, place these scripts in the same directory as `container_update.sh` and name them `container_update_post_script_<container_name>.sh` or `container_update_pre_script_<container_name>.sh`.
-# To receive notifications by e-mail, Postfix must be installed and configured on the host, as this script uses the "mail" command to send e-mails.
+# To receive notifications by e-mail, Postfix must be installed and configured on the host, as this script uses the "sendmail" command to send e-mails.
 # 
 # ## How to use this script
 # 1. Place this script in your Docker server's file system.
