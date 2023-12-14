@@ -4,11 +4,16 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2023.11.19-0
+# 2023.11.14-0
 #
 # ## Changelog
+# 2023.12.14-0, janseppenrade2: Released
+# 2023.11.22-d, janseppenrade2: Fixed a bug when a Docker network name contains dots
+# 2023.11.22-c, janseppenrade2: Bugfix in sendmail command (path variable was not given)
+# 2023.11.22-b, janseppenrade2: Optimized logging
+# 2023.11.22-a, janseppenrade2: Optimized email sending -> A single email will send for each recipient now. Also the variable for recipients is now an array.
 # 2023.11.19-0, janseppenrade2: Overhauled variable description
-# 2023.11.18-c, janseppenrade2: Optimized mail message
+# 2023.11.18-c, janseppenrade2: Optimized email message
 # 2023.11.18-b, janseppenrade2: Added hint to notification mail in test mode
 # 2023.11.18-a, janseppenrade2: Bugfix with notification level
 # 2023.11.17-0, janseppenrade2: Optimized logging, added support for mail notifications via sendmail command
@@ -55,7 +60,7 @@
 # | `container_backups_retention_days` | Specifies the number of days for retaining container backups. The very last backup is always kept, regardless of its age!                                                                                        | `7`                                                    |
 # | `log_retention_days`               | Sets the number of days to keep log entries.                                                                                                                                                                     | `7`                                                    |
 # | `checkContainerStateTimeout`       | The duration in seconds to wait before performing a one-time check to determine if a Docker container has been successfully started.                                                                             | `120`                                                  |
-# | `mail_recipients`                  | A comma seperated list with e-mail addresses for notifications.                                                                                                                                                  | `"notify@mydomain.com,my.mail@gmail.com"`              |
+# | `mail_recipients`                  | An array storing the recipient's email addresses for notifications.                                                                                                                                              | `("notify@mydomain.com" "my.mail@gmail.com")`          |
 # | `mail_subject`                     | Any subject for your notification mails.                                                                                                                                                                         | `"Docker Container Update Report from $(hostname)"`    |
 # | `mail_from`                        | The from-address the notification mails will sent from.                                                                                                                                                          | `"notify@mydomain.com"`                                |
 # | `mail_notification_level`          | Level 1 informs you about available major updates, even if no updates have been made by this script. Level 2 just informs abaout available updates only if other updates have been made by this script.          | `1`/`2`                                                |
@@ -108,8 +113,8 @@
     
     # CUSTOMIZABLE VARIABLES
     test_mode=true
-    docker_executable_path=""
-    sendmail_executable_path=""
+    docker_executable_path="/usr/bin/"
+    sendmail_executable_path="/usr/sbin/"
     ignored_containers=()
     prune_images=true
     prune_container_backups=true
@@ -117,7 +122,7 @@
     log_retention_days=7
     checkContainerStateTimeout=120
     mail_from=""
-    mail_recipients=""
+    mail_recipients=()
     mail_subject="Docker Container Update Report from $(hostname)"
     mail_notification_level=1
 
@@ -254,13 +259,13 @@ else
                     fi
 
                 # IPv4 address
-                    ipv4_address=$(echo "$container_config" | jq -r '.[0].NetworkSettings.Networks.'$network'.IPAMConfig.IPv4Address')
+                    ipv4_address=$(echo "$container_config" | jq -r ".[0].NetworkSettings.Networks[\"$network\"].IPAMConfig.IPv4Address")
                     if [ -n "$ipv4_address" ] && [ "$ipv4_address" != "null" ]; then
                         docker_run_cmd+=" --ip=$ipv4_address"
                     fi
 
                 # IPv6 address
-                    ipv6_address=$(echo "$container_config" | jq -r '.[0].NetworkSettings.Networks.'$network'.IPAMConfig.IPv6Address')
+                    ipv6_address=$(echo "$container_config" | jq -r ".[0].NetworkSettings.Networks[\"$network\"].IPAMConfig.IPv6Address")
                     if [ -n "$ipv6_address" ] && [ "$ipv6_address" != "null" ]; then
                         docker_run_cmd+=" --ip6=$ipv6_address"
                     fi
@@ -370,7 +375,7 @@ else
                                     if [[ $mail_notification_level == 1 ]]; then
                                         mail_report_available=true
                                     fi
-                                    mail_report_available_major_updates+="<li>$name ($image_name): Update from $image_tag_major_version to $image_tag_major_version_docker_hub</li>"
+                                    mail_report_available_major_updates+="<li>$name ($image_name): Current major version is $image_tag_major_version; the latest available is $image_tag_major_version_docker_hub</li>"
                                     WriteLog "INFO" "    There is a new major version available for ${image_name}. This needs to be updated manually. (Local:$image_tag_major_version <> Online:$image_tag_major_version_docker_hub)"
                                 fi
                             else
@@ -695,86 +700,89 @@ fi
 # Sending mail summary
     if [[ "$mail_report_available" == true && -n "$mail_from" && -n "$mail_recipients" && -n "$mail_subject" ]] || [ "$test_mode" == true ]; then
 
-            WriteLog "INFO" "Generating HTML email..."
-        
-            mail_message="From: $mail_from\n"
-            mail_message+="To: $mail_recipients\n"
-            mail_message+="Subject: $mail_subject\n"
-            mail_message+="MIME-Version: 1.0\n"
-            mail_message+="Content-Type: text/html; charset=UTF-8\n"
-            mail_message+="\n"
-            mail_message+="<html>\n"
-                mail_message+="<body>\n"
-                    mail_message+="<p>Ahoi Captain.</p>\n"
-                    mail_message+="<p> </p>\n"
-                    if [ -n "$mail_report_available_major_updates" ]; then
-                        mail_message+="<p>This email is to notify you of recent changes and available updates for your Docker containers.</p>\n"
-                    else
-                        mail_message+="<p>This email is to notify you of recent changes for your Docker containers.</p>\n"
-                    fi
-                    mail_message+="<p> </p>\n"
-                    mail_message+="<div style=\"border: 1px solid #ccc; padding: 15px;\">\n"
-                        mail_message+="<p style=\"font-size: 16px;\"><strong>Docker Container Update Report</strong></p>\n"
+            for mail_recipient in "${mail_recipients[@]}"; do
 
-                        if [ "$test_mode" == true ]; then
-                            mail_message+="<p style=\"font-size: 12px;\"><strong>This was just a test. No changes have been made to your system.</strong></p>\n"
-                        fi
-
-                        if [ -n "$mail_report_updated_to_new_image_tags" ]; then
-                            mail_message+="<p style=\"font-size: 12px;\"><strong>The following containers/images have been updated to a new image tag:</strong></p>\n"
-                            mail_message+="<ul style=\"font-size: 11px;\">"
-                                mail_message+="$mail_report_updated_to_new_image_tags"
-                            mail_message+="</ul>"
-                            mail_message+="\n"
-                        fi
-
-                        if [ -n "$mail_report_updated_to_new_image_digest" ]; then
-                            mail_message+="<p style=\"font-size: 12px;\"><strong>The following containers/images have been updated while keeping their originally image tag:</strong></p>\n"
-                            mail_message+="<ul style=\"font-size: 11px;\">"
-                                mail_message+="$mail_report_updated_to_new_image_digest"
-                            mail_message+="</ul>"
-                            mail_message+="\n"
-                        fi
-
-                        if [ -n "$mail_report_update_to_new_image_failed" ]; then
-                            mail_message+="<p style=\"font-size: 12px;\"><strong>The following container/image updates were unsuccessful:</strong></p>\n"
-                            mail_message+="<ul style=\"font-size: 11px;\">"
-                                mail_message+="$mail_report_update_to_new_image_failed"
-                            mail_message+="</ul>"
-                            mail_message+="\n"
-                        fi
-
+                WriteLog "INFO" "Generating HTML email for recipient \"$mail_recipient\"..."
+            
+                mail_message="From: $mail_from\n"
+                mail_message+="To: $mail_recipient\n"
+                mail_message+="Subject: $mail_subject\n"
+                mail_message+="MIME-Version: 1.0\n"
+                mail_message+="Content-Type: text/html; charset=UTF-8\n"
+                mail_message+="\n"
+                mail_message+="<html>\n"
+                    mail_message+="<body>\n"
+                        mail_message+="<p>Ahoi Captain.</p>\n"
+                        mail_message+="<p> </p>\n"
                         if [ -n "$mail_report_available_major_updates" ]; then
-                            mail_message+="<p style=\"font-size: 12px;\"><strong>Major updates are available for manual installation on the following containers/images:</strong></p>\n"
-                            mail_message+="<ul style=\"font-size: 11px;\">"
-                                mail_message+="$mail_report_available_major_updates"
-                            mail_message+="</ul>"
-                            mail_message+="\n"
+                            mail_message+="<p>This email is to notify you of recent changes and available updates for your Docker containers.</p>\n"
+                        else
+                            mail_message+="<p>This email is to notify you of recent changes for your Docker containers.</p>\n"
                         fi
-                    mail_message+="</div>\n"
-                    mail_message+="<p> </p>\n"
-                    mail_message+="\n"
-                    mail_message+="<p style=\"font-size: 8px;\"><i>For further information, please have a look into the provided log located in \"$logfile\". If you prefer not to receive these emails, please customize \"$scriptdir/`basename "$0"`\" according to your specific requirements.</i></p>"
-                    mail_message+="<p> </p>\n"
-                    mail_message+="<p>Best regards.</p>"
-                    mail_message+="\n"
-                mail_message+="</body>\n"
-            mail_message+="</html>\n"
+                        mail_message+="<p> </p>\n"
+                        mail_message+="<div style=\"border: 1px solid #ccc; padding: 15px;\">\n"
+                            mail_message+="<p style=\"font-size: 16px;\"><strong>Docker Container Update Report</strong></p>\n"
 
-            WriteLog "INFO" "Saving generated HTML email to \"$mail_message_file\"..."
-                echo -e $mail_message > $mail_message_file
-                
-            if command -v "${sendmail_executable_path}sendmail" &> /dev/null; then
-                WriteLog "INFO" "Fireing sendmail command \"sendmail -t < $mail_message_file\"..."
-                    sendmail -t < $mail_message_file
-            else
-                WriteLog "ERROR" "Command \"${sendmail_executable_path}sendmail\" could not be found. Sending email report skipped."
-            fi
+                            if [ "$test_mode" == true ]; then
+                                mail_message+="<p style=\"font-size: 12px;\"><strong>This was just a test. No changes have been made to your system.</strong></p>\n"
+                            fi
 
-            if [ "$test_mode" == false ]; then
-                WriteLog "INFO" "Deleting generated HTML email from \"$mail_message_file\"..."
-                    rm -f $mail_message_file
-            fi
+                            if [ -n "$mail_report_updated_to_new_image_tags" ]; then
+                                mail_message+="<p style=\"font-size: 12px;\"><strong>The following containers/images have been updated to a new image tag:</strong></p>\n"
+                                mail_message+="<ul style=\"font-size: 11px;\">"
+                                    mail_message+="$mail_report_updated_to_new_image_tags"
+                                mail_message+="</ul>"
+                                mail_message+="\n"
+                            fi
+
+                            if [ -n "$mail_report_updated_to_new_image_digest" ]; then
+                                mail_message+="<p style=\"font-size: 12px;\"><strong>The following containers/images have been updated while keeping their originally image tag:</strong></p>\n"
+                                mail_message+="<ul style=\"font-size: 11px;\">"
+                                    mail_message+="$mail_report_updated_to_new_image_digest"
+                                mail_message+="</ul>"
+                                mail_message+="\n"
+                            fi
+
+                            if [ -n "$mail_report_update_to_new_image_failed" ]; then
+                                mail_message+="<p style=\"font-size: 12px;\"><strong>The following container/image updates were unsuccessful:</strong></p>\n"
+                                mail_message+="<ul style=\"font-size: 11px;\">"
+                                    mail_message+="$mail_report_update_to_new_image_failed"
+                                mail_message+="</ul>"
+                                mail_message+="\n"
+                            fi
+
+                            if [ -n "$mail_report_available_major_updates" ]; then
+                                mail_message+="<p style=\"font-size: 12px;\"><strong>Major updates are available for manual installation on the following containers/images:</strong></p>\n"
+                                mail_message+="<ul style=\"font-size: 11px;\">"
+                                    mail_message+="$mail_report_available_major_updates"
+                                mail_message+="</ul>"
+                                mail_message+="\n"
+                            fi
+                        mail_message+="</div>\n"
+                        mail_message+="<p> </p>\n"
+                        mail_message+="\n"
+                        mail_message+="<p style=\"font-size: 8px;\"><i>For further information, please have a look into the provided log located in \"$logfile\". If you prefer not to receive these emails, please customize \"$scriptdir/`basename "$0"`\" according to your specific requirements.</i></p>"
+                        mail_message+="<p> </p>\n"
+                        mail_message+="<p>Best regards.</p>"
+                        mail_message+="\n"
+                    mail_message+="</body>\n"
+                mail_message+="</html>\n"
+
+                WriteLog "INFO" "Saving generated HTML email to \"$mail_message_file\"..."
+                    echo -e $mail_message > $mail_message_file
+                    
+                if command -v "${sendmail_executable_path}sendmail" &> /dev/null; then
+                    WriteLog "INFO" "Fireing sendmail command \"${sendmail_executable_path}sendmail -t < $mail_message_file\"..."
+                        ${sendmail_executable_path}sendmail -t < $mail_message_file
+                else
+                    WriteLog "ERROR" "Command \"${sendmail_executable_path}sendmail\" could not be found. Sending email report skipped."
+                fi
+
+                if [ "$test_mode" == false ]; then
+                    WriteLog "INFO" "Deleting generated HTML email from \"$mail_message_file\"..."
+                        rm -f $mail_message_file
+                fi
+            done
     fi
 
 # Truncating log file
