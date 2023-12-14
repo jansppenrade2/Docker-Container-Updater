@@ -33,7 +33,7 @@ For security reasons, this script is executed with enabled test mode by default.
 | `container_backups_retention_days` | Specifies the number of days for retaining container backups. The very last backup is always kept, regardless of its age! | `7` |
 | `log_retention_days`               | Sets the number of days to keep log entries. | `7` |
 | `checkContainerStateTimeout`       | The duration in seconds to wait before performing a one-time check to determine if a Docker container has been successfully started. | `120` |
-| `mail_recipients`                  | A comma seperated list with e-mail addresses for notifications. | `"notify@mydomain.com,my.mail@gmail.com"` |
+| `mail_recipients`                  | An array storing the recipient's email addresses for notifications. | `("notify@mydomain.com" "my.mail@gmail.com")` |
 | `mail_subject`                     | Any subject for your notification mails. | `"Docker Container Update Report from $(hostname)"` |
 | `mail_from`                        | The from-address the notification mails will sent from. | `"notify@mydomain.com"` |
 | `mail_notification_level`          | Level 1 informs you about available major updates, even if no updates have been made by this script. Level 2 just informs abaout available updates only if other updates have been made by this script. | `1`/`2` |
