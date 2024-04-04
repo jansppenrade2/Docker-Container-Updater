@@ -4,34 +4,39 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2023.11.14-0
+# 2024.04.04-b
 #
 # ## Changelog
-# 2023.12.14-0, janseppenrade2: Released
-# 2023.11.22-d, janseppenrade2: Fixed a bug when a Docker network name contains dots
-# 2023.11.22-c, janseppenrade2: Bugfix in sendmail command (path variable was not given)
-# 2023.11.22-b, janseppenrade2: Optimized logging
-# 2023.11.22-a, janseppenrade2: Optimized email sending -> A single email will send for each recipient now. Also the variable for recipients is now an array.
-# 2023.11.19-0, janseppenrade2: Overhauled variable description
-# 2023.11.18-c, janseppenrade2: Optimized email message
-# 2023.11.18-b, janseppenrade2: Added hint to notification mail in test mode
-# 2023.11.18-a, janseppenrade2: Bugfix with notification level
-# 2023.11.17-0, janseppenrade2: Optimized logging, added support for mail notifications via sendmail command
-# 2023.11.16-0, janseppenrade2: Changed versioning
-# 2023.11.13-0, janseppenrade2: Various bug fixes, regex filter creation optimization (create_regex_filter()) and improvements to major version recognition
-# 2023.11.08-0, janseppenrade2: Reduced timeout for test mode, various bug fixes
-# 2023.11.07-0, janseppenrade2: Bugfix in sorting list of available image tags from docker hub
-# 2023.10.26-0, janseppenrade2: Bugfix in container startup validation; Disabled image download in test mode
-# 2023.10.25-0, janseppenrade2: Bugfix in the order of Docker run parameters (tmpfs was missplaced); Added extended container startup validation; reduced value of $container_backups_retention_days from 14 to 7 as default
-# 2023.10.24-0, janseppenrade2: Added Tmpfs option
-# 2023.10.23-0, janseppenrade2: Improved regex filter creation (create_regex_filter())
-# 2023.10.21-1, janseppenrade2: Released
-# 2023.10.21-0, janseppenrade2: Renamed some variables and optimized it's descriptions
-# 2023.10.18-0, janseppenrade2: Fixed a bug that prevented pruning docker container backups
-# 2023.10.18-0, janseppenrade2: Fixed a bug that caused container updates even if there is no update available
-# 2023.10.17-1, janseppenrade2: Added possibility to prune containers
-# 2023.10.17-0, janseppenrade2: Several bugfixes
-# 2023.10.07-0, janseppenrade2: Created
+# 2024.04.04-b, janseppenrade2: Released
+# 2024.04.04-a, janseppenrade2: Fixed a bug allowing null values in some command parameters, causing an error in the execution of a Docker Run command.
+# 2024.04.04-0, janseppenrade2: Resolved an issue that resulted in an empty mail report in case of any failed container update.
+# 2024.02.13-0, janseppenrade2: Post-scripts will now be executed even after a failed container start/update.
+# 2024.02.03-0, janseppenrade2: Added support for reading the output of sub-scripts (pre- and post-scripts).
+# 2023.12.14-0, janseppenrade2: Released.
+# 2023.11.22-d, janseppenrade2: Fixed a bug occurring when a Docker network name contains dots.
+# 2023.11.22-c, janseppenrade2: Bugfix in the sendmail command (path variable was not provided).
+# 2023.11.22-b, janseppenrade2: Optimized logging.
+# 2023.11.22-a, janseppenrade2: Optimized email sending - A single email will now be sent for each recipient. Also, the variable for recipients is now an array.
+# 2023.11.19-0, janseppenrade2: Overhauled variable description.
+# 2023.11.18-c, janseppenrade2: Optimized email message.
+# 2023.11.18-b, janseppenrade2: Added hint to notification mail in test mode.
+# 2023.11.18-a, janseppenrade2: Bugfix with notification level.
+# 2023.11.17-0, janseppenrade2: Optimized logging, added support for mail notifications via the sendmail command.
+# 2023.11.16-0, janseppenrade2: Changed versioning.
+# 2023.11.13-0, janseppenrade2: Various bug fixes, optimization of regex filter creation (create_regex_filter()), and improvements to major version recognition.
+# 2023.11.08-0, janseppenrade2: Reduced timeout for test mode, various bug fixes.
+# 2023.11.07-0, janseppenrade2: Bugfix in sorting list of available image tags from Docker Hub.
+# 2023.10.26-0, janseppenrade2: Bugfix in container startup validation; Disabled image download in test mode.
+# 2023.10.25-0, janseppenrade2: Bugfix in the order of Docker run parameters (tmpfs was misplaced); Added extended container startup validation; reduced value of $container_backups_retention_days from 14 to 7 as default.
+# 2023.10.24-0, janseppenrade2: Added Tmpfs option.
+# 2023.10.23-0, janseppenrade2: Improved regex filter creation (create_regex_filter()).
+# 2023.10.21-1, janseppenrade2: Released.
+# 2023.10.21-0, janseppenrade2: Renamed some variables and optimized their descriptions.
+# 2023.10.18-0, janseppenrade2: Fixed a bug that prevented pruning Docker container backups.
+# 2023.10.18-0, janseppenrade2: Fixed a bug that caused container updates even if there is no update available.
+# 2023.10.17-1, janseppenrade2: Added possibility to prune containers.
+# 2023.10.17-0, janseppenrade2: Several bug fixes.
+# 2023.10.07-0, janseppenrade2: Created.
 # 
 # ## Description
 # This script is designed to automate the process of updating running and paused Docker container images while preserving their configurations. It also provides the option to specify exceptions by listing container names in the `ignored_containers` variable.
@@ -104,11 +109,11 @@
     logfile="$scriptdir/logs/`basename "$0"`.log"                           # This variable specifies the path to the log file. It combines the `scriptdir` with the name of the script file and appends a `.log` extension. Log entries generated by the script are written to this file. You can customize it to change the log file path.
     pidfile="$scriptdir/`basename "$0"`.pid"                                # This variable specifies the path to the PID (Process ID) file. It is used to store the Process ID of the currently running script instance, preventing multiple instances from running simultaneously.
     mail_message_file="$scriptdir/`basename "$0"`.msg"                      # This variable specifies the path to the temporary created mail message file.
-    mail_report_available=false                                             # Used to generate a mail report
-    mail_report_available_major_updates=""                                  # Used to generate a mail report
-    mail_report_updated_to_new_image_tags=""                                # Used to generate a mail report
-    mail_report_updated_to_new_image_digest=""                              # Used to generate a mail report
-    mail_report_update_to_new_image_failed=""                               # Used to generate a mail report
+    mail_report_available=false                                             # Used to generate a mail report. You don't need to customize this.
+    mail_report_available_major_updates=""                                  # Used to generate a mail report. You don't need to customize this.
+    mail_report_updated_to_new_image_tags=""                                # Used to generate a mail report. You don't need to customize this.
+    mail_report_updated_to_new_image_digest=""                              # Used to generate a mail report. You don't need to customize this.
+    mail_report_update_to_new_image_failed=""                               # Used to generate a mail report. You don't need to customize this.
 
     
     # CUSTOMIZABLE VARIABLES
@@ -224,25 +229,25 @@ else
 
                 # Name
                     name=$(echo "$container_config" | jq -r '.[0].Name' | sed 's#^/##')
-                    if [ -n "$name" ]; then
+                    if [ -n "$name" ] && [ "$name" != "null" ]; then
                         docker_run_cmd+=" --name=$(quote "$name")"
                     fi
 
                 # Hostname
                     hostname=$(echo "$container_config" | jq -r '.[0].Config.Hostname')
-                    if [ -n "$hostname" ]; then
+                    if [ -n "$hostname" ] && [ "$hostname" != "null" ]; then
                         docker_run_cmd+=" --hostname=$(quote "$hostname")"
                     fi
 
                 # Get the network mode
                     network=$(echo "$container_config" | jq -r '.[0].HostConfig.NetworkMode')
-                    if [ "$network" != "default" ]; then
+                    if [ "$network" != "default" ] && [ "$network" != "null" ]; then
                         docker_run_cmd+=" --network=$(quote "$network")"
                     fi
 
                 # Get the restart policy
                     restart_policy=$(echo "$container_config" | jq -r '.[0].HostConfig.RestartPolicy.Name')
-                    if [ "$restart_policy" != "no" ]; then
+                    if [ "$restart_policy" != "no" ] && [ "$restart_policy" != "null" ]; then
                         docker_run_cmd+=" --restart=$restart_policy"
                     fi
 
@@ -254,7 +259,7 @@ else
 
                 # Mac address
                     mac_address=$(echo "$container_config" | jq -r '.[0].Config.MacAddress')
-                    if [ -n "$mac_address" ]; then
+                    if [ -n "$mac_address" ] && [ "$mac_address" != "null" ]; then
                         docker_run_cmd+=" --mac-address=$mac_address"
                     fi
 
@@ -449,7 +454,9 @@ else
                                             WriteLog "INFO" "  Executing pre script $script..."
                                                 if [ "$test_mode" == false ]; then
                                                     chmod +x "$script"
-                                                    bash "$script"
+                                                    while IFS= read -r line; do
+                                                        WriteLog "INFO" "    Output of \"$script\": $line"
+                                                    done < <("$script")
                                                 fi
                                         fi
                                         
@@ -473,6 +480,7 @@ else
                                                 containerStartupError=false
                                                 eval "$docker_run_cmd"
                                                 if [ $? -ne 0 ]; then
+                                                    mail_report_update_to_new_image_failed+="<li>$name ($image_name)</li>"
                                                     WriteLog "ERROR" "  failed to start docker container."
                                                     containerStartupError=true
                                                 else
@@ -513,13 +521,26 @@ else
                                                             ${docker_executable_path}docker rename $container_id ${name}
                                                         WriteLog "INFO" "    Starting old instance..."
                                                             ${docker_executable_path}docker start $container_id
+
+                                                    script="$scriptdir/container_update_post_script_$name.sh"
+                                                    if [ -e "$script" ]; then
+                                                        WriteLog "INFO" "  Executing post script $script..."
+                                                            if [ "$test_mode" == false ]; then
+                                                                chmod +x "$script"
+                                                                while IFS= read -r line; do
+                                                                    WriteLog "INFO" "    Output of \"$script\": $line"
+                                                                done < <("$script")
+                                                            fi
+                                                    fi
                                                 else
                                                     script="$scriptdir/container_update_post_script_$name.sh"
                                                     if [ -e "$script" ]; then
                                                         WriteLog "INFO" "  Executing post script $script..."
                                                             if [ "$test_mode" == false ]; then
                                                                 chmod +x "$script"
-                                                                bash "$script"
+                                                                while IFS= read -r line; do
+                                                                    WriteLog "INFO" "    Output of \"$script\": $line"
+                                                                done < <("$script")
                                                             fi
                                                     fi
                                                 fi
@@ -558,7 +579,9 @@ else
                                             WriteLog "INFO" "  Executing pre script $script..."
                                                 if [ "$test_mode" == false ]; then
                                                     chmod +x "$script"
-                                                    bash "$script"
+                                                    while IFS= read -r line; do
+                                                        WriteLog "INFO" "    Output of \"$script\": $line"
+                                                    done < <("$script")
                                                 fi
                                         fi
 
@@ -622,13 +645,26 @@ else
                                                             ${docker_executable_path}docker rename $container_id ${name}
                                                         WriteLog "INFO" "    Starting old instance..."
                                                             ${docker_executable_path}docker start $container_id
+
+                                                    script="$scriptdir/container_update_post_script_$name.sh"
+                                                    if [ -e "$script" ]; then
+                                                        WriteLog "INFO" "  Executing post script $script..."
+                                                            if [ "$test_mode" == false ]; then
+                                                                chmod +x "$script"
+                                                                while IFS= read -r line; do
+                                                                    WriteLog "INFO" "    Output of \"$script\": $line"
+                                                                done < <("$script")
+                                                            fi
+                                                    fi
                                                 else
                                                     script="$scriptdir/container_update_post_script_$name.sh"
                                                     if [ -e "$script" ]; then
                                                         WriteLog "INFO" "  Executing post script $script..."
                                                             if [ "$test_mode" == false ]; then
                                                                 chmod +x "$script"
-                                                                bash "$script"
+                                                                while IFS= read -r line; do
+                                                                    WriteLog "INFO" "    Output of \"$script\": $line"
+                                                                done < <("$script")
                                                             fi
                                                     fi
                                                 fi
@@ -744,7 +780,7 @@ fi
                             fi
 
                             if [ -n "$mail_report_update_to_new_image_failed" ]; then
-                                mail_message+="<p style=\"font-size: 12px;\"><strong>The following container/image updates were unsuccessful:</strong></p>\n"
+                                mail_message+="<p style=\"font-size: 12px;\"><strong>The following container/image updates were <span style=\"color: red;\">unsuccessful</span>:</strong></p>\n"
                                 mail_message+="<ul style=\"font-size: 11px;\">"
                                     mail_message+="$mail_report_update_to_new_image_failed"
                                 mail_message+="</ul>"
