@@ -42,6 +42,7 @@ For security reasons, this script is executed with enabled test mode by default.
 ### Operating Systems
 - CentOS Stream 9
 - Qnap QTS
+- UbuntuUbuntu 22.04.3 LTS
  
 ### Docker Containers
 - aalbng/glpi:10.0.9
