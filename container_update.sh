@@ -4,9 +4,13 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.04.04-b
+# 2024.04.05-0
 #
 # ## Changelog
+# 2024.04.05-0, janseppenrade2: Released.
+# 2024.04.05-c, janseppenrade2: Removed test environment information from script.
+# 2024.04.05-b, janseppenrade2: Added support for port bindings and capabilities like "NET_ADMIN" etc.
+# 2024.04.05-a, janseppenrade2: Optimized logging.
 # 2024.04.04-b, janseppenrade2: Released
 # 2024.04.04-a, janseppenrade2: Fixed a bug allowing null values in some command parameters, causing an error in the execution of a Docker Run command.
 # 2024.04.04-0, janseppenrade2: Resolved an issue that resulted in an empty mail report in case of any failed container update.
@@ -69,36 +73,6 @@
 # | `mail_subject`                     | Any subject for your notification mails.                                                                                                                                                                         | `"Docker Container Update Report from $(hostname)"`    |
 # | `mail_from`                        | The from-address the notification mails will sent from.                                                                                                                                                          | `"notify@mydomain.com"`                                |
 # | `mail_notification_level`          | Level 1 informs you about available major updates, even if no updates have been made by this script. Level 2 just informs abaout available updates only if other updates have been made by this script.          | `1`/`2`                                                |
-# 
-# ## Testing environment(s)
-# ### Operating Systems
-# - CentOS Stream 9
-# - Qnap QTS
-# 
-# ### Docker Containers
-# - aalbng/glpi:10.0.9
-# - adguard/adguardhome:v0.107.40
-# - checkmk/check-mk-raw:2023.10.24
-# - dpage/pgadmin4:7.8
-# - juanluisbaptiste/postfix:1.7.1
-# - linuxserver/dokuwiki:2023-04-04a-ls186
-# - linuxserver/plex:1.32.6
-# - linuxserver/sabnzbd:4.1.0
-# - linuxserver/swag:2.7.2
-# - linuxserver/webtop:ubuntu-kde
-# - mariadb:11.1.2
-# - nextcloud:27.1.2
-# - ocsinventory/ocsinventory-docker-image:2.12
-# - odoo:16.0
-# - onlyoffice/documentserver:7.5.0
-# - osixia/openldap:1.5.0
-# - osixia/phpldapadmin:0.9.0
-# - phpmyadmin/phpmyadmin:5.2.1
-# - portainer/portainer-ee:2.19.1
-# - postgres:15.4
-# - redis:7.2.2
-# - thingsboard/tb-postgres:3.5.1
-# - vaultwarden/server:1.29.2
 
 
 # GLOBAL VARIABLES
@@ -239,6 +213,16 @@ else
                         docker_run_cmd+=" --hostname=$(quote "$hostname")"
                     fi
 
+                # Capabilities
+                    capabilities=$(echo "$container_config" | jq -r '.[0].HostConfig.CapAdd')
+                    capabilities_count=$(echo "$capabilities" | jq '. | length')
+                    if [ "$capabilities_count" -gt 0 ] && [ -n "$capabilities_count" ]; then
+                        for ((i = 0; i < capabilities_count; i++)); do
+                            capability_name=$(echo "$capabilities" | jq -r ".[$i]")
+                            docker_run_cmd+=" --cap-add=$capability_name"
+                        done
+                    fi
+
                 # Get the network mode
                     network=$(echo "$container_config" | jq -r '.[0].HostConfig.NetworkMode')
                     if [ "$network" != "default" ] && [ "$network" != "null" ]; then
@@ -255,6 +239,24 @@ else
                     PublishAllPorts=$(echo "$container_config" | jq -r '.[0].HostConfig.PublishAllPorts')
                     if [ "$PublishAllPorts" != "false" ]; then
                         docker_run_cmd+=" --publish-all"
+                    fi
+
+                # Port Bindings
+                    PortBindings=$(echo "$container_config" | jq -r '.[0].HostConfig.PortBindings')
+                    PortBindings_count=$(echo "$PortBindings" | jq '. | length')
+                    if [ "$PortBindings_count" -gt 0 ] && [ -n "$PortBindings_count" ]; then
+                        for ((i = 0; i < PortBindings_count; i++)); do
+                            host_port_key_name=$(echo "$PortBindings" | jq -r ". | keys_unsorted | .[$i]")
+                            if [[ $host_port_key_name == */* ]]; then
+                                host_port=$(echo "$host_port_key_name" | cut -d'/' -f1)
+                                protocol=$(echo "$host_port_key_name" | cut -d'/' -f2)
+                            else
+                                host_port=$host_port_key_name
+                                protocol=""
+                            fi
+                            container_port=$(echo "$PortBindings" | jq -r ".[\"$host_port_key_name\"][0].HostPort")
+                            docker_run_cmd+=" -p $container_port:$host_port"
+                        done
                     fi
 
                 # Mac address
@@ -510,7 +512,7 @@ else
                                                 fi
 
                                                 if [ "$containerStartupError" == true ]; then
-                                                    WriteLog "ERROR" "  Rolling back changes..."
+                                                    WriteLog "WARN" "  Rolling back changes..."
                                                         WriteLog "INFO" "    Stopping new container"
                                                             ${docker_executable_path}docker stop ${name}
                                                         WriteLog "INFO" "    Removing new container"
