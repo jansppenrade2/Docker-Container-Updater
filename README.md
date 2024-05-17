@@ -4,28 +4,28 @@
 
 ## Features
 
-- **Automated Container Updates**: Effortlessly update all your Docker containers on your host under your own conditions.
-- **Smart Update Detection**: Automatically identifies Major, Minor, Patch, Build, and Digest updates given in the Docker image tag name.
-- **Customizable Update Rules**: Define unique update behaviors for each container. For example, allow only digest updates for one container, patch updates for another, or even full major updates.
-- **Conditional Updates**: Set conditions for major updates, such as requiring at least one patch version for the new major version to be released before updating.
-- **Standard Update Sequence**: Updates follow the standard sequence: digest, build, patch, minor, and then major updates.
-- **Backup and Rollback**: Backups of your containers are created before updates. If an update fails, the change is rolled back and the old container is restarted.
-- **Email Notifications**: Stay informed with detailed email reports (requires sendmail to be installed and configured).
-- **Pre- and Post-Scripts Integration**: Integrate your own pre- and post-scripts to perform actions such as backing up configuration files or databases before any update and making adjustments to the container configuration after any update.
+- **🔄 Automated Container Updates**: Effortlessly update all your Docker containers on your host under your own conditions.
+- **🧠 Smart Update Detection**: Automatically identifies Major, Minor, Patch, Build updates given in the Docker image tag name.
+- **⚙️ Customizable Update Rules**: Define unique update behaviors for each container.
+- **🔀 Conditional Updates**: Set conditions for major updates, such as requiring at least one patch version for the new major version to be released before updating.
+- **🔁 Standard Update Sequence**: Updates follow the standard sequence: first digest, build, patch, minor, and then major updates. No updates are skipped.
+- **🛠️ Backup and Rollback**: Backups of your containers are created before updates. If an update fails, the change is rolled back and the old container is restarted.
+- **📧 Email Notifications**: Stay informed with detailed email reports *(requires sendmail to be installed and configured)*.
+- **📜 Pre- and Post-Scripts Integration**: Integrate your own pre- and post-scripts to perform actions such as backing up configuration files or databases before any update and making adjustments to the container configuration after any update.
 
-Oh, and just a heads-up — I'm still just a script kiddy and can't be held responsible for any mishaps. That's why the default configuration has test mode enabled. Safety first!
-After you've run your first test, checked for errors, and reviewed the generated Docker run commands, you can disable test mode in the configuration (see below).
+> Oh, and just a heads-up — I'm still just a script kiddy and can't be held responsible for any mishaps. That's why the default configuration has **test mode enabled**. Safety first 😉! After you've run your first test, checked for errors, and reviewed the generated Docker run commands, you can disable test mode in your configuration file *(see below)*.
 
 ## Installation
 
 1. Download this script to your Docker host
 2. Make it executable
-3. Run it with root
-4. Create a cron job for this script (after testing ;-) )
+3. Run it with root *(the first run will create the default configuration file)*
+4. Customize the default config according to your specific requirements *(see below)*
+5. Create a cron job for this script *(after testing 🫠)*
 
 ## Configuration
 
-The Docker Container Auto-Update script **now uses a configuration file**, which is by default located at `/usr/local/etc/container_update/container_update.ini`. This file contains all the settings and parameters necessary for the script to run. You can customize the configuration file according to your requirements by editing it and entering the desired values.
+The Docker Container Auto-Update script **now uses a configuration file**, which is by default located at `/usr/local/etc/container_update/container_update.ini`. This file contains all the settings and parameters necessary for the script to run. You can customize the configuration file according to your requirements.
 
 | Section     | Parameter                                   | Description                                                                                                   | Default Value                                             | Possible Values                                           |
 |-------------|---------------------------------------------|---------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------|-----------------------------------------------------------|
@@ -63,8 +63,6 @@ The Docker Container Auto-Update script **now uses a configuration file**, which
 
 ### Update Rules
 
-#### Basic Rules
-
 The `update_rules` parameter allows you to define the update behavior for your containers. The default rule is `*[0.1.1-1,true]`, which means:
 
 - `*`: Applies to all containers.
@@ -77,47 +75,44 @@ The `update_rules` parameter allows you to define the update behavior for your c
 
 You can customize these rules for each container by specifying different patterns and update policies separated by spaces.
 
-##### Basic Rule Example 1
+#### Basic Rule Example
 
 ```
 update_rules=*[0.1.1-1,true] mycontainer[1.0.0-1,true] another[0.0.1-1,false] further[2.1.1-1,true]
 ```
 
-This example configuration means:
+> This example configuration means:
+>
+> - All containers are allowed only minor, patch, build, and digest updates.
+> - The container named `mycontainer` is allowed to install major, build, and digest updates.
+> - The container named `another` is allowed to install only patch and build updates.
+> - The container named `further` is allowed to install build updates only when the latest release is two versions higher *(e.g., if Nextcloud releases version 29.0.0 and your Nextcloud is on version 27.0.0, an update to version 28.0.0 will be performed)*.
 
-- All containers are allowed only minor, patch, build, and digest updates.
-- The container named `mycontainer` is allowed to install major, build, and digest updates.
-- The container named `another` is allowed to install only patch and build updates.
-- The container named `further` is allowed to install build updates only when the latest release is two versions higher *(e.g., if Nextcloud releases version 29.0.0 and your Nextcloud is on version 27.0.0, an update to version 28.0.0 will be performed)*.
-
-By configuring these rules, you can finely control how each container is updated according to your specific requirements.
-
-
-#### More Precise Rules
+#### Precise Rule Examples
 
 You can also create more specific rule sets that allow, for example, major updates for a container if at least one patch has been released for that major version.
-
-##### Precise Rule Examples
-
 In the rules, 'M' stands for Major, 'm' for Minor, 'p' for Patch, and 'b' for Build.
 
 ```
 mycontainer[1&(p>1).1.1-1,true]
 ```
 
-This rule allows major updates for the container `mycontainer` if at least one patch version greater than 1 has been released for this major version.
+> This rule allows major updates for the container `mycontainer` if at least one patch version greater than 1 has been released for this major version.
 
 ```
 mycontainer[0.1(b>2).1-1,true]
 ```
 
-This rule allows minor updates for the container `mycontainer` if the build version is greater than 2.
+> This rule allows minor updates for the container `mycontainer` if the build version is greater than 2.
 
 These precise rules provide granular control over the update behavior of specific containers based on various conditions such as patch versions, build versions, and more.
 
+---
+---
+
 ## Mail Notification Example
 
-This information comes with each email notification.
+This is an example of an email message. This way, you can get an idea of the type of information content you can expect.
 
 ---
 ### 🐳 Docker Container Update Report
@@ -126,6 +121,7 @@ This information comes with each email notification.
 - **Hostname:** MY-DOCKER-HOST
 - **IP-Address:** 192.168.1.2
 - **Docker Version:** 26.0.0
+- **Script Version:** 2024.05.16-1
 
 #### 📋 ACTIONS TAKEN
 - 🟢 A patch update for GLPI from `aalbng/glpi:10.0.12` to `aalbng/glpi:10.0.14` has been performed
