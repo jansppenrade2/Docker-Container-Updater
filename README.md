@@ -6,8 +6,7 @@
 
 - **🔄 Automated Container Updates**: Effortlessly update all your Docker containers on your host under your own conditions.
 - **🧠 Smart Update Detection**: This script creates a regex filter based on the currently deployed image tag and scans Docker Hub for any available updates. It automatically analyzes the version numbers specified in the image tags and identifies major, minor, patch, and build updates. It also handles simple digest updates automatically.
-- **⚙️ Customizable Update Rules**: Define unique update behaviors for each container.
-- **🔀 Conditional Updates**: Set conditions for major updates, such as requiring at least one patch version for the new major version to be released before updating.
+- **⚙️ Customizable and Conditional Update Rules**: Define highly precise update rules for each individual container.
 - **🔁 Standard Update Sequence**: Updates follow the standard sequence: first digest, build, patch, minor, and then major updates. No updates are skipped.
 - **🛠️ Backup and Rollback**: Backups of your containers are created before updates. If an update fails, the change is rolled back and the old container is restarted.
 - **📧 Email Notifications**: Stay informed with detailed email reports *(requires sendmail to be installed and configured)*.
