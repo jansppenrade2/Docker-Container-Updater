@@ -1,70 +1,109 @@
-# DOCKER CONTAINER UPDATER
+# Docker Container Auto-Update Script
 
-Automatic Docker Container Updater Script
- 
-## Description
+🎉 This script is completely redesigned for enhanced performance, providing a better overview and more reliability. Crafted with lots of love and a touch of magic, this script makes your Docker life easier and more efficient.
 
-This script is designed to automate the process of updating running and paused Docker container images while preserving their configurations. It also provides the option to specify exceptions by listing container names in the `ignored_containers` variable.
+## Features
 
-It's important to note that only inter-major updates are automated; major updates must be performed manually for security reasons. For example, if a container is running version 2.1.0, updates to versions 2.1.1 and 2.2.0 will be handled by this script. If an update to version 3.0.0 is available, the script will inform you in the logs but not handle this update.
+- **Automated Container Updates**: Effortlessly update all your Docker containers on your host under your own conditions.
+- **Smart Update Detection**: Automatically identifies Major, Minor, Patch, Build, and Digest updates.
+- **Customizable Update Rules**: Define unique update behaviors for each container. For example, allow only digest updates for one container, patch updates for another, or even full major updates.
+- **Conditional Updates**: Set conditions for major updates, such as requiring at least one patch version for the new major version to be released before updating.
+- **Standard Update Sequence**: Updates follow the standard sequence: digest, build, patch, minor, and then major updates.
+- **Backup and Rollback**: Backups of your containers are created before updates. If an update fails, the change is rolled back and the old container is restarted.
+- **Email Notifications**: Stay informed with detailed email reports (requires sendmail to be installed and configured).
+- **Pre- and Post-Scripts Integration**: Integrate your own pre- and post-scripts to perform actions such as backing up configuration files or databases before any update and making adjustments to the container configuration after any update.
 
-To run pre or post-installation scripts for specific containers, place these scripts in the same directory as `container_update.sh` and name them `container_update_post_script_<container_name>.sh` or `container_update_pre_script_<container_name>.sh`.
+Oh, and just a heads-up — I'm still just a script kiddy and can't be held responsible for any mishaps. That's why the default configuration has test mode enabled. Safety first!
+After you've run your first test, checked for errors, and reviewed the Docker run commands, you can disable test mode in the configuration (see below).
 
-To receive notifications by e-mail, Postfix must be installed and configured on the host, as this script uses the "sendmail" command to send e-mails.
- 
-## How to use this script
-1. Place this script in your Docker server's file system.
-2. Make it executable with the command `chmod +x </path/to/container_update.sh>`.
-3. For a fully automated experience, create a cron job to run this script periodically.
- 
-## Hint
-For security reasons, this script is executed with enabled test mode by default. As soon as you review your log file created by this script after testing it on your system in "<scriptpath>\logs\container_update.sh.log", which I highly recommend(!), you can disable the test mode by editing the variable `test_mode`.
- 
-## Customizable variables
- 
-| Variable                           | Description      | Example Values                                         |
-| ---------------------------------- | ---------------- | ------------------------------------------------------ |
-| `test_mode`                        | Determines whether the script runs in test mode to prevent unwanted system changes. | `true`/`false` |
-| `docker_executable_path`           | Points to the location of the docker executable on your system. | `"/usr/bin/"` |
-| `sendmail_executable_path`         | Points to the location of the sendmail executable on your system. | `"/usr/sbin/"` |
-| `ignored_containers`               | An array storing container names to be ignored by the script. | `("MyContainer1" "MyContainer2" "MyContainer3")` |
-| `prune_images`                     | Specifies whether to prune Docker images after each execution. | `true`/`false` |
-| `prune_container_backups`          | Determines whether to prune Docker container backups after each execution or not. The very last backup is always kept. | `true`/`false` |
-| `container_backups_retention_days` | Specifies the number of days for retaining container backups. The very last backup is always kept, regardless of its age! | `7` |
-| `log_retention_days`               | Sets the number of days to keep log entries. | `7` |
-| `checkContainerStateTimeout`       | The duration in seconds to wait before performing a one-time check to determine if a Docker container has been successfully started. | `120` |
-| `mail_recipients`                  | An array storing the recipient's email addresses for notifications. | `("notify@mydomain.com" "my.mail@gmail.com")` |
-| `mail_subject`                     | Any subject for your notification mails. | `"Docker Container Update Report from $(hostname)"` |
-| `mail_from`                        | The from-address the notification mails will sent from. | `"notify@mydomain.com"` |
-| `mail_notification_level`          | Level 1 informs you about available major updates, even if no updates have been made by this script. Level 2 just informs abaout available updates only if other updates have been made by this script. | `1`/`2` |
- 
-## Testing environment(s)
-### Operating Systems
-- CentOS Stream 9
-- Qnap QTS
-- UbuntuUbuntu 22.04.3 LTS
- 
-### Docker Containers
-- aalbng/glpi:10.0.9
-- adguard/adguardhome:v0.107.40
-- checkmk/check-mk-raw:2023.10.24
-- dpage/pgadmin4:7.8
-- juanluisbaptiste/postfix:1.7.1
-- linuxserver/dokuwiki:2023-04-04a-ls186
-- linuxserver/plex:1.32.6
-- linuxserver/sabnzbd:4.1.0
-- linuxserver/swag:2.7.2
-- linuxserver/webtop:ubuntu-kde
-- mariadb:11.1.2
-- nextcloud:27.1.2
-- ocsinventory/ocsinventory-docker-image:2.12
-- odoo:16.0
-- onlyoffice/documentserver:7.5.0
-- osixia/openldap:1.5.0
-- osixia/phpldapadmin:0.9.0
-- phpmyadmin/phpmyadmin:5.2.1
-- portainer/portainer-ee:2.19.1
-- postgres:15.4
-- redis:7.2.2
-- thingsboard/tb-postgres:3.5.1
-- vaultwarden/server:1.29.2
+## Configuration
+
+The Docker Container Auto-Update script uses a configuration file, which is by default located at `/usr/local/etc/container_update/container_update.ini`. This file contains all the settings and parameters necessary for the script to run. You can customize the configuration file according to your requirements by editing it and entering the desired values.
+
+| Section     | Parameter                                   | Description                                                                                                   | Default Value                                             | Possible Values                                           |
+|-------------|---------------------------------------------|---------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------|-----------------------------------------------------------|
+| general     | test_mode                                   | Enables or disables test mode                                                                                 | `true`                                                    | `true`, `false`                                           |
+| general     | prune_images                                | Automatically prune unused images                                                                             | `true`                                                    | `true`, `false`                                           |
+| general     | prune_container_backups                     | Automatically prune old container backups                                                                     | `true`                                                    | `true`, `false`                                           |
+| general     | container_backups_retention                 | Number of days to retain container backups                                                                    | `7`                                                       | Any positive integer                                      |
+| general     | container_backups_keep_last                 | Number of last container backups to keep regardless of retention time                                         | `1`                                                       | Any positive integer                                      |
+| general     | container_update_validation_time            | Time in seconds to validate if a container runs successfully after an update                                  | `120`                                                     | Any positive integer                                      |
+| general     | update_rules                                | Rules for updating containers (see detailed explanation below)                                                | `*[0.1.1-1,true]`                                         | Custom rules (seperated by space)                         |
+| general     | docker_hub_api_url                          | URL for the Docker Hub API                                                                                    | `https://registry.hub.docker.com/v2`                      | Any valid URL                                             |
+| general     | docker_hub_api_image_tags_page_size_limit   | Number of tags to fetch per page from Docker Hub                                                              | `100`                                                     | Positive integer (1-100)                                  |
+| general     | docker_hub_api_image_tags_page_crawl_limit  | Number of pages to crawl for tags from Docker Hub                                                             | `10`                                                      | Any positive integer                                      |
+| general     | pre_scripts_folder                          | Folder containing pre-update scripts                                                                          | `/usr/local/etc/container_update/pre-scripts`             | Any valid directory path                                  |
+| general     | post_scripts_folder                         | Folder containing post-update scripts                                                                         | `/usr/local/etc/container_update/post-scripts`            | Any valid directory path                                  |
+| paths       | tput                                        | Path to the `tput` command                                                                                    | *(automatically detected by script)*                      | Any valid file path                                       |
+| paths       | gawk                                        | Path to the `gawk` command                                                                                    | *(automatically detected by script)*                      | Any valid file path                                       |
+| paths       | cut                                         | Path to the `cut` command                                                                                     | *(automatically detected by script)*                      | Any valid file path                                       |
+| paths       | docker                                      | Path to the `docker` command                                                                                  | *(automatically detected by script)*                      | Any valid file path                                       |
+| paths       | grep                                        | Path to the `grep` command                                                                                    | *(automatically detected by script)*                      | Any valid file path                                       |
+| paths       | jq                                          | Path to the `jq` command                                                                                      | *(automatically detected by script)*                      | Any valid file path                                       |
+| paths       | sed                                         | Path to the `sed` command                                                                                     | *(automatically detected by script)*                      | Any valid file path                                       |
+| paths       | wget                                        | Path to the `wget` command                                                                                    | *(automatically detected by script)*                      | Any valid file path                                       |
+| paths       | sort                                        | Path to the `sort` command                                                                                    | *(automatically detected by script)*                      | Any valid file path                                       |
+| paths       | sendmail                                    | Path to the `sendmail` command                                                                                | *(automatically detected by script)*                      | Any valid file path                                       |
+| log         | filePath                                    | Path to the log file                                                                                          | `/var/log/container_update.log`                           | Any valid file path                                       |
+| log         | level                                       | Log level                                                                                                     | `DEBUG`                                                   | `DEBUG`, `INFO`, `WARN`, `ERROR`                          |
+| log         | retention                                   | Number of days to retain log file entries                                                                     | `7`                                                       | Any positive integer                                      |
+| mail        | notifications_enabled                       | Enable or disable email notifications                                                                         | `false`                                                   | `true`, `false`                                           |
+| mail        | mode                                        | Mode of sending emails  (currently only sendmail is supported)                                                | `sendmail`                                                | `sendmail`                                                |
+| mail        | from                                        | Email address for sending notifications                                                                       |                                                           | Any valid email address                                   |
+| mail        | recipients                                  | Comma-separated list of recipient email addresses                                                             |                                                           | Any valid email addresses (seperated by space)            |
+| mail        | subject                                     | Subject of the notification email                                                                             | `Docker Container Update Report from <hostname>`          | Any valid string                                          |
+---
+
+### Update Rules
+
+#### Basic Rules
+
+The `update_rules` parameter allows you to define the update behavior for your containers. The default rule is `*[0.1.1-1,true]`, which means:
+
+- `*`: Applies to all containers.
+- `0.1.1-1`: Specifies the update policy, where each number represents:
+  - `0`: Major updates (0 means no major updates, 1 means allow major updates to the next available, 2 means always stay one version behind the latest major release, and so on)
+  - `1`: Minor updates (0 means no minor updates, 1 means allow minor updates to the next available, 2 means always stay one version behind the latest minor release, and so on)
+  - `1`: Patch updates (0 means no patch updates, 1 means allow patch updates to the next available, 2 means always stay one version behind the latest patch release, and so on)
+  - `1`: Build updates (0 means no build updates, 1 means allow build updates to the next available, 2 means always stay one version behind the latest build release, and so on)
+- `true`: Indicates that digest updates are allowed.
+
+You can customize these rules for each container by specifying different patterns and update policies separated by spaces.
+
+##### Basic Rule Example 1
+
+```
+update_rules=*[0.1.1-1,true] mycontainer[1.0.0-1,true] another[0.0.1-1,false] further[2.1.1-1,true]
+```
+
+This example configuration means:
+
+- All containers are allowed only minor, patch, build, and digest updates.
+- The container named `mycontainer` is allowed to install major, build, and digest updates.
+- The container named `another` is allowed to install only patch and build updates.
+- The container named `further` is allowed to install build updates only when the latest release is two versions higher *(e.g., if Nextcloud releases version 29.0.0 and your Nextcloud is on version 27.0.0, an update to version 28.0.0 will be performed)*.
+
+By configuring these rules, you can finely control how each container is updated according to your specific requirements.
+
+
+#### More Precise Rules
+
+You can also create more specific rule sets that allow, for example, major updates for a container if at least one patch has been released for that major version.
+
+##### Precise Rule Examples
+
+In the rules, 'M' stands for Major, 'm' for Minor, 'p' for Patch, and 'b' for Build.
+
+```
+mycontainer[1&(p>1).1.1-1,true]
+```
+
+This rule allows major updates for the container `mycontainer` if at least one patch version greater than 1 has been released for the major version.
+
+```
+mycontainer[0.1(b>2).1-1,true]
+```
+
+This rule allows minor updates for the container `mycontainer` if the build version is greater than 2.
+
+These precise rules provide granular control over the update behavior of specific containers based on various conditions such as patch versions, build versions, and more.
