@@ -82,10 +82,10 @@ update_rules=*[0.1.1-1,true] mycontainer[1.0.0-1,true] another[0.0.1-1,false] fu
 
 > This example configuration means:
 >
-> - All containers are allowed only minor, patch, build, and digest updates.
-> - The container named `mycontainer` is allowed to install major, build, and digest updates.
-> - The container named `another` is allowed to install only patch and build updates.
-> - The container named `further` is allowed to install build updates only when the latest release is two versions higher *(e.g., if Nextcloud releases version 29.0.0 and your Nextcloud is on version 27.0.0, an update to version 28.0.0 will be performed)*.
+> - All containers are allowed to apply only minor, patch, build, and digest updates.
+> - The container named `mycontainer` is allowed to apply major, build, and digest updates.
+> - The container named `another` is allowed to apply only patch and build updates.
+> - The container named `further` is allowed to apply build updates only when the latest release is two versions higher *(e.g., if Nextcloud releases version 29.0.0 and your Nextcloud is on version 27.0.0, an update to version 28.0.0 will be performed)*.
 
 #### Precise Rule Examples
 
