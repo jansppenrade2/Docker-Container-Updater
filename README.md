@@ -5,7 +5,7 @@
 ## Features
 
 - **Automated Container Updates**: Effortlessly update all your Docker containers on your host under your own conditions.
-- **Smart Update Detection**: Automatically identifies Major, Minor, Patch, Build, and Digest updates.
+- **Smart Update Detection**: Automatically identifies Major, Minor, Patch, Build, and Digest updates given in the Docker image tag name.
 - **Customizable Update Rules**: Define unique update behaviors for each container. For example, allow only digest updates for one container, patch updates for another, or even full major updates.
 - **Conditional Updates**: Set conditions for major updates, such as requiring at least one patch version for the new major version to be released before updating.
 - **Standard Update Sequence**: Updates follow the standard sequence: digest, build, patch, minor, and then major updates.
