@@ -113,3 +113,42 @@ mycontainer[0.1(b>2).1-1,true]
 This rule allows minor updates for the container `mycontainer` if the build version is greater than 2.
 
 These precise rules provide granular control over the update behavior of specific containers based on various conditions such as patch versions, build versions, and more.
+
+## Mail Notification Example
+
+This information comes with each email notification.
+
+---
+### 🐳 Docker Container Update Report
+
+#### 📌 INFO
+- **Hostname:** MY-DOCKER-HOST
+- **IP-Address:** 192.168.1.2
+- **Docker Version:** 26.0.0
+
+#### 📋 ACTIONS TAKEN
+- 🟢 A patch update for GLPI from `aalbng/glpi:10.0.12` to `aalbng/glpi:10.0.14` has been performed
+- 🔴 A minor update for ThingsBoard from `thingsboard/tb-postgres:3.5.1` to `thingsboard/tb-postgres:3.6.0` has failed (please refer to your logs)
+  - 🟢 The original container ThingsBoard (`thingsboard/tb-postgres:3.5.1`) has been successfully restored
+
+#### 🔧 AVAILABLE UPDATES FOR MANUAL INSTALLATION
+| Container Name | Update Type | Current Image | Available Image | Update Inhibitor Rule           |
+|----------------|-------------|---------------|----------------|--------------------------------|
+| PostgreSQL     | Major       | postgres:15.7 | postgres:16.0  | `*[0.1.1-1,true]`              |
+| Nextcloud      | Major       | nextcloud:28.0.5 | nextcloud:29.0.0 | `Nextcloud[1&(p>0).1.1-1,true]` |
+| Odoo           | Major       | odoo:16.0     | odoo:17.0      | `Odoo[0.0.0-0,true]`           |
+
+#### 🗑️ REMOVED CONTAINER BACKUPS
+- Portainer_bak_2024-05-13_23-39
+- Nextcloud_bak_2024-05-13_22-31
+
+#### 📈 STATS
+- **Script Execution Time:** 558 seconds
+- **Number of Warnings:** 1
+- **Number of Errors:** 1
+
+*For further information, please have a look into the provided log located in "/var/log/container_update.log". If you prefer not to receive these emails, please customize "/usr/local/etc/container_update/container_update.ini" according to your specific requirements.*
+
+Best regards.
+
+---
