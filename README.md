@@ -16,6 +16,12 @@
 Oh, and just a heads-up — I'm still just a script kiddy and can't be held responsible for any mishaps. That's why the default configuration has test mode enabled. Safety first!
 After you've run your first test, checked for errors, and reviewed the Docker run commands, you can disable test mode in the configuration (see below).
 
+## Installation
+
+1. Download this script to your Docker host
+2. Make it executable
+3. Run it with root
+
 ## Configuration
 
 The Docker Container Auto-Update script uses a configuration file, which is by default located at `/usr/local/etc/container_update/container_update.ini`. This file contains all the settings and parameters necessary for the script to run. You can customize the configuration file according to your requirements by editing it and entering the desired values.
