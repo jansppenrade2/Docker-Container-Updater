@@ -104,7 +104,7 @@ In the rules, 'M' stands for Major, 'm' for Minor, 'p' for Patch, and 'b' for Bu
 mycontainer[1&(p>1).1.1-1,true]
 ```
 
-This rule allows major updates for the container `mycontainer` if at least one patch version greater than 1 has been released for the major version.
+This rule allows major updates for the container `mycontainer` if at least one patch version greater than 1 has been released for this major version.
 
 ```
 mycontainer[0.1(b>2).1-1,true]
