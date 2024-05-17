@@ -13,7 +13,7 @@
 - **📧 Email Notifications**: Stay informed with detailed email reports *(requires sendmail to be installed and configured)*.
 - **📜 Pre- and Post-Scripts Integration**: Integrate your own pre- and post-scripts to perform actions such as backing up configuration files or databases before any update and making adjustments to the container configuration after any update.
 
-> Oh, and just a heads-up — I'm still just a script kiddy and can't be held responsible for any mishaps. That's why the default configuration has **test mode enabled**. Safety first 😉! After you've run your first test, checked for errors, and reviewed the generated Docker run commands, you can disable test mode in your configuration file *(see below)*.
+> The default configuration has **test mode enabled**. Safety first 😉! After you've run your first test, checked for errors, and reviewed the generated Docker run commands, you can disable test mode in your configuration file *(see below)*.
 
 ## Installation
 
