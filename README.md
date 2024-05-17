@@ -1,6 +1,6 @@
 # Docker Container Auto-Update Script
 
-🎉 This script is completely redesigned for enhanced performance, providing a better overview and more reliability. Crafted with lots of love and a touch of magic, this script makes your Docker life easier and more efficient.
+🎉 This script is completely redesigned for enhanced performance, providing a better overview, better customization and more reliability. Crafted with lots of love and a touch of magic, this script makes your Docker life easier and more efficient.
 
 ## Features
 
@@ -24,7 +24,7 @@ After you've run your first test, checked for errors, and reviewed the Docker ru
 
 ## Configuration
 
-The Docker Container Auto-Update script uses a configuration file, which is by default located at `/usr/local/etc/container_update/container_update.ini`. This file contains all the settings and parameters necessary for the script to run. You can customize the configuration file according to your requirements by editing it and entering the desired values.
+The Docker Container Auto-Update script **now uses a configuration file**, which is by default located at `/usr/local/etc/container_update/container_update.ini`. This file contains all the settings and parameters necessary for the script to run. You can customize the configuration file according to your requirements by editing it and entering the desired values.
 
 | Section     | Parameter                                   | Description                                                                                                   | Default Value                                             | Possible Values                                           |
 |-------------|---------------------------------------------|---------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------|-----------------------------------------------------------|
@@ -68,10 +68,10 @@ The `update_rules` parameter allows you to define the update behavior for your c
 
 - `*`: Applies to all containers.
 - `0.1.1-1`: Specifies the update policy, where each number represents:
-  - `0`: Major updates (0 means no major updates, 1 means allow major updates to the next available, 2 means always stay one version behind the latest major release, and so on)
-  - `1`: Minor updates (0 means no minor updates, 1 means allow minor updates to the next available, 2 means always stay one version behind the latest minor release, and so on)
-  - `1`: Patch updates (0 means no patch updates, 1 means allow patch updates to the next available, 2 means always stay one version behind the latest patch release, and so on)
-  - `1`: Build updates (0 means no build updates, 1 means allow build updates to the next available, 2 means always stay one version behind the latest build release, and so on)
+  - `0`: Major updates *(0 means no major updates, 1 means allow major updates to the next available, 2 means always stay one version behind the latest major release, and so on)*
+  - `1`: Minor updates *(0 means no minor updates, 1 means allow minor updates to the next available, 2 means always stay one version behind the latest minor release, and so on)*
+  - `1`: Patch updates *(0 means no patch updates, 1 means allow patch updates to the next available, 2 means always stay one version behind the latest patch release, and so on)*
+  - `1`: Build updates *(0 means no build updates, 1 means allow build updates to the next available, 2 means always stay one version behind the latest build release, and so on)*
 - `true`: Indicates that digest updates are allowed.
 
 You can customize these rules for each container by specifying different patterns and update policies separated by spaces.
@@ -149,6 +149,10 @@ This information comes with each email notification.
 
 *For further information, please have a look into the provided log located in "/var/log/container_update.log". If you prefer not to receive these emails, please customize "/usr/local/etc/container_update/container_update.ini" according to your specific requirements.*
 
-Best regards.
+## Having Trouble?
+If you encounter any issues while executing this script, please provide the following information:
+- A full log in debug mode *(ensure sensitive data is replaced)*
+- A `docker container inspect` of one or more affected containers *(ensure sensitive data is replaced)*
+- A `docker image inspect` of one or more images *(ensure sensitive data is replaced)*
 
 ---
