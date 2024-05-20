@@ -18,7 +18,7 @@
 
 1. Download this script to your Docker host
 2. Make it executable
-3. Run it with root *(the first run will create the default configuration file)*
+3. Run it with root *(the first run will be in test mode and also creates the default configuration file)*
 4. Customize the default config according to your specific requirements *(see below)*
 5. Create a cron job for this script *(after testing 🫠)*
 
