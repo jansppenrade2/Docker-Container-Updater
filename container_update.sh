@@ -4,9 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.17-1
+# 2024.05.21-1
 #
 # ## Changelog
+# 2024.05.21-1, janseppenrade2: Fixed a typo in the email report and resolved an issue that sometimes caused the Docker version to be omitted from the email report. Additionally, support for defining a minimum age (docker_hub_image_minimum_age) for new Docker Hub image tags has been added.
 # 2024.05.17-1, janseppenrade2: Fixed a minor bug that prevented an email report from being generated when updates were found but no changes were made. (Those reports might be important for those who using this script just to monitor updates)
 # 2024.05.16-1, janseppenrade2: Completely redesigned for enhanced performance and a better overview and more reliability - Crafted with lots of love and a touch of magic
 
@@ -293,6 +294,7 @@ Validate-ConfigFile() {
         echo "docker_hub_api_url=https://registry.hub.docker.com/v2" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
         echo "docker_hub_api_image_tags_page_size_limit=100" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
         echo "docker_hub_api_image_tags_page_crawl_limit=10" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
+        echo "docker_hub_image_minimum_age=21600" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
         echo "pre_scripts_folder=/usr/local/etc/container_update/pre-scripts" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
         echo "post_scripts_folder=/usr/local/etc/container_update/post-scripts" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
         echo "" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
@@ -321,6 +323,11 @@ Validate-ConfigFile() {
         echo "subject=Docker Container Update Report from $(hostname)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
     else
         Write-Log "INFO" "Existing configuration file found in \"$configFile\""
+
+        # Update configuration file (add new attributes)
+        if [ -z "$(Read-INI "$configFile" "general" "docker_hub_image_minimum_age")" ]; then
+            Write-INI "$configFile" "general" "docker_hub_image_minimum_age" "21600"
+        fi
     fi
 
     Write-Log "INFO" "Validating configuration file..."
@@ -393,6 +400,13 @@ Validate-ConfigFile() {
         validationError=true
     elif (( $(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_crawl_limit") <= 0 )); then
         Write-Log "ERROR" "    => Invalid value for \"[general] docker_hub_api_image_tags_page_crawl_limit\" (Min.: 1, Current: $(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_crawl_limit"))"
+        validationError=true
+    fi
+    if ! [[ $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") =~ ^[0-9]+$ ]]; then
+        Write-Log "ERROR" "    => Invalid value for \"[general] docker_hub_image_minimum_age\" (Expected: Type of \"integer\")"
+        validationError=true
+    elif (( $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") <= 0 )); then
+        Write-Log "ERROR" "    => Invalid value for \"[general] docker_hub_image_minimum_age\" (Min.: 1, Current: $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age"))"
         validationError=true
     fi
 
@@ -1171,13 +1185,13 @@ Get-UpdatePermit() {
     local patch_latest=$(Extract-VersionPart "$image_tag_name_latest_related" "patch")
     local build_latest=$(Extract-VersionPart "$image_tag_name_latest_related" "build")
 
-    # Digest Rule Definition Analyzis
+    # Digest Rule Definition Analysis
         if [ "$image_tag_name_current" == "$image_tag_name_next" ]; then
             echo "$rule_digests"
             return
         fi
 
-    # Major Rule Definition Analyzis
+    # Major Rule Definition Analysis
         if [[ "$major_current" != "$major_next" ]]; then
             if [[ "$rule_major" =~ ^[0-9]+$ ]]; then
                 # If the rule for major updates is solely numeric, we can assume that there is no more precise rule definition that
@@ -1236,7 +1250,7 @@ Get-UpdatePermit() {
             return
         fi
 
-    # Minor Rule Definition Analyzis
+    # Minor Rule Definition Analysis
         if [[ "$minor_current" != "$minor_next" ]]; then
             if [[ "$rule_minor" =~ ^[0-9]+$ ]]; then
                 # If the rule for minor updates is solely numeric, we can assume that there is no more precise rule definition that
@@ -1295,7 +1309,7 @@ Get-UpdatePermit() {
             return
         fi
 
-    # Patch Rule Definition Analyzis
+    # Patch Rule Definition Analysis
         if [[ "$patch_current" != "$patch_next" ]]; then
             if [[ "$rule_patch" =~ ^[0-9]+$ ]]; then
                 # If the rule for patch updates is solely numeric, we can assume that there is no more precise rule definition that
@@ -1354,7 +1368,7 @@ Get-UpdatePermit() {
             return
         fi
 
-    # Build Rule Definition Analyzis
+    # Build Rule Definition Analysis
         if [[ "$build_current" != "$build_next" ]]; then
             if [[ "$rule_build" =~ ^[0-9]+$ ]]; then
                 # If the rule for build updates is solely numeric, we can assume that there is no more precise rule definition that
@@ -1491,6 +1505,9 @@ Get-DockerHubImageTagProperty() {
     if   [ "$property" == "docker_hub_image_tag_digest" ]; then
         #echo $(echo "$jsondata" | $cmd_jq -r --arg name "$imageTagName" '.results[] | select(.name == $name) | .images[].digest' | $cmd_sed 's/^null$//') # gets all digests for all architectures
         echo $(echo "$jsondata" | $cmd_jq -r --arg name "$imageTagName" '.results[] | select(.name == $name) | .digest' | $cmd_cut -d':' -f2 | $cmd_sed 's/^null$//')
+        return
+    elif [ "$property" == "docker_hub_image_tag_last_updated" ]; then
+        echo $(echo "$jsondata" | $cmd_jq -r --arg name "$imageTagName" '.results[] | select(.name == $name) | .last_updated' | $cmd_sed 's/^null$//')
         return
     else
         Write-Log "ERROR" "Unknown property requested: $property"
@@ -1808,7 +1825,7 @@ Perform-ImageUpdate() {
     # Collecting some informations for the report
     if [ "$new_container_started_successfully" == true ]; then
         mail_report_available=true
-        [ "$test_mode" == false ] && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name ($image_name:$image_tag_old) has been preformed</li>"
+        [ "$test_mode" == false ] && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name ($image_name:$image_tag_old) has been performed</li>"
         [ "$test_mode" == false ] && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new has been performed</li>"
         [ "$test_mode" == true ]  && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name ($image_name:$image_tag_old) would have been performed</li>"
         [ "$test_mode" == true ]  && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new would have been performed</li>"
@@ -1926,11 +1943,12 @@ Send-MailNotification() {
     local mail_subject=$(Read-INI "$configFile" "mail" "subject")
     local cmd_sendmail=$(Read-INI "$configFile" "paths" "sendmail")
     local cmd_cut=$(Read-INI "$configFile" "paths" "cut")
+    local cmd_docker=$(Read-INI "$configFile" "paths" "docker")
     local mail_message=""
     local mail_message_file="$(mktemp)"
     local hostname=$(hostname)
     local primary_IPaddress=$(hostname -I 2>/dev/null | $cmd_cut -d' ' -f1)
-    local docker_version=$(docker --version | $cmd_cut -d ' ' -f3 | tr -d ',')
+    local docker_version=$($cmd_docker --version | $cmd_cut -d ' ' -f3 | tr -d ',')
     local end_time=$(date +%s)
     stats_execution_time=$((end_time - start_time))
 
@@ -2117,6 +2135,8 @@ Main() {
     local docker_hub_image_tag_names_filtered_and_sorted_by_patch=""
     local docker_hub_image_tag_names_filtered_and_sorted_by_build=""
     local docker_hub_image_tag_digest=""
+    local docker_hub_image_tag_last_updated=""
+    local docker_hub_image_tag_age=""
     local image_updates_available_all=""
     local image_update_available_major_next=""
     local image_update_available_minor_next=""
@@ -2171,6 +2191,8 @@ Main() {
             image_config=""
             docker_hub_image_tags=""
             docker_hub_image_tag_digest=""
+            docker_hub_image_tag_last_updated=""
+            docker_hub_image_tag_age=""
             docker_hub_image_tag_names_filter=""
             docker_hub_image_tag_names=""
             effective_update_rule=""
@@ -2213,7 +2235,6 @@ Main() {
             container_PublishAllPorts=$(Get-ContainerProperty "$container_config" container_PublishAllPorts)
             container_PortBindings=$(Get-ContainerProperty "$container_config" container_PortBindings)
             container_Mounts=$(Get-ContainerProperty "$container_config" container_Mounts)
-            container_Mounts_prtyprnt=$(Get-ContainerProperty "$container_config" container_Mounts | $cmd_sed '0,/^\s*--mount \s*/ s///' | $cmd_sed "s#--mount #\n[$(date +%Y/%m/%d\ %H:%M:%S)] DEBUG                                                #g")
             container_envs=$(Get-ContainerProperty "$container_config" container_envs)
             container_tmpfs=$(Get-ContainerProperty "$container_config" container_tmpfs)
             container_cmd=$(Get-ContainerProperty "$container_config" container_cmd)
@@ -2246,6 +2267,8 @@ Main() {
             if [ -n "$docker_hub_image_tags" ]; then
                 Write-Log "INFO"  "    Extracting a list of available image tag names..."
                 docker_hub_image_tag_digest=$(Get-DockerHubImageTagProperty "$docker_hub_image_tags" "$container_image_tag" "docker_hub_image_tag_digest")
+                docker_hub_image_tag_last_updated=$(Get-DockerHubImageTagProperty "$docker_hub_image_tags" "$container_image_tag" "docker_hub_image_tag_last_updated")
+                docker_hub_image_tag_age=$(( $(date +%s) - $(date -d "$docker_hub_image_tag_last_updated" +%s) ))
                 docker_hub_image_tag_names=$(Get-DockerHubImageTagNames "$docker_hub_image_tags")
                 image_updates_available_all=$(Get-AvailableUpdates "all" "$docker_hub_image_tag_names" "$docker_hub_image_tag_names_filter" "$container_image_tag")
                 [ -n "$docker_hub_image_tag_digest" ] && image_update_available_digest=$(Get-AvailableUpdates "digest" "$image_repoDigests" "$docker_hub_image_tag_digest")
@@ -2259,6 +2282,8 @@ Main() {
                 [ -n "$image_tag_version_build" ] && image_update_available_build_latest=$(Get-AvailableUpdates "build" "$image_updates_available_all" "$container_image_tag" "latest")
             elif [ -z "$docker_hub_image_tags" ] || [[ $effective_update_rule == *"[0.0.0-0,false]"* ]]; then 
                 docker_hub_image_tag_digest=""
+                docker_hub_image_tag_last_updated=""
+                docker_hub_image_tag_age=""
                 docker_hub_image_tag_names=""
                 image_update_available_major_next=""
                 image_update_available_major_latest=""
@@ -2314,6 +2339,8 @@ Main() {
             #Write-Log "DEBUG" "       Image Details (json):                                 $image_config"
             #[ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tags (json):                         $docker_hub_image_tags"
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Digest:                              $docker_hub_image_tag_digest"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Last Updated:                        $docker_hub_image_tag_last_updated"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Age:                                 $docker_hub_image_tag_age Seconds"
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tag Filter:                          $docker_hub_image_tag_names_filter"
             #[ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tag Names:                           $docker_hub_image_tag_names"
             [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "       Update Overview:"
@@ -2346,73 +2373,98 @@ Main() {
             [ -n "$container_labels_unique" ] &&                                                docker_run_cmd+=" $container_labels_unique"
             [ -n "$container_image_name" ] &&                                                   docker_run_cmd+=" $container_image_name"
 
-            # Perform a digest update if available and update permition is granted by update rule definition
+            # Perform a digest update if available and update permission is granted by update rule definition
             if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ "$image_update_available_digest" == true ] && [ "$updatePermit" == false ]; then
-                updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$container_image_tag")
-                if [ "$updatePermit" == true ]; then
-                    [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$container_image_tag"
-                    #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
-                    Perform-ImageUpdate "digest" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag"
+                if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                    updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$container_image_tag")
+                    if [ "$updatePermit" == true ]; then
+                        [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$container_image_tag"
+                        #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
+                        Perform-ImageUpdate "digest" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag"
+                    else
+                        Write-Log "INFO" "       Update Rule Effectivity:                              Digest update for $container_name ($container_image_name:$container_image_tag) was prevented"
+                        mail_report_available_updates+="<tr><td>$container_name</td><td>Digest</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$container_image_tag</td><td>$effective_update_rule</td></tr>"
+                        mail_report_available=true
+                    fi
                 else
-                    Write-Log "INFO" "       Update Rule Effectivity:                              Digest update for $container_name ($container_image_name:$container_image_tag) was prevented"
-                    mail_report_available_updates+="<tr><td>$container_name</td><td>Digest</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$container_image_tag</td><td>$effective_update_rule</td></tr>"
-                    mail_report_available=true
+                    Write-Log "INFO"  "       Insufficient Docker Hub image age"
+                    Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
                 fi
             fi
 
-            # Perform a build update if available and update permition is granted by update rule definition
+            # Perform a build update if available and update permission is granted by update rule definition
             if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_build_next" ] && [ -n "$image_update_available_build_latest" ] && [ "$updatePermit" == false ]; then
-                updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_patch_next" "$image_update_available_build_latest")
-                if [ "$updatePermit" == true ]; then
-                    [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_build_next"
-                    #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
-                    Perform-ImageUpdate "build" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_build_next"
+                if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                    updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_patch_next" "$image_update_available_build_latest")
+                    if [ "$updatePermit" == true ]; then
+                        [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_build_next"
+                        #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
+                        Perform-ImageUpdate "build" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_build_next"
+                    else
+                        Write-Log "INFO" "       Update Rule Effectivity:                              Build update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_build_next) was prevented"
+                        mail_report_available_updates+="<tr><td>$container_name</td><td>Build</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td>$effective_update_rule</td></tr>"
+                        mail_report_available=true
+                    fi
                 else
-                    Write-Log "INFO" "       Update Rule Effectivity:                              Build update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_build_next) was prevented"
-                    mail_report_available_updates+="<tr><td>$container_name</td><td>Build</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td>$effective_update_rule</td></tr>"
-                    mail_report_available=true
+                    Write-Log "INFO"  "       Insufficient Docker Hub image age"
+                    Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
                 fi
             fi
 
-            # Perform a patch update if available and update permition is granted by update rule definition
+            # Perform a patch update if available and update permission is granted by update rule definition
             if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_patch_next" ] && [ -n "$image_update_available_patch_latest" ] && [ "$updatePermit" == false ]; then
-                updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_patch_next" "$image_update_available_patch_latest")
-                if [ "$updatePermit" == true ]; then
-                    [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_patch_next"
-                    #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
-                    Perform-ImageUpdate "patch" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_patch_next"
+                if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                    updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_patch_next" "$image_update_available_patch_latest")
+                    if [ "$updatePermit" == true ]; then
+                        [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_patch_next"
+                        #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
+                        Perform-ImageUpdate "patch" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_patch_next"
+                    else
+                        Write-Log "INFO" "       Update Rule Effectivity:                              Patch update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_patch_next) was prevented"
+                        mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td>$effective_update_rule</td></tr>"
+                        mail_report_available=true
+                    fi
                 else
-                    Write-Log "INFO" "       Update Rule Effectivity:                              Patch update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_patch_next) was prevented"
-                    mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td>$effective_update_rule</td></tr>"
-                    mail_report_available=true
+                    Write-Log "INFO"  "       Insufficient Docker Hub image age"
+                    Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
                 fi
             fi
 
-            # Perform a minor update if available and update permition is granted by update rule definition
+            # Perform a minor update if available and update permission is granted by update rule definition
             if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_minor_next" ] && [ -n "$image_update_available_minor_latest" ] && [ "$updatePermit" == false ]; then
-                updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_minor_next" "$image_update_available_minor_latest")
-                if [ "$updatePermit" == true ]; then
-                    [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_minor_next"
-                    #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
-                    Perform-ImageUpdate "minor" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_minor_next"
+                if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                    updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_minor_next" "$image_update_available_minor_latest")
+                    if [ "$updatePermit" == true ]; then
+                        [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_minor_next"
+                        #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
+                        Perform-ImageUpdate "minor" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_minor_next"
+                    else
+                        Write-Log "INFO" "       Update Rule Effectivity:                              Minor update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_minor_next) was prevented"
+                        mail_report_available_updates+="<tr><td>$container_name</td><td>Minor</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td>$effective_update_rule</td></tr>"
+                        mail_report_available=true
+                    fi
                 else
-                    Write-Log "INFO" "       Update Rule Effectivity:                              Minor update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_minor_next) was prevented"
-                    mail_report_available_updates+="<tr><td>$container_name</td><td>Minor</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td>$effective_update_rule</td></tr>"
-                    mail_report_available=true
+                    Write-Log "INFO"  "       Insufficient Docker Hub image age"
+                    Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
                 fi
             fi
 
-            # Perform a major update if available and update permition is granted by update rule definition
+            # Perform a major update if available and update permission is granted by update rule definition
             if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_major_next" ] && [ -n "$image_update_available_major_latest" ] && [ "$updatePermit" == false ]; then
-                updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_major_next" "$image_update_available_major_latest")
-                if [ "$updatePermit" == true ]; then
-                    [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_major_next"
-                    #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
-                    Perform-ImageUpdate "major" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_major_next"
+                if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                    updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_major_next" "$image_update_available_major_latest")
+                    if [ "$updatePermit" == true ]; then
+                        [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_major_next"
+                        #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
+                        Perform-ImageUpdate "major" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_major_next"
+                    else
+                        Write-Log "INFO" "       Update Rule Effectivity:                              Major update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_major_next) was prevented"
+                        mail_report_available_updates+="<tr><td>$container_name</td><td>Major</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td>$effective_update_rule</td></tr>"
+                        mail_report_available=true
+                    fi
                 else
-                    Write-Log "INFO" "       Update Rule Effectivity:                              Major update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_major_next) was prevented"
-                    mail_report_available_updates+="<tr><td>$container_name</td><td>Major</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td>$effective_update_rule</td></tr>"
-                    mail_report_available=true
+                    Write-Log "INFO"  "       Insufficient Docker Hub image age"
+                    Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
                 fi
             fi
         done
