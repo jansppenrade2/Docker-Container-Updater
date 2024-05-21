@@ -1745,10 +1745,10 @@ Perform-ImageUpdate() {
     [ "$test_mode" == false ] && [ $result -ne 0 ] && image_pulled_successfully=false && Write-Log "ERROR" "             => Failed to pull image: $result"
 
     # Executing pre script
-    if [ -s "$container_update_pre_script" ]; then
+    if [ -s "$container_update_pre_script" ] && [ "$image_pulled_successfully" == true ]; then
         [ "$test_mode" == false ] && Write-Log "INFO" "           Executing pre script $container_update_pre_script..."
         [ "$test_mode" == true ]  && Write-Log "INFO" "           Would execute pre script $container_update_pre_script..."
-            if [ "$test_mode" == false ]; then 
+            if [ "$test_mode" == false ]; then
                 chmod +x "$container_update_pre_script" 2>/dev/null
                 while IFS= read -r line; do
                     Write-Log "INFO" "           | $container_update_pre_script: $line"
@@ -1758,10 +1758,10 @@ Perform-ImageUpdate() {
 
     # Rename old container
     datetime=$(date +%Y-%m-%d_%H-%M)
-    [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "INFO"  "           Renaming current docker container from $container_name to $container_name_backed_up..."
+    [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true ] && Write-Log "INFO"  "           Renaming current docker container from $container_name to $container_name_backed_up..."
     [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true ] && { $cmd_docker rename "$container_name" "$container_name_backed_up" > /dev/null; result=$?; } || result=$?
-    [ "$test_mode" == false ] && [ $result -eq 0 ] && container_renamed_successfully=true  && Write-Log "DEBUG" "             => Container successfully renamed"
-    [ "$test_mode" == false ] && [ $result -ne 0 ] && container_renamed_successfully=false && Write-Log "ERROR" "             => Failed to rename container: $result"
+    [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true ] && [ $result -eq 0 ] && container_renamed_successfully=true  && Write-Log "DEBUG" "             => Container successfully renamed"
+    [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true ] && [ $result -ne 0 ] && container_renamed_successfully=false && Write-Log "ERROR" "             => Failed to rename container: $result"
 
     # Disable old containers start up policy
     [ "$test_mode" == false ] && [ "$container_renamed_successfully" == true  ] && Write-Log "INFO"  "           Disabling automatic startup for $container_name_backed_up..."
