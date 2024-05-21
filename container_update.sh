@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.21-2
+# 2024.05.21-3
 #
 # ## Changelog
 # 2024.05.21-2, janseppenrade2: Added support for container attribute "--privileged"
