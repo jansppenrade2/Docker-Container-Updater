@@ -4,9 +4,11 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.21-1
+# 2024.05.21-3
 #
 # ## Changelog
+# 2024.05.21-3, janseppenrade2: Addressed a minor bug that was impacting the sorting of available image tags
+# 2024.05.21-2, janseppenrade2: Added support for container attribute "--privileged"
 # 2024.05.21-1, janseppenrade2: Fixed a typo in the email report and resolved an issue that sometimes caused the Docker version to be omitted from the email report. Additionally, support for defining a minimum age (docker_hub_image_minimum_age) for new Docker Hub image tags has been added.
 # 2024.05.17-1, janseppenrade2: Fixed a minor bug that prevented an email report from being generated when updates were found but no changes were made. (Those reports might be important for those who using this script just to monitor updates)
 # 2024.05.16-1, janseppenrade2: Completely redesigned for enhanced performance and a better overview and more reliability - Crafted with lots of love and a touch of magic
@@ -788,6 +790,9 @@ Get-ContainerProperty() {
     elif [ "$property" == "container_PublishAllPorts" ]; then
         echo "$(echo "$container_config" | $cmd_jq -r '.[0].HostConfig.PublishAllPorts' | $cmd_sed 's/^null$//')"
         return
+    elif [ "$property" == "container_Privileged" ]; then
+        echo "$(echo "$container_config" | $cmd_jq -r '.[0].HostConfig.Privileged' | $cmd_sed 's/^null$//')"
+        return
     elif [ "$property" == "container_PortBindings" ]; then
         local PortBindings=$(echo "$container_config" | $cmd_jq -r '.[0].HostConfig.PortBindings')
         local PortBindings_count=$(echo "$PortBindings" | $cmd_jq '. | length')
@@ -1526,7 +1531,7 @@ Get-AvailableUpdates() {
         local filter=$3
         local container_image_tag=$4
         
-        echo $(echo "$docker_hub_image_tag_names" | tr ' ' '\n' | $cmd_grep -E "$filter" | tr ' ' '\n' | $cmd_sort -rV | tr '\n' ' ' | $cmd_sed "s/$container_image_tag.*//")
+        echo $(echo "$docker_hub_image_tag_names" | tr ' ' '\n' | $cmd_grep -E "$filter" | tr ' ' '\n' | $cmd_sort -rV | $cmd_awk -v pattern="$container_image_tag" '$0 ~ ("^" pattern "$"){p=1} !p' | tr '\n' ' ')
         return
     fi
 
@@ -1741,10 +1746,10 @@ Perform-ImageUpdate() {
     [ "$test_mode" == false ] && [ $result -ne 0 ] && image_pulled_successfully=false && Write-Log "ERROR" "             => Failed to pull image: $result"
 
     # Executing pre script
-    if [ -s "$container_update_pre_script" ]; then
+    if [ -s "$container_update_pre_script" ] && [ "$image_pulled_successfully" == true ]; then
         [ "$test_mode" == false ] && Write-Log "INFO" "           Executing pre script $container_update_pre_script..."
         [ "$test_mode" == true ]  && Write-Log "INFO" "           Would execute pre script $container_update_pre_script..."
-            if [ "$test_mode" == false ]; then 
+            if [ "$test_mode" == false ]; then
                 chmod +x "$container_update_pre_script" 2>/dev/null
                 while IFS= read -r line; do
                     Write-Log "INFO" "           | $container_update_pre_script: $line"
@@ -1754,10 +1759,10 @@ Perform-ImageUpdate() {
 
     # Rename old container
     datetime=$(date +%Y-%m-%d_%H-%M)
-    [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "INFO"  "           Renaming current docker container from $container_name to $container_name_backed_up..."
+    [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true ] && Write-Log "INFO"  "           Renaming current docker container from $container_name to $container_name_backed_up..."
     [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true ] && { $cmd_docker rename "$container_name" "$container_name_backed_up" > /dev/null; result=$?; } || result=$?
-    [ "$test_mode" == false ] && [ $result -eq 0 ] && container_renamed_successfully=true  && Write-Log "DEBUG" "             => Container successfully renamed"
-    [ "$test_mode" == false ] && [ $result -ne 0 ] && container_renamed_successfully=false && Write-Log "ERROR" "             => Failed to rename container: $result"
+    [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true ] && [ $result -eq 0 ] && container_renamed_successfully=true  && Write-Log "DEBUG" "             => Container successfully renamed"
+    [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true ] && [ $result -ne 0 ] && container_renamed_successfully=false && Write-Log "ERROR" "             => Failed to rename container: $result"
 
     # Disable old containers start up policy
     [ "$test_mode" == false ] && [ "$container_renamed_successfully" == true  ] && Write-Log "INFO"  "           Disabling automatic startup for $container_name_backed_up..."
@@ -2108,6 +2113,7 @@ Main() {
     local container_restartPolicy_name=""
     local container_restartPolicy_MaximumRetryCount=""
     local container_PublishAllPorts=""
+    local container_Privileged=""
     local container_PortBindings=""
     local container_Mounts=""
     local container_envs=""
@@ -2169,6 +2175,7 @@ Main() {
             container_restartPolicy_name=""
             container_restartPolicy_MaximumRetryCount=""
             container_PublishAllPorts=""
+            container_Privileged=""
             container_PortBindings=""
             container_Mounts=""
             container_envs=""
@@ -2233,6 +2240,7 @@ Main() {
             container_restartPolicy_name=$(Get-ContainerProperty "$container_config" container_restartPolicy_name)
             container_restartPolicy_MaximumRetryCount=$(Get-ContainerProperty "$container_config" container_restartPolicy_MaximumRetryCount)
             container_PublishAllPorts=$(Get-ContainerProperty "$container_config" container_PublishAllPorts)
+            container_Privileged=$(Get-ContainerProperty "$container_config" container_Privileged)
             container_PortBindings=$(Get-ContainerProperty "$container_config" container_PortBindings)
             container_Mounts=$(Get-ContainerProperty "$container_config" container_Mounts)
             container_envs=$(Get-ContainerProperty "$container_config" container_envs)
@@ -2317,6 +2325,7 @@ Main() {
             Write-Log "DEBUG" "       Container Restart Policy Name:                        $container_restartPolicy_name"
             Write-Log "DEBUG" "       Container Maximum Retry Count:                        $container_restartPolicy_MaximumRetryCount"
             Write-Log "DEBUG" "       Container Publish All Ports:                          $container_PublishAllPorts"
+            Write-Log "DEBUG" "       Container Privileged:                                 $container_Privileged"
             Write-Log "DEBUG" "       Container Port Bindings:                              $container_PortBindings"
             Write-Log "DEBUG" "       Container Mounts:                                     $container_Mounts"
             Write-Log "DEBUG" "       Container Environment Variables:                      $container_envs"
@@ -2342,7 +2351,7 @@ Main() {
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Last Updated:                        $docker_hub_image_tag_last_updated"
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Age:                                 $docker_hub_image_tag_age Seconds"
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tag Filter:                          $docker_hub_image_tag_names_filter"
-            #[ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tag Names:                           $docker_hub_image_tag_names"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tag Names:                           $docker_hub_image_tag_names"
             [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "       Update Overview:"
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "             Effective Update Rule:                          $effective_update_rule"
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "             Listing (filtered & sorted):                    $image_updates_available_all"
@@ -2365,6 +2374,7 @@ Main() {
             [ -n "$container_networkMode_IPv4Address" ] &&                                      docker_run_cmd+=" --ip=$container_networkMode_IPv4Address"
             [ -n "$container_networkMode_IPv6Address" ] &&                                      docker_run_cmd+=" --ip6=$container_networkMode_IPv6Address"
             [ -n "$container_PublishAllPorts" ] && [ "$container_PublishAllPorts" == true ] &&  docker_run_cmd+=" --publish-all"
+            [ -n "$container_Privileged" ] && [ "$container_Privileged" == true ] &&            docker_run_cmd+=" --privileged"
             [ -n "$container_capabilities" ] &&                                                 docker_run_cmd+=" $container_capabilities"
             [ -n "$container_PortBindings" ] &&                                                 docker_run_cmd+=" $container_PortBindings"
             [ -n "$container_Mounts" ] &&                                                       docker_run_cmd+=" $container_Mounts"
