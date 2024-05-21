@@ -1530,8 +1530,8 @@ Get-AvailableUpdates() {
         local filter=$3
         local container_image_tag=$4
         
-        #echo $(echo "$docker_hub_image_tag_names" | tr ' ' '\n' | $cmd_grep -E "$filter" | tr ' ' '\n' | $cmd_sort -rV | tr '\n' ' ' | $cmd_sed "s/$container_image_tag.*//")
-        echo $(echo "$docker_hub_image_tag_names" | tr ' ' '\n' | $cmd_grep -E "$filter" | tr ' ' '\n' | $cmd_sort -rV | tr '\n' ' ')
+        echo $(echo "$docker_hub_image_tag_names" | tr ' ' '\n' | $cmd_grep -E "$filter" | tr ' ' '\n' | $cmd_sort -rV | $cmd_sed "s/^$container_image_tag*//" | tr '\n' ' ')
+        #echo $(echo "$docker_hub_image_tag_names" | tr ' ' '\n' | $cmd_grep -E "$filter" | tr ' ' '\n' | $cmd_sort -rV | tr '\n' ' ')
         return
     fi
 
