@@ -7,6 +7,7 @@
 # 2024.05.21-3
 #
 # ## Changelog
+# 2024.05.21-3, janseppenrade2: Fixed a minor bug that caused an issue in sorting the available image tags
 # 2024.05.21-2, janseppenrade2: Added support for container attribute "--privileged"
 # 2024.05.21-1, janseppenrade2: Fixed a typo in the email report and resolved an issue that sometimes caused the Docker version to be omitted from the email report. Additionally, support for defining a minimum age (docker_hub_image_minimum_age) for new Docker Hub image tags has been added.
 # 2024.05.17-1, janseppenrade2: Fixed a minor bug that prevented an email report from being generated when updates were found but no changes were made. (Those reports might be important for those who using this script just to monitor updates)
