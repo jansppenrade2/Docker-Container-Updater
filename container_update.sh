@@ -4,9 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.21-1
+# 2024.05.21-2
 #
 # ## Changelog
+# 2024.05.21-2, janseppenrade2: Added support for container attribute "--privileged"
 # 2024.05.21-1, janseppenrade2: Fixed a typo in the email report and resolved an issue that sometimes caused the Docker version to be omitted from the email report. Additionally, support for defining a minimum age (docker_hub_image_minimum_age) for new Docker Hub image tags has been added.
 # 2024.05.17-1, janseppenrade2: Fixed a minor bug that prevented an email report from being generated when updates were found but no changes were made. (Those reports might be important for those who using this script just to monitor updates)
 # 2024.05.16-1, janseppenrade2: Completely redesigned for enhanced performance and a better overview and more reliability - Crafted with lots of love and a touch of magic
@@ -787,6 +788,9 @@ Get-ContainerProperty() {
         return
     elif [ "$property" == "container_PublishAllPorts" ]; then
         echo "$(echo "$container_config" | $cmd_jq -r '.[0].HostConfig.PublishAllPorts' | $cmd_sed 's/^null$//')"
+        return
+    elif [ "$property" == "container_Privileged" ]; then
+        echo "$(echo "$container_config" | $cmd_jq -r '.[0].HostConfig.Privileged' | $cmd_sed 's/^null$//')"
         return
     elif [ "$property" == "container_PortBindings" ]; then
         local PortBindings=$(echo "$container_config" | $cmd_jq -r '.[0].HostConfig.PortBindings')
@@ -2108,6 +2112,7 @@ Main() {
     local container_restartPolicy_name=""
     local container_restartPolicy_MaximumRetryCount=""
     local container_PublishAllPorts=""
+    local container_Privileged=""
     local container_PortBindings=""
     local container_Mounts=""
     local container_envs=""
@@ -2169,6 +2174,7 @@ Main() {
             container_restartPolicy_name=""
             container_restartPolicy_MaximumRetryCount=""
             container_PublishAllPorts=""
+            container_Privileged=""
             container_PortBindings=""
             container_Mounts=""
             container_envs=""
@@ -2233,6 +2239,7 @@ Main() {
             container_restartPolicy_name=$(Get-ContainerProperty "$container_config" container_restartPolicy_name)
             container_restartPolicy_MaximumRetryCount=$(Get-ContainerProperty "$container_config" container_restartPolicy_MaximumRetryCount)
             container_PublishAllPorts=$(Get-ContainerProperty "$container_config" container_PublishAllPorts)
+            container_Privileged=$(Get-ContainerProperty "$container_config" container_Privileged)
             container_PortBindings=$(Get-ContainerProperty "$container_config" container_PortBindings)
             container_Mounts=$(Get-ContainerProperty "$container_config" container_Mounts)
             container_envs=$(Get-ContainerProperty "$container_config" container_envs)
@@ -2317,6 +2324,7 @@ Main() {
             Write-Log "DEBUG" "       Container Restart Policy Name:                        $container_restartPolicy_name"
             Write-Log "DEBUG" "       Container Maximum Retry Count:                        $container_restartPolicy_MaximumRetryCount"
             Write-Log "DEBUG" "       Container Publish All Ports:                          $container_PublishAllPorts"
+            Write-Log "DEBUG" "       Container Privileged:                                 $container_Privileged"
             Write-Log "DEBUG" "       Container Port Bindings:                              $container_PortBindings"
             Write-Log "DEBUG" "       Container Mounts:                                     $container_Mounts"
             Write-Log "DEBUG" "       Container Environment Variables:                      $container_envs"
@@ -2365,6 +2373,7 @@ Main() {
             [ -n "$container_networkMode_IPv4Address" ] &&                                      docker_run_cmd+=" --ip=$container_networkMode_IPv4Address"
             [ -n "$container_networkMode_IPv6Address" ] &&                                      docker_run_cmd+=" --ip6=$container_networkMode_IPv6Address"
             [ -n "$container_PublishAllPorts" ] && [ "$container_PublishAllPorts" == true ] &&  docker_run_cmd+=" --publish-all"
+            [ -n "$container_Privileged" ] && [ "$container_Privileged" == true ] &&            docker_run_cmd+=" --privileged"
             [ -n "$container_capabilities" ] &&                                                 docker_run_cmd+=" $container_capabilities"
             [ -n "$container_PortBindings" ] &&                                                 docker_run_cmd+=" $container_PortBindings"
             [ -n "$container_Mounts" ] &&                                                       docker_run_cmd+=" $container_Mounts"
