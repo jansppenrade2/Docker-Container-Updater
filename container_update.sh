@@ -2350,7 +2350,7 @@ Main() {
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Last Updated:                        $docker_hub_image_tag_last_updated"
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Age:                                 $docker_hub_image_tag_age Seconds"
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tag Filter:                          $docker_hub_image_tag_names_filter"
-            #[ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tag Names:                           $docker_hub_image_tag_names"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tag Names:                           $docker_hub_image_tag_names"
             [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "       Update Overview:"
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "             Effective Update Rule:                          $effective_update_rule"
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "             Listing (filtered & sorted):                    $image_updates_available_all"
