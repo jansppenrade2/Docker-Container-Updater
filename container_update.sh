@@ -2118,7 +2118,9 @@ Send-MailNotification() {
     fi
 }
 
-
+#Get-TelegramValidString() {
+#
+#}
 
 Send-TelegramNotification() {
     local test_mode=$(Read-INI "$configFile" "general" "test_mode")
