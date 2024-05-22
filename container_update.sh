@@ -2138,7 +2138,7 @@ Send-TelegramNotification() {
     local retry_limit=$(Read-INI "$configFile" "telegram" "retry_limit")
     ##### curl!
     local cmd_cut=$(Read-INI "$configFile" "paths" "cut")
-    local hostname=$(Escape-TelegramSpecialChars $(hostname))
+    local hostname=$(Escape-TelegramSpecialChars "$(hostname)")
     local primary_IPaddress=$(hostname -I 2>/dev/null | $cmd_cut -d' ' -f1)
     local message=""
     local telegram_api_response=""
