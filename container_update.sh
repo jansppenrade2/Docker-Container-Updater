@@ -2120,7 +2120,7 @@ Send-MailNotification() {
 
 Escape-TelegramSpecialChars() {
     local string="$1"
-    local -a special_chars=('!' '#' ',' '-')
+    local -a special_chars=('\' '`' '*' '_' '{' '}' '[' ']' '(' ')' '#' '+' '-' '=' '|' '.' '!')
     
     for char in "${special_chars[@]}"; do
         string=$(echo "$string" | sed "s/[$char]/\\\\$char/g")
@@ -2153,7 +2153,7 @@ Send-TelegramNotification() {
     message+="\n"
     message+="📋 *Actions Taken*\n"
     message+="\n"
-    message+="🗑️ *Removed Container-Backups*\n"
+    message+="🗑️ *Removed Container Backups*\n"
     message+="\n"
     message+="📈 *Stats*\n"
     message+="\n"
