@@ -2160,8 +2160,10 @@ Send-TelegramNotification() {
             break
         else
             Write-Log "ERROR" "          => Failed to send message: $telegram_api_response"
-            Write-Log "INFO"  "          => Retry in $retry_interval seconds..."
-            sleep "$retry_interval"
+            if ((i < retry_limit)); then
+                Write-Log "INFO"  "          => Retry in $retry_interval seconds..."
+                sleep "$retry_interval"
+            fi
         fi
     done
 }
