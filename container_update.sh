@@ -2125,6 +2125,7 @@ Send-TelegramNotification() {
     local chat_id=$(Read-INI "$configFile" "telegram" "chat_id")
     local retry_interval=$(Read-INI "$configFile" "telegram" "retry_interval")
     local retry_limit=$(Read-INI "$configFile" "telegram" "retry_limit")
+    local cmd_cut=$(Read-INI "$configFile" "paths" "cut")
     local hostname=$(hostname)
     local primary_IPaddress=$(hostname -I 2>/dev/null | $cmd_cut -d' ' -f1)
     local message=""
