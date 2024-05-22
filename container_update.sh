@@ -2124,8 +2124,7 @@ Escape-TelegramSpecialChars() {
     local -a special_chars=('\' '`' '*' '_' '{' '}' '[' ']' '(' ')' '#' '+' '-' '=' '|' '.' '!')
     
     for char in "${special_chars[@]}"; do
-        escaped_char=$(printf '%s\n' "$char" | $cmd_sed 's/[]\/$*.^[]/\\&/g')
-        string=$(echo "$string" | $cmd_sed "s/$escaped_char/\\\\$char/g")
+        string=$(echo "$string" | $cmd_sed "s/$char/\\\\$char/g") ####### something's wrong here. always get "/usr/bin/sed: -e expression #1, char 9: unterminated `s' command"
     done
     
     echo "$string"
