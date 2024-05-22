@@ -2118,6 +2118,10 @@ Send-MailNotification() {
     fi
 }
 
+Get-TelegramValidString() {
+
+}
+
 Send-TelegramNotification() {
     local test_mode=$(Read-INI "$configFile" "general" "test_mode")
     local logFile=$(Read-INI "$configFile" "log" "filePath")
@@ -2136,12 +2140,12 @@ Send-TelegramNotification() {
     message+="🐳 *DOCKER CONTAINER UPDATE REPORT*"
     message+=""
     message+="📌 *Info*"
-    message+="\`    Hostname:       $hostname\`"
+    message+="\`    Hostname:       blala\`"
     message+="\`    IP\\\\-Address:     $primary_IPaddress\`"
     message+="\`    Docker Version: 20.10.7\`"
     message+=""
     message+="📋 *Actions Taken*"
-    message+="$telegram_report_actions_taken"
+    message+=""
 
     Write-Log "INFO" "        Sending telegram message to \"$chat_id\"..."
     telegram_api_response=$(curl -s -X POST "https://api.telegram.org/bot$bot_token/sendMessage" -H "Content-Type: application/json" -d '{ "chat_id": "'$chat_id'", "text": "'"$message"'", "parse_mode": "MarkdownV2" }')
