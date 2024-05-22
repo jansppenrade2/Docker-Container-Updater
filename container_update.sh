@@ -2146,6 +2146,10 @@ Send-TelegramNotification() {
     message+=""
     message+="📋 *Actions Taken*"
     message+=""
+    message+="🗑️ *Removed Container Backups*"
+    message+=""
+    message+="📈 *Stats*"
+    message+=""
 
     Write-Log "INFO" "        Sending telegram message to \"$chat_id\"..."
     telegram_api_response=$(curl -s -X POST "https://api.telegram.org/bot$bot_token/sendMessage" -H "Content-Type: application/json" -d '{ "chat_id": "'$chat_id'", "text": "'"$message"'", "parse_mode": "MarkdownV2" }')
