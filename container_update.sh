@@ -23,6 +23,9 @@ mail_report_available=false
 mail_report_actions_taken=""
 mail_report_available_updates=""
 mail_report_removed_container_backups=""
+telegram_report_actions_taken=""
+telegram_report_available_updates=""
+telegram_report_removed_container_backups=""
 
 Acquire-Lock() {
     local pidFile_creation_time=""
@@ -1863,16 +1866,16 @@ Perform-ImageUpdate() {
     # Collecting some informations for the report
     if [ "$new_container_started_successfully" == true ]; then
         mail_report_available=true
-        [ "$test_mode" == false ] && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name ($image_name:$image_tag_old) has been performed</li>"
-        [ "$test_mode" == false ] && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new has been performed</li>"
-        [ "$test_mode" == true ]  && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name ($image_name:$image_tag_old) would have been performed</li>"
-        [ "$test_mode" == true ]  && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new would have been performed</li>"
+        [ "$test_mode" == false ] && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name ($image_name:$image_tag_old) has been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $container_name ($image_name:$image_tag_old) has been performed"
+        [ "$test_mode" == false ] && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new has been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new has been performed"
+        [ "$test_mode" == true ]  && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name ($image_name:$image_tag_old) would have been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $container_name ($image_name:$image_tag_old) would have been performed"
+        [ "$test_mode" == true ]  && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new would have been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new would have been performed"
     else
         mail_report_available=true
-        [ "$test_mode" == false ] && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F534; A $update_type update for $container_name ($image_name:$image_tag_old) has failed <i>(please refer to your logs)</li>"
-        [ "$test_mode" == false ] && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F534; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new has failed <i>(please refer to your logs)</i></li>"
-        [ "$test_mode" == true ]  && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name ($image_name:$image_tag_old) would have been performed</li>"
-        [ "$test_mode" == true ]  && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new would have been performed</li>"
+        [ "$test_mode" == false ] && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F534; A $update_type update for $container_name ($image_name:$image_tag_old) has failed <i>(please refer to your logs)</li>" && telegram_report_actions_taken+="🔴 A $update_type update for $container_name ($image_name:$image_tag_old) has failed (please refer to your logs)"
+        [ "$test_mode" == false ] && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F534; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new has failed <i>(please refer to your logs)</i></li>" && telegram_report_actions_taken+="🔴 A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new has failed (please refer to your logs)"
+        [ "$test_mode" == true ]  && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name ($image_name:$image_tag_old) would have been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $container_name ($image_name:$image_tag_old) would have been performed"
+        [ "$test_mode" == true ]  && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new would have been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new would have been performed"
     fi
 
     # Rolling back changes if update failed
@@ -1901,8 +1904,10 @@ Perform-ImageUpdate() {
 
         if [ "$this_errors_count" -eq 0 ]; then
             mail_report_actions_taken+="<ul><li>&#x1F7E2; The original container $container_name ($image_name:$image_tag_old) has been successfully restored</li></ul>"
+            telegram_report_actions_taken+="    🟢 The original container $container_name ($image_name:$image_tag_old) has been successfully restored"
         else
             mail_report_actions_taken+="<ul><li>&#x1F7E1; A partly successfull attempt was made to restore the original container $container_name ($image_name:$image_tag_old) <i>(please refer to your logs)</i></li></ul>"
+            telegram_report_actions_taken+="    🟠 A partly successfull attempt was made to restore the original container $container_name ($image_name:$image_tag_old) (please refer to your logs)"
         fi
         this_errors_count=0
     fi
@@ -2113,6 +2118,34 @@ Send-MailNotification() {
     fi
 }
 
+Send-TelegramNotification() {
+    local test_mode=$(Read-INI "$configFile" "general" "test_mode")
+    local logFile=$(Read-INI "$configFile" "log" "filePath")
+    local bot_token=$(Read-INI "$configFile" "telegram" "bot_token")
+    local chat_id=$(Read-INI "$configFile" "telegram" "chat_id")
+    local retry_interval=$(Read-INI "$configFile" "telegram" "retry_interval")
+    local retry_limit=$(Read-INI "$configFile" "telegram" "retry_limit")
+    local hostname=$(hostname)
+    local primary_IPaddress=$(hostname -I 2>/dev/null | $cmd_cut -d' ' -f1)
+    local message=""
+
+    message+="🐳 *DOCKER CONTAINER UPDATE REPORT*"
+    message+=""
+    message+="📌 *Info*"
+    message+="\`    Hostname:       $hostname\`"
+    message+="\`    IP\\\\-Address:     $primary_IPaddress\`"
+    message+="\`    Docker Version: 20.10.7\`"
+    message+=""
+    message+="📋 *Actions Taken*"
+    message+="$telegram_report_actions_taken"
+
+    curl -s -X POST "https://api.telegram.org/bot$bot_token/sendMessage" -H "Content-Type: application/json" -d '{
+        "chat_id": "'$chat_id'",
+        "text": "'"$message"'",
+        "parse_mode": "MarkdownV2"
+    }'
+}
+
 Main() {
     Acquire-Lock
     Validate-ConfigFile
@@ -2122,6 +2155,7 @@ Main() {
 
     local test_mode=$(Read-INI "$configFile" "general" "test_mode")
     local mail_notifications_enabled=$(Read-INI "$configFile" "mail" "notifications_enabled")
+    local telegram_notifications_enabled=$(Read-INI "$configFile" "telegram" "notifications_enabled")
     local cmd_sed=$(Read-INI "$configFile" "paths" "sed")
     local cmd_jq=$(Read-INI "$configFile" "paths" "jq")
     local cmd_docker=$(Read-INI "$configFile" "paths" "docker")
@@ -2525,6 +2559,13 @@ Main() {
             Write-Log "INFO" " | MAIL NOTIFICATIONS"
             Write-Log "INFO" "<print_line>"
             Send-MailNotification
+        fi
+
+        if [ "$telegram_notifications_enabled" == true ]; then
+            Write-Log "INFO" "<print_line>"
+            Write-Log "INFO" " | TELEGRAM NOTIFICATIONS"
+            Write-Log "INFO" "<print_line>"
+            Send-TelegramNotification
         fi
         
         Write-Log "INFO" "<print_line>"
