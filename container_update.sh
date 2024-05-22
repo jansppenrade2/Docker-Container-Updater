@@ -2144,12 +2144,12 @@ Send-TelegramNotification() {
     message+="$telegram_report_actions_taken"
 
     Write-Log "INFO" "        Sending telegram message to \"$chat_id\"..."
-    telegram_api_response=$(curl -s -X POST "https://api.telegram.org/bot$bot_token/sendMessage" -H "Content-Type: application/json" -d '{ "chat_id": "'$$chat_id'", "text": "'"$message"'", "parse_mode": "MarkdownV2" }')
+    telegram_api_response=$(curl -s -X POST "https://api.telegram.org/bot$bot_token/sendMessage" -H "Content-Type: application/json" -d '{ "chat_id": "'$chat_id'", "text": "'"$message"'", "parse_mode": "MarkdownV2" }')
 
     if [ "$(echo "$telegram_api_response" | jq -r '.ok')" = "true" ]; then
         Write-Log "INFO"  "          => Successfully sent message"
     else
-        Write-Log "ERROR" "          => Failed to send message"
+        Write-Log "ERROR" "          => Failed to send message: $telegram_api_response"
     fi
 }
 
