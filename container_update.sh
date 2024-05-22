@@ -2123,7 +2123,8 @@ Escape-TelegramSpecialChars() {
     local -a special_chars=('\' '`' '*' '_' '{' '}' '[' ']' '(' ')' '#' '+' '-' '=' '|' '.' '!')
     
     for char in "${special_chars[@]}"; do
-        string=$(echo "$string" | sed "s/[$char]/\\\\$char/g")
+        #string=$(echo "$string" | sed "s/[$char]/\\\\$char/g")
+        string=$(echo "$string" | sed "s/$(echo "$char" | sed 's/[^^]/[&]/g; s/\^/\\^/g')/\\\\$char/g")
     done
     
     echo "$string"
