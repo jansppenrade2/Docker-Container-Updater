@@ -2136,7 +2136,7 @@ Send-TelegramNotification() {
     local message=""
     local telegram_api_response=""
 
-    Write-Log "INFO" "    Generating telegram report...\n"
+    Write-Log "INFO" "    Generating telegram report..."
     message+="🐳 *DOCKER CONTAINER UPDATE REPORT*\n"
     message+="\n"
     message+="📌 *Info*\n"
@@ -2146,13 +2146,13 @@ Send-TelegramNotification() {
     message+="\n"
     message+="📋 *Actions Taken*\n"
     message+="\n"
-    message+="🗑️ *Removed Container Backups*\n"
+    message+="🗑️ *Removed Container-Backups*\n"
     message+="\n"
     message+="📈 *Stats*\n"
     message+="\n"
 
-    Write-Log "INFO" "        Sending telegram message to \"$chat_id\"..."
     for ((i = 1; i <= retry_limit; i++)); do
+        Write-Log "INFO" "        Sending telegram message to chat ID: \"$chat_id\" (Attempt $i of $retry_limit)..."
         telegram_api_response=$(curl -s -X POST "https://api.telegram.org/bot$bot_token/sendMessage" -H "Content-Type: application/json" -d '{ "chat_id": "'$chat_id'", "text": "'"$message"'", "parse_mode": "MarkdownV2" }')
         
         if [ "$(echo "$telegram_api_response" | jq -r '.ok')" = "true" ]; then
