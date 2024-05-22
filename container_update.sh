@@ -2152,13 +2152,18 @@ Send-TelegramNotification() {
     message+="\n"
 
     Write-Log "INFO" "        Sending telegram message to \"$chat_id\"..."
-    telegram_api_response=$(curl -s -X POST "https://api.telegram.org/bot$bot_token/sendMessage" -H "Content-Type: application/json" -d '{ "chat_id": "'$chat_id'", "text": "'"$message"'", "parse_mode": "MarkdownV2" }')
-
-    if [ "$(echo "$telegram_api_response" | jq -r '.ok')" = "true" ]; then
-        Write-Log "INFO"  "          => Successfully sent message"
-    else
-        Write-Log "ERROR" "          => Failed to send message: $telegram_api_response"
-    fi
+    for ((i = 1; i <= retry_limit; i++)); do
+        telegram_api_response=$(curl -s -X POST "https://api.telegram.org/bot$bot_token/sendMessage" -H "Content-Type: application/json" -d '{ "chat_id": "'$chat_id'", "text": "'"$message"'", "parse_mode": "MarkdownV2" }')
+        
+        if [ "$(echo "$telegram_api_response" | jq -r '.ok')" = "true" ]; then
+            Write-Log "INFO"  "          => Successfully sent message"
+            break
+        else
+            Write-Log "ERROR" "          => Failed to send message: $telegram_api_response"
+            Write-Log "INFO"  "          => Retry in $retry_interval seconds..."
+            sleep "$retry_interval"
+        fi
+    done
 }
 
 Main() {
