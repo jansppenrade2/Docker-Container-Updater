@@ -2124,8 +2124,8 @@ Escape-TelegramSpecialChars() {
     local -a special_chars=('\' '`' '*' '_' '{' '}' '[' ']' '(' ')' '#' '+' '-' '=' '|' '.' '!')
     
     for char in "${special_chars[@]}"; do
-        string=$(echo "$string" | $cmd_sed "s/$char/\\\\$char/g")
-        #$cmd_sed "s/<print_line>/$line/g")
+        escaped_char=$(printf '%s\n' "$char" | $cmd_sed 's/[]\/$*.^[]/\\&/g')
+        string=$(echo "$string" | $cmd_sed "s/$escaped_char/\\\\$char/g")
     done
     
     echo "$string"
