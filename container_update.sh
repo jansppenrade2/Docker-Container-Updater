@@ -323,12 +323,26 @@ Validate-ConfigFile() {
         echo "from=" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
         echo "recipients=" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
         echo "subject=Docker Container Update Report from $(hostname)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
+        echo "" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
+        echo "[telegram]" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
+        echo "notifications_enabled=false" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
+        echo "bot_token=" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
+        echo "chat_id=" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
+        echo "retry_interval=10" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
+        echo "retry_limit=2" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
     else
         Write-Log "INFO" "Existing configuration file found in \"$configFile\""
 
         # Update configuration file (add new attributes)
         if [ -z "$(Read-INI "$configFile" "general" "docker_hub_image_minimum_age")" ]; then
             Write-INI "$configFile" "general" "docker_hub_image_minimum_age" "21600"
+        fi
+
+        if [ -z "$(Read-INI "$configFile" "telegram" "notifications_enabled")" ]; then
+            Write-INI "$configFile" "telegram" "bot_token" ""
+            Write-INI "$configFile" "telegram" "chat_id" ""
+            Write-INI "$configFile" "telegram" "retry_interval" "10"
+            Write-INI "$configFile" "telegram" "retry_limit" "2"
         fi
     fi
 
@@ -502,6 +516,24 @@ Validate-ConfigFile() {
     fi
     if [[ "$(Read-INI "$configFile" "mail" "notifications_enabled")" == "true" && -z $(Read-INI "$configFile" "mail" "subject") ]]; then
         Write-Log "WARNING" "    => Empty value for \"[mail] subject\""
+    fi
+
+    if [ "$(Read-INI "$configFile" "telegram" "notifications_enabled")" != "true" ] && [ "$(Read-INI "$configFile" "telegram" "notifications_enabled")" != "false" ]; then
+        Write-Log "ERROR" "    => Invalid value for \"[telegram] notifications_enabled\" (Expected: \"true\" or \"false\")"
+        validationError=true
+    fi
+    if [ "$(Read-INI "$configFile" "telegram" "notifications_enabled")" == "true" ] && [ -z "$(Read-INI "$configFile" "telegram" "bot_token")" ]; then
+        Write-Log "ERROR" "    => Empty value for \"[telegram] bot_token\""
+        validationError=true
+    fi
+    if [ "$(Read-INI "$configFile" "telegram" "notifications_enabled")" == "true" ] && ! [ -z "$(Read-INI "$configFile" "telegram" "chat_id")" ]; then
+        Write-Log "WARNING" "    => Empty value for \"[telegram] chat_id\""
+    fi
+    if [[ "$(Read-INI "$configFile" "telegram" "notifications_enabled")" == "true" && ! $(Read-INI "$configFile" "telegram" "retry_interval") =~ ^[0-9]+$ ]]; then
+        Write-Log "WARNING" "    => Invalid value for \"[telegram] retry_interval\" (Expected: Type of \"integer\")"
+    fi
+    if [[ "$(Read-INI "$configFile" "telegram" "notifications_enabled")" == "true" && ! $(Read-INI "$configFile" "telegram" "retry_limit") =~ ^[0-9]+$ ]]; then
+        Write-Log "WARNING" "    => Invalid value for \"[telegram] retry_limit\" (Expected: Type of \"integer\")"
     fi
 
     if [ $rule_default_exists == false ]; then
