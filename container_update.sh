@@ -2120,11 +2120,12 @@ Send-MailNotification() {
 
 Escape-TelegramSpecialChars() {
     local string="$1"
+    local cmd_sed=$(Read-INI "$configFile" "paths" "sed")
     local -a special_chars=('\' '`' '*' '_' '{' '}' '[' ']' '(' ')' '#' '+' '-' '=' '|' '.' '!')
     
     for char in "${special_chars[@]}"; do
-        #string=$(echo "$string" | sed "s/[$char]/\\\\$char/g")
-        string=$(echo "$string" | sed "s/$(echo "$char" | sed 's/[^^]/[&]/g; s/\^/\\^/g')/\\\\$char/g")
+        string=$(echo "$string" | $cmd_sed "s/$char/\\\\$char/g")
+        #$cmd_sed "s/<print_line>/$line/g")
     done
     
     echo "$string"
@@ -2144,7 +2145,7 @@ Send-TelegramNotification() {
     local message=""
     local telegram_api_response=""
 
-    Write-Log "INFO" "    Generating telegram report..."
+    Write-Log "INFO" "    Generating telegram message..."
     message+="🐳 *DOCKER CONTAINER UPDATE REPORT*\n"
     message+="\n"
     message+="📌 *Info*\n"
