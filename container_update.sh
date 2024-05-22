@@ -339,6 +339,7 @@ Validate-ConfigFile() {
         fi
 
         if [ -z "$(Read-INI "$configFile" "telegram" "notifications_enabled")" ]; then
+            Write-INI "$configFile" "telegram" "notifications_enabled" "false"
             Write-INI "$configFile" "telegram" "bot_token" ""
             Write-INI "$configFile" "telegram" "chat_id" ""
             Write-INI "$configFile" "telegram" "retry_interval" "10"
