@@ -2125,11 +2125,14 @@ Send-TelegramNotification() {
     local chat_id=$(Read-INI "$configFile" "telegram" "chat_id")
     local retry_interval=$(Read-INI "$configFile" "telegram" "retry_interval")
     local retry_limit=$(Read-INI "$configFile" "telegram" "retry_limit")
+    ##### curl!
     local cmd_cut=$(Read-INI "$configFile" "paths" "cut")
     local hostname=$(hostname)
     local primary_IPaddress=$(hostname -I 2>/dev/null | $cmd_cut -d' ' -f1)
     local message=""
+    local telegram_api_response=""
 
+    Write-Log "INFO" "    Generating telegram report..."
     message+="🐳 *DOCKER CONTAINER UPDATE REPORT*"
     message+=""
     message+="📌 *Info*"
@@ -2140,11 +2143,14 @@ Send-TelegramNotification() {
     message+="📋 *Actions Taken*"
     message+="$telegram_report_actions_taken"
 
-    curl -s -X POST "https://api.telegram.org/bot$bot_token/sendMessage" -H "Content-Type: application/json" -d '{
-        "chat_id": "'$chat_id'",
-        "text": "'"$message"'",
-        "parse_mode": "MarkdownV2"
-    }'
+    Write-Log "INFO" "        Sending telegram message to \"$chat_id\"..."
+    telegram_api_response=$(curl -s -X POST "https://api.telegram.org/bot$bot_token/sendMessage" -H "Content-Type: application/json" -d '{ "chat_id": "'$$chat_id'", "text": "'"$message"'", "parse_mode": "MarkdownV2" }')
+
+    if [ "$(echo "$telegram_api_response" | jq -r '.ok')" = "true" ]; then
+        Write-Log "INFO"  "          => Successfully sent message"
+    else
+        Write-Log "ERROR" "          => Failed to send message"
+    fi
 }
 
 Main() {
