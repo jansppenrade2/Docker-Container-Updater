@@ -2118,9 +2118,16 @@ Send-MailNotification() {
     fi
 }
 
-#Get-TelegramValidString() {
-#
-#}
+Escape-TelegramSpecialChars() {
+    local string="$1"
+    local -a special_chars=('!' '#' ',' '-')
+    
+    for char in "${special_chars[@]}"; do
+        string=$(echo "$string" | sed "s/[$char]/\\\\$char/g")
+    done
+    
+    echo "$string"
+}
 
 Send-TelegramNotification() {
     local test_mode=$(Read-INI "$configFile" "general" "test_mode")
@@ -2131,7 +2138,7 @@ Send-TelegramNotification() {
     local retry_limit=$(Read-INI "$configFile" "telegram" "retry_limit")
     ##### curl!
     local cmd_cut=$(Read-INI "$configFile" "paths" "cut")
-    local hostname=$(hostname)
+    local hostname=$(Escape-TelegramSpecialChars $(hostname))
     local primary_IPaddress=$(hostname -I 2>/dev/null | $cmd_cut -d' ' -f1)
     local message=""
     local telegram_api_response=""
@@ -2140,7 +2147,7 @@ Send-TelegramNotification() {
     message+="🐳 *DOCKER CONTAINER UPDATE REPORT*\n"
     message+="\n"
     message+="📌 *Info*\n"
-    message+="\`    Hostname:       blala\`\n"
+    message+="\`    Hostname:       $hostname\`\n"
     message+="\`    IP\\\\-Address:     $primary_IPaddress\`\n"
     message+="\`    Docker Version: 20.10.7\`\n"
     message+="\n"
