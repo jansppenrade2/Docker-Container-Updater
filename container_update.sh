@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.22-c
+# 2024.05.22-e
 #
 # ## Changelog
 # 2024.05.21-3, janseppenrade2: Addressed a minor bug that was impacting the sorting of available image tags
@@ -2103,7 +2103,7 @@ Send-MailNotification() {
                         fi
 
                         if [ -n "$mail_report_available_updates" ]; then
-                            mail_message+="<p style=\"font-size: 14px; padding-top: 15px; padding-left: 5px; color: #4b4b4b;\"><strong>&#x1F527; AVAILABLE UPDATES FOR MANUAL INSTALLATION</strong></p>\n"
+                            mail_message+="<p style=\"font-size: 14px; padding-top: 15px; padding-left: 5px; color: #4b4b4b;\"><strong>&#x1F527; OUTSTANDING UPDATES</strong></p>\n"
                             mail_message+="<table border="0" style=\"font-size: 13px; padding: 0 30px 15px;\">"
                                 mail_message+="<tr>"
                                     mail_message+="<td><strong>Container Name</strong></td>"
@@ -2311,6 +2311,7 @@ Main() {
     local image_update_available_build_latest=""
     local image_update_available_digest=""
     local updatePermit=""
+    local updatePerformed=""
 
 
     if [ ${#container_ids[@]} -gt 0 ]; then
@@ -2371,6 +2372,7 @@ Main() {
             image_update_available_minor_latest=""
             image_update_available_major_latest=""
             updatePermit=false
+            updatePerformed=false
 
             Write-Log "INFO" "<print_line>"
             Write-Log "INFO" " | PROCESSING CONTAINER $container_id"
@@ -2541,13 +2543,14 @@ Main() {
             [ -n "$container_image_name" ] &&                                                   docker_run_cmd+=" $container_image_name"
 
             # Perform a digest update if available and update permission is granted by update rule definition
-            if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ "$image_update_available_digest" == true ] && [ "$updatePermit" == false ]; then
+            if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ "$image_update_available_digest" == true ] && [ "$updatePerformed" == false ]; then
                 if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
                     updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$container_image_tag")
                     if [ "$updatePermit" == true ]; then
                         [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$container_image_tag"
                         #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
                         Perform-ImageUpdate "digest" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag"
+                        updatePerformed=true
                     else
                         Write-Log "INFO" "       Update Rule Effectivity:                              Digest update for $container_name ($container_image_name:$container_image_tag) was prevented"
                         mail_report_available_updates+="<tr><td>$container_name</td><td>Digest</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$container_image_tag</td><td>$effective_update_rule</td></tr>"
@@ -2560,13 +2563,14 @@ Main() {
             fi
 
             # Perform a build update if available and update permission is granted by update rule definition
-            if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_build_next" ] && [ -n "$image_update_available_build_latest" ] && [ "$updatePermit" == false ]; then
+            if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_build_next" ] && [ -n "$image_update_available_build_latest" ] && [ "$updatePerformed" == false ]; then
                 if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
                     updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_patch_next" "$image_update_available_build_latest")
                     if [ "$updatePermit" == true ]; then
                         [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_build_next"
                         #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
                         Perform-ImageUpdate "build" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_build_next"
+                        updatePerformed=true
                     else
                         Write-Log "INFO" "       Update Rule Effectivity:                              Build update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_build_next) was prevented"
                         mail_report_available_updates+="<tr><td>$container_name</td><td>Build</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td>$effective_update_rule</td></tr>"
@@ -2579,13 +2583,14 @@ Main() {
             fi
 
             # Perform a patch update if available and update permission is granted by update rule definition
-            if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_patch_next" ] && [ -n "$image_update_available_patch_latest" ] && [ "$updatePermit" == false ]; then
+            if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_patch_next" ] && [ -n "$image_update_available_patch_latest" ] && [ "$updatePerformed" == false ]; then
                 if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
                     updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_patch_next" "$image_update_available_patch_latest")
                     if [ "$updatePermit" == true ]; then
                         [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_patch_next"
                         #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
                         Perform-ImageUpdate "patch" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_patch_next"
+                        updatePerformed=true
                     else
                         Write-Log "INFO" "       Update Rule Effectivity:                              Patch update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_patch_next) was prevented"
                         mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td>$effective_update_rule</td></tr>"
@@ -2598,13 +2603,14 @@ Main() {
             fi
 
             # Perform a minor update if available and update permission is granted by update rule definition
-            if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_minor_next" ] && [ -n "$image_update_available_minor_latest" ] && [ "$updatePermit" == false ]; then
+            if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_minor_next" ] && [ -n "$image_update_available_minor_latest" ] && [ "$updatePerformed" == false ]; then
                 if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
                     updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_minor_next" "$image_update_available_minor_latest")
                     if [ "$updatePermit" == true ]; then
                         [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_minor_next"
                         #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
                         Perform-ImageUpdate "minor" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_minor_next"
+                        updatePerformed=true
                     else
                         Write-Log "INFO" "       Update Rule Effectivity:                              Minor update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_minor_next) was prevented"
                         mail_report_available_updates+="<tr><td>$container_name</td><td>Minor</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td>$effective_update_rule</td></tr>"
@@ -2617,13 +2623,14 @@ Main() {
             fi
 
             # Perform a major update if available and update permission is granted by update rule definition
-            if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_major_next" ] && [ -n "$image_update_available_major_latest" ] && [ "$updatePermit" == false ]; then
+            if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_major_next" ] && [ -n "$image_update_available_major_latest" ] && [ "$updatePerformed" == false ]; then
                 if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
                     updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_major_next" "$image_update_available_major_latest")
                     if [ "$updatePermit" == true ]; then
                         [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_major_next"
                         #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
                         Perform-ImageUpdate "major" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_major_next"
+                        updatePerformed=true
                     else
                         Write-Log "INFO" "       Update Rule Effectivity:                              Major update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_major_next) was prevented"
                         mail_report_available_updates+="<tr><td>$container_name</td><td>Major</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td>$effective_update_rule</td></tr>"
