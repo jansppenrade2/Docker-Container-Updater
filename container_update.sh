@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.22-b
+# 2024.05.22-c
 #
 # ## Changelog
 # 2024.05.21-3, janseppenrade2: Addressed a minor bug that was impacting the sorting of available image tags
@@ -544,14 +544,17 @@ Validate-ConfigFile() {
         Write-Log "ERROR" "    => Empty value for \"[telegram] bot_token\""
         validationError=true
     fi
-    if [ "$(Read-INI "$configFile" "telegram" "notifications_enabled")" == "true" ] && ! [ -z "$(Read-INI "$configFile" "telegram" "chat_id")" ]; then
+    if [ "$(Read-INI "$configFile" "telegram" "notifications_enabled")" == "true" ] && [ -z "$(Read-INI "$configFile" "telegram" "chat_id")" ]; then
         Write-Log "WARNING" "    => Empty value for \"[telegram] chat_id\""
+        validationError=true
     fi
     if [[ "$(Read-INI "$configFile" "telegram" "notifications_enabled")" == "true" && ! $(Read-INI "$configFile" "telegram" "retry_interval") =~ ^[0-9]+$ ]]; then
         Write-Log "WARNING" "    => Invalid value for \"[telegram] retry_interval\" (Expected: Type of \"integer\")"
+        validationError=true
     fi
     if [[ "$(Read-INI "$configFile" "telegram" "notifications_enabled")" == "true" && ! $(Read-INI "$configFile" "telegram" "retry_limit") =~ ^[0-9]+$ ]]; then
         Write-Log "WARNING" "    => Invalid value for \"[telegram] retry_limit\" (Expected: Type of \"integer\")"
+        validationError=true
     fi
 
     if [ $rule_default_exists == false ]; then
