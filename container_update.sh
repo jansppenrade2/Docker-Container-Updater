@@ -4,10 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.22-f
+# 2024.05.22-g
 #
 # ## Changelog
-# 2024.05.XX-X, janseppenrade2: Addressed a minor bug that prevented removed container backups from being listed in reports. Addressed a bug that caused an unexpected script termination on QNAP devices with an outdated version of 'date'. Added support for Telegram notifications.
+# 2024.05.XX-X, janseppenrade2: Addressed a minor bug that prevented removed container backups from being listed in reports. Addressed a bug that caused an unexpected script termination on QNAP devices with an outdated version of 'date'. Added support for Telegram notifications. Some optimizations to Extract-VersionPart() (responsible for detecting Major, Minor, Patch, and Build updates).
 # 2024.05.21-3, janseppenrade2: Addressed a minor bug that was impacting the sorting of available image tags
 # 2024.05.21-2, janseppenrade2: Added support for container attribute "--privileged"
 # 2024.05.21-1, janseppenrade2: Fixed a typo in the email report and resolved an issue that sometimes caused the Docker version to be omitted from the email report. Additionally, support for defining a minimum age (docker_hub_image_minimum_age) for new Docker Hub image tags has been added.
@@ -1189,39 +1189,39 @@ Extract-VersionPart() {
     local version=$2
     local cmd_cut=$(Read-INI "$configFile" "paths" "cut")
     local cmd_grep=$(Read-INI "$configFile" "paths" "grep")
-    local dot_count=$(echo "$template" | $cmd_grep -o '\.' | wc -l)
+    local cmd_sed=$(Read-INI "$configFile" "paths" "sed")
+
+    # Replace all dashes with dots  
+    template=$(echo "$template" | $cmd_sed 's/-/./g' )  
+
+    # Remove all characters except '0-9' and '.'
+    template=$(echo "$template" | tr -dc '0-9.')
+
+    # Replace multiple consecutive dots with a single dot
+    while [[ "$template" == *..* ]]; do
+        template="${template//../.}"
+    done
+
+    # Remove leading and trailing dots
+    template=$(echo "$template" | $cmd_sed 's/^\.//;s/\.$//')
 
     if   [ -n "$template" ] && [ "$version" == "major" ]; then
-        if [ "$dot_count" -lt 3 ]; then
-            echo "$(echo $template | $cmd_cut -d'.' -f1 | $cmd_cut -d'-' -f1 | tr -dc '0-9')"
-        else
-            echo "$(echo $template | $cmd_cut -d'.' -f1 | tr -dc '0-9')"
-        fi
+        echo "$(echo $template | $cmd_cut -d'.' -f1)"
         return
     elif [ -n "$template" ] && [ "$version" == "minor" ]; then
-        if [ "$dot_count" -lt 3 ]; then
-            echo "$(echo $template | $cmd_cut -d'.' -f2 | $cmd_cut -d'-' -f2 | tr -dc '0-9')"
-        else
-            echo "$(echo $template | $cmd_cut -d'.' -f2 | tr -dc '0-9')"
-        fi
+        echo "$(echo $template | $cmd_cut -d'.' -f2)"
         return
     elif [ -n "$template" ] && [ "$version" == "patch" ]; then
-        if [ "$dot_count" -lt 3 ]; then
-            echo "$(echo $template | $cmd_cut -d'.' -f3 | $cmd_cut -d'-' -f3 | tr -dc '0-9')"
-        else
-            echo "$(echo $template | $cmd_cut -d'.' -f3 | tr -dc '0-9')"
-        fi
+        echo "$(echo $template | $cmd_cut -d'.' -f3)"
         return
     elif [ -n "$template" ] && [ "$version" == "build" ]; then
-        if [ "$dot_count" -lt 3 ]; then
-            echo "$(echo $template | $cmd_cut -d'.' -f4 | $cmd_cut -d'-' -f4 | tr -dc '0-9')"
-        else
-            echo "$(echo $template | $cmd_cut -d'.' -f4 | tr -dc '0-9')"
-        fi
+        echo "$(echo $template | $cmd_cut -d'.' -f4)"
         return
     # else
     #     Write-Log "ERROR" "Unknown version type requested: $version"
     fi
+
+    echo "$template"
 }
 
 Get-EffectiveUpdateRule() {
@@ -2103,7 +2103,7 @@ Send-MailNotification() {
                         fi
 
                         if [ -n "$mail_report_available_updates" ]; then
-                            mail_message+="<p style=\"font-size: 14px; padding-top: 15px; padding-left: 5px; color: #4b4b4b;\"><strong>&#x1F527; OUTSTANDING UPDATES IN PIPELINE</strong></p>\n"
+                            mail_message+="<p style=\"font-size: 14px; padding-top: 15px; padding-left: 5px; color: #4b4b4b;\"><strong>&#x1F527; OUTSTANDING UPDATES</strong></p>\n"
                             mail_message+="<table border="0" style=\"font-size: 13px; padding: 0 30px 15px;\">"
                                 mail_message+="<tr>"
                                     mail_message+="<td><strong>Container Name</strong></td>"
