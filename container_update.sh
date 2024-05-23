@@ -19,7 +19,7 @@ start_time=$(date +%s)
 stats_execution_time=0
 stats_errors_count=0
 stats_warnings_count=0
-mail_report_available=false
+report_available=false
 mail_report_actions_taken=""
 mail_report_available_updates=""
 mail_report_removed_container_backups=""
@@ -307,6 +307,7 @@ Validate-ConfigFile() {
         echo "tput=$(Get-Path tput)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
         echo "gawk=$(Get-Path gawk)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
         echo "cut=$(Get-Path cut)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
+        echo "curl=$(Get-Path curl)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
         echo "docker=$(Get-Path docker)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
         echo "grep=$(Get-Path grep)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
         echo "jq=$(Get-Path jq)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
@@ -446,6 +447,12 @@ Validate-ConfigFile() {
         Write-INI "$configFile" "paths" "cut" "$(Get-Path cut)"
         if ! [[ $(Read-INI "$configFile" "paths" "cut") =~ ^/.* ]]; then
             Write-Log "WARNING" "    => Invalid value for \"[paths] cut\" (Expected: Type of \"path\")"
+        fi
+    fi
+    if ! [[ $(Read-INI "$configFile" "paths" "curl") =~ ^/.* ]]; then
+        Write-INI "$configFile" "paths" "curl" "$(Get-Path curl)"
+        if ! [[ $(Read-INI "$configFile" "paths" "curl") =~ ^/.* ]]; then
+            Write-Log "WARNING" "    => Invalid value for \"[paths] curl\" (Expected: Type of \"path\")"
         fi
     fi
     if ! [[ $(Read-INI "$configFile" "paths" "docker") =~ ^/.* ]]; then
@@ -631,6 +638,20 @@ Test-Prerequisites() {
     fi
 
     command="cut"
+    if [ -n "$(Read-INI "$configFile" "paths" "$command")" ]; then
+        if ! [ -x "$(Read-INI "$configFile" "paths" "$command")" ]; then
+            Write-Log "ERROR" "    => Could not find \"$command\""
+            validationError=true
+        else
+            versionInstalled=$("$(Read-INI "$configFile" "paths" "$command")" --version 2>/dev/null | head -n 1)
+            Write-Log "DEBUG" "    => Found \"$command\" installed in version \"$versionInstalled\""
+        fi
+    else
+        Write-Log "ERROR" "    => It seems there is no version of \"$command\" installed on your system"
+        validationError=true
+    fi
+
+    command="curl"
     if [ -n "$(Read-INI "$configFile" "paths" "$command")" ]; then
         if ! [ -x "$(Read-INI "$configFile" "paths" "$command")" ]; then
             Write-Log "ERROR" "    => Could not find \"$command\""
@@ -1865,17 +1886,17 @@ Perform-ImageUpdate() {
     
     # Collecting some informations for the report
     if [ "$new_container_started_successfully" == true ]; then
-        mail_report_available=true
-        [ "$test_mode" == false ] && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name ($image_name:$image_tag_old) has been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $container_name ($image_name:$image_tag_old) has been performed"
-        [ "$test_mode" == false ] && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new has been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new has been performed"
-        [ "$test_mode" == true ]  && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name ($image_name:$image_tag_old) would have been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $container_name ($image_name:$image_tag_old) would have been performed"
-        [ "$test_mode" == true ]  && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new would have been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new would have been performed"
+        report_available=true
+        [ "$test_mode" == false ] && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name ($image_name:$image_tag_old) has been performed</li>" && telegram_report_actions_taken+="    🟢 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old")\\\\) has been performed\n"
+        [ "$test_mode" == false ] && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new has been performed</li>" && telegram_report_actions_taken+="    🟢 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") from $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old") to $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_new") has been performed\n"
+        [ "$test_mode" == true ]  && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name ($image_name:$image_tag_old) would have been performed</li>" && telegram_report_actions_taken+="    🟢 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old")\\\\) would have been performed\n"
+        [ "$test_mode" == true ]  && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new would have been performed</li>" && telegram_report_actions_taken+="    🟢 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") from $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old") to $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_new") would have been performed\n"
     else
-        mail_report_available=true
-        [ "$test_mode" == false ] && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F534; A $update_type update for $container_name ($image_name:$image_tag_old) has failed <i>(please refer to your logs)</li>" && telegram_report_actions_taken+="🔴 A $update_type update for $container_name ($image_name:$image_tag_old) has failed (please refer to your logs)"
-        [ "$test_mode" == false ] && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F534; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new has failed <i>(please refer to your logs)</i></li>" && telegram_report_actions_taken+="🔴 A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new has failed (please refer to your logs)"
-        [ "$test_mode" == true ]  && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name ($image_name:$image_tag_old) would have been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $container_name ($image_name:$image_tag_old) would have been performed"
-        [ "$test_mode" == true ]  && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new would have been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new would have been performed"
+        report_available=true
+        [ "$test_mode" == false ] && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F534; A $update_type update for $container_name ($image_name:$image_tag_old) has failed <i>(please refer to your logs)</li>" && telegram_report_actions_taken+="    🔴 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old")\\\\) has failed \\\\(please refer to your logs\\\\)\n"
+        [ "$test_mode" == false ] && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F534; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new has failed <i>(please refer to your logs)</i></li>" && telegram_report_actions_taken+="    🔴 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") from $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old") to $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_new") has failed \\\\(please refer to your logs\\\\)\n"
+        [ "$test_mode" == true ]  && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name ($image_name:$image_tag_old) would have been performed</li>" && telegram_report_actions_taken+="    🟢 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old")\\\\) would have been performed\n"
+        [ "$test_mode" == true ]  && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new would have been performed</li>" && telegram_report_actions_taken+="    🟢 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") from $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old") to $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_new") would have been performed\n"
     fi
 
     # Rolling back changes if update failed
@@ -1904,10 +1925,10 @@ Perform-ImageUpdate() {
 
         if [ "$this_errors_count" -eq 0 ]; then
             mail_report_actions_taken+="<ul><li>&#x1F7E2; The original container $container_name ($image_name:$image_tag_old) has been successfully restored</li></ul>"
-            telegram_report_actions_taken+="    🟢 The original container $container_name ($image_name:$image_tag_old) has been successfully restored"
+            telegram_report_actions_taken+="        🟢 The original container $(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old")\\\\) has been successfully restored\n"
         else
-            mail_report_actions_taken+="<ul><li>&#x1F7E1; A partly successfull attempt was made to restore the original container $container_name ($image_name:$image_tag_old) <i>(please refer to your logs)</i></li></ul>"
-            telegram_report_actions_taken+="    🟠 A partly successfull attempt was made to restore the original container $container_name ($image_name:$image_tag_old) (please refer to your logs)"
+            mail_report_actions_taken+="<ul><li>&#x1F7E1; A partly successful attempt was made to restore the original container $container_name ($image_name:$image_tag_old) <i>(please refer to your logs)</i></li></ul>"
+            telegram_report_actions_taken+="        🟠 A partly successful attempt was made to restore the original container $(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old")\\\\) \\\\(please refer to your logs\\\\)\n"
         fi
         this_errors_count=0
     fi
@@ -1945,7 +1966,7 @@ Prune-ContainerBackups() {
                     if [ $days_diff -ge $container_backups_retention ]; then
                         Write-Log "INFO" "        Removing backed up container $container_name..."
                         { $cmd_docker rm -fv $container_name > /dev/null; result=$?; } || result=$?
-                        [ $result -eq 0 ] && Write-Log "DEBUG" "          => Successfully removed container" && mail_report_removed_container_backups+="<li>$container_name</li>"
+                        [ $result -eq 0 ] && Write-Log "DEBUG" "          => Successfully removed container" && mail_report_removed_container_backups+="<li>$container_name</li>" && telegram_report_removed_container_backups+="    \\\\- $(Telegram-EscapeSpecialChars "$container_name")\n"
                         [ $result -ne 0 ] && Write-Log "ERROR" "          => Failed to remove container: $result"
 
                     else
@@ -1995,7 +2016,7 @@ Send-MailNotification() {
     local end_time=$(date +%s)
     stats_execution_time=$((end_time - start_time))
 
-    if [[ "$mail_report_available" == true && -n "$mail_from" && -n "$mail_recipients" && -n "$mail_subject" ]]; then
+    if [[ "$report_available" == true && -n "$mail_from" && -n "$mail_recipients" && -n "$mail_subject" ]]; then
 
         end_time=$(date +%s)
         duration=$((end_time - start_time))
@@ -2118,13 +2139,13 @@ Send-MailNotification() {
     fi
 }
 
-Escape-TelegramSpecialChars() {
+Telegram-EscapeSpecialChars() {
     local string="$1"
-    local cmd_sed=$(Read-INI "$configFile" "paths" "sed")
-    local -a special_chars=('\' '`' '*' '_' '{' '}' '[' ']' '(' ')' '#' '+' '-' '=' '|' '.' '!')
+    local cmd_sed="sed"
+    local -a special_chars=('\\' '`' '*' '_' '{' '}' '[' ']' '(' ')' '#' '+' '-' '=' '|' '.' '!')
     
     for char in "${special_chars[@]}"; do
-        string=$(echo "$string" | $cmd_sed "s/$char/\\\\$char/g") ####### something's wrong here. always get "/usr/bin/sed: -e expression #1, char 9: unterminated `s' command"
+        string=$(echo "$string" | $cmd_sed "s/[$char]/\\\\\\\\\\\\$char/g")
     done
     
     echo "$string"
@@ -2137,33 +2158,45 @@ Send-TelegramNotification() {
     local chat_id=$(Read-INI "$configFile" "telegram" "chat_id")
     local retry_interval=$(Read-INI "$configFile" "telegram" "retry_interval")
     local retry_limit=$(Read-INI "$configFile" "telegram" "retry_limit")
-    ##### curl!
+    local cmd_curl=$(Read-INI "$configFile" "paths" "curl")
     local cmd_cut=$(Read-INI "$configFile" "paths" "cut")
-    local hostname=$(Escape-TelegramSpecialChars "$(hostname)")
-    local primary_IPaddress=$(hostname -I 2>/dev/null | $cmd_cut -d' ' -f1)
+    local cmd_jq=$(Read-INI "$configFile" "paths" "jq")
+    local cmd_docker=$(Read-INI "$configFile" "paths" "docker")
+    local hostname=$(Telegram-EscapeSpecialChars "$(hostname)")
+    local primary_IPaddress=$(Telegram-EscapeSpecialChars  "$(hostname -I 2>/dev/null | $cmd_cut -d' ' -f1)")
+    local docker_version=$(Telegram-EscapeSpecialChars "$($cmd_docker --version | $cmd_cut -d ' ' -f3 | tr -d ',')")
     local message=""
     local telegram_api_response=""
 
     Write-Log "INFO" "    Generating telegram message..."
     message+="🐳 *DOCKER CONTAINER UPDATE REPORT*\n"
     message+="\n"
+    [ "$test_mode" == true ] && message+="\`\`\`\n"
+    [ "$test_mode" == true ] && message+="TEST MODE ENABLED\n"
+    [ "$test_mode" == true ] && message+="To disable test mode, please customize your configuration file\\\\.\n"
+    [ "$test_mode" == true ] && message+="\`\`\`\n"
+    [ "$test_mode" == true ] && message+="\n"
     message+="📌 *Info*\n"
     message+="\`    Hostname:       $hostname\`\n"
     message+="\`    IP\\\\-Address:     $primary_IPaddress\`\n"
-    message+="\`    Docker Version: 20.10.7\`\n"
+    message+="\`    Docker Version: $docker_version\`\n"
     message+="\n"
-    message+="📋 *Actions Taken*\n"
-    message+="\n"
-    message+="🗑️ *Removed Container Backups*\n"
-    message+="\n"
+    [ -n "$telegram_report_actions_taken" ] && message+="📋 *Actions Taken*\n"
+    [ -n "$telegram_report_actions_taken" ] && message+="$telegram_report_actions_taken"
+    [ -n "$telegram_report_actions_taken" ] && message+="\n"
+    [ -n "$telegram_report_removed_container_backups" ] && message+="🗑️ *Removed Container Backups*\n"
+    [ -n "$telegram_report_removed_container_backups" ] && message+="$telegram_report_removed_container_backups"
+    [ -n "$telegram_report_removed_container_backups" ] && message+="\n"
     message+="📈 *Stats*\n"
-    message+="\n"
+    message+="\`    Script Execution Time: $stats_execution_time seconds\`\n"
+    message+="\`    Number of Warnings:    $stats_warnings_count\`\n"
+    message+="\`    Number of Errors:      $stats_errors_count\`\n"
 
     for ((i = 1; i <= retry_limit; i++)); do
-        Write-Log "INFO" "        Sending telegram message to chat ID: \"$chat_id\" (Attempt $i of $retry_limit)..."
-        telegram_api_response=$(curl -s -X POST "https://api.telegram.org/bot$bot_token/sendMessage" -H "Content-Type: application/json" -d '{ "chat_id": "'$chat_id'", "text": "'"$message"'", "parse_mode": "MarkdownV2" }')
+        Write-Log "INFO" "        Sending telegram message to chat ID \"$chat_id\" (Attempt $i of $retry_limit)..."
+        telegram_api_response=$($cmd_curl -s -X POST "https://api.telegram.org/bot$bot_token/sendMessage" -H "Content-Type: application/json" -d '{ "chat_id": "'$chat_id'", "text": "'"$message"'", "parse_mode": "MarkdownV2" }')
         
-        if [ "$(echo "$telegram_api_response" | jq -r '.ok')" = "true" ]; then
+        if [ "$(echo "$telegram_api_response" | $cmd_jq -r '.ok')" = "true" ]; then
             Write-Log "INFO"  "          => Successfully sent message"
             break
         else
@@ -2491,7 +2524,7 @@ Main() {
                     else
                         Write-Log "INFO" "       Update Rule Effectivity:                              Digest update for $container_name ($container_image_name:$container_image_tag) was prevented"
                         mail_report_available_updates+="<tr><td>$container_name</td><td>Digest</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$container_image_tag</td><td>$effective_update_rule</td></tr>"
-                        mail_report_available=true
+                        report_available=true
                     fi
                 else
                     Write-Log "INFO"  "       Insufficient Docker Hub image age"
@@ -2510,7 +2543,7 @@ Main() {
                     else
                         Write-Log "INFO" "       Update Rule Effectivity:                              Build update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_build_next) was prevented"
                         mail_report_available_updates+="<tr><td>$container_name</td><td>Build</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td>$effective_update_rule</td></tr>"
-                        mail_report_available=true
+                        report_available=true
                     fi
                 else
                     Write-Log "INFO"  "       Insufficient Docker Hub image age"
@@ -2529,7 +2562,7 @@ Main() {
                     else
                         Write-Log "INFO" "       Update Rule Effectivity:                              Patch update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_patch_next) was prevented"
                         mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td>$effective_update_rule</td></tr>"
-                        mail_report_available=true
+                        report_available=true
                     fi
                 else
                     Write-Log "INFO"  "       Insufficient Docker Hub image age"
@@ -2548,7 +2581,7 @@ Main() {
                     else
                         Write-Log "INFO" "       Update Rule Effectivity:                              Minor update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_minor_next) was prevented"
                         mail_report_available_updates+="<tr><td>$container_name</td><td>Minor</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td>$effective_update_rule</td></tr>"
-                        mail_report_available=true
+                        report_available=true
                     fi
                 else
                     Write-Log "INFO"  "       Insufficient Docker Hub image age"
@@ -2567,7 +2600,7 @@ Main() {
                     else
                         Write-Log "INFO" "       Update Rule Effectivity:                              Major update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_major_next) was prevented"
                         mail_report_available_updates+="<tr><td>$container_name</td><td>Major</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td>$effective_update_rule</td></tr>"
-                        mail_report_available=true
+                        report_available=true
                     fi
                 else
                     Write-Log "INFO"  "       Insufficient Docker Hub image age"
