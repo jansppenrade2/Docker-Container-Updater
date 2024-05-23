@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.22-a
+# 2024.05.22-b
 #
 # ## Changelog
 # 2024.05.21-3, janseppenrade2: Addressed a minor bug that was impacting the sorting of available image tags
@@ -308,6 +308,7 @@ Validate-ConfigFile() {
         echo "gawk=$(Get-Path gawk)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
         echo "cut=$(Get-Path cut)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
         echo "curl=$(Get-Path curl)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
+        echo "date=$(Get-Path date)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
         echo "docker=$(Get-Path docker)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
         echo "grep=$(Get-Path grep)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
         echo "jq=$(Get-Path jq)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
@@ -455,6 +456,12 @@ Validate-ConfigFile() {
             Write-Log "WARNING" "    => Invalid value for \"[paths] curl\" (Expected: Type of \"path\")"
         fi
     fi
+    if ! [[ $(Read-INI "$configFile" "paths" "date") =~ ^/.* ]]; then
+        Write-INI "$configFile" "paths" "date" "$(Get-Path date)"
+        if ! [[ $(Read-INI "$configFile" "paths" "date") =~ ^/.* ]]; then
+            Write-Log "WARNING" "    => Invalid value for \"[paths] date\" (Expected: Type of \"path\")"
+        fi
+    fi
     if ! [[ $(Read-INI "$configFile" "paths" "docker") =~ ^/.* ]]; then
         Write-INI "$configFile" "paths" "docker" "$(Get-Path docker)"
         if ! [[ $(Read-INI "$configFile" "paths" "docker") =~ ^/.* ]]; then
@@ -579,6 +586,7 @@ Test-Prerequisites() {
                 echo "                                  If you opt for manual installation, remember that after each restart of your QNAP, these packages will be removed by default."
                 echo "                                      - coreutils-sort"
                 echo "                                      - coreutils-cut"
+                echo "                                      - coreutils-date"
                 echo "                                      - grep"
                 echo "                                      - jq"
                 echo "                                      - sed"
@@ -602,6 +610,7 @@ Test-Prerequisites() {
             /opt/bin/opkg update >/dev/null 2>&1
             /opt/bin/opkg install coreutils-sort >/dev/null 2>&1
             /opt/bin/opkg install coreutils-cut >/dev/null 2>&1
+            /opt/bin/opkg install coreutils-date >/dev/null 2>&1
             /opt/bin/opkg install grep >/dev/null 2>&1
             /opt/bin/opkg install jq >/dev/null 2>&1
             /opt/bin/opkg install sed >/dev/null 2>&1
@@ -652,6 +661,20 @@ Test-Prerequisites() {
     fi
 
     command="curl"
+    if [ -n "$(Read-INI "$configFile" "paths" "$command")" ]; then
+        if ! [ -x "$(Read-INI "$configFile" "paths" "$command")" ]; then
+            Write-Log "ERROR" "    => Could not find \"$command\""
+            validationError=true
+        else
+            versionInstalled=$("$(Read-INI "$configFile" "paths" "$command")" --version 2>/dev/null | head -n 1)
+            Write-Log "DEBUG" "    => Found \"$command\" installed in version \"$versionInstalled\""
+        fi
+    else
+        Write-Log "ERROR" "    => It seems there is no version of \"$command\" installed on your system"
+        validationError=true
+    fi
+
+    command="date"
     if [ -n "$(Read-INI "$configFile" "paths" "$command")" ]; then
         if ! [ -x "$(Read-INI "$configFile" "paths" "$command")" ]; then
             Write-Log "ERROR" "    => Could not find \"$command\""
