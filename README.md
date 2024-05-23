@@ -123,6 +123,17 @@ These precise rules provide granular control over the update behavior of specifi
 
 To give you more control, you can integrate pre- and post-scripts. These are created by default in the directories `/usr/local/etc/container_update/pre-scripts` and `/usr/local/etc/container_update/post-scripts`, and they must be named after the container. These are standard shell scripts that you can create and customize as needed. For example, you can create backups of databases, configuration files, etc., before updating a container, and make adjustments such as customized branding or changes to file permissions after the update. Essentially, you can tailor these scripts to your specific needs. The output of these scripts is redirected to the log located in `/var/log/container_update.log` by default, so you have all logs in one place.
 
+### Notifications
+
+#### E-Mail Notifications
+
+To receive e-mail notifications, you need to install and configure Sendmail (as only Sendmail is supported).
+
+#### Telegram Notifications
+
+To receive Telegram notifications, you first need to obtain a Chat ID and a Bot Token, which you should enter in the configuration file.
+Please note: Splitting messages is currently not supported. Therefore, if a generated report exceeds Telegram's character limit of 4096, the message will not be sent.
+
 ## Having Trouble?
 If you encounter any issues while executing this script, please provide the following information:
 - A full log in debug mode *(ensure sensitive data is replaced)*
