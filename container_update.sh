@@ -4,9 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.22-e
+# 2024.05.22-f
 #
 # ## Changelog
+# 2024.05.XX-X, janseppenrade2: Addressed a minor bug that prevented removed container backups from being listed in reports. Addressed a bug that caused an unexpected script termination on QNAP devices with an outdated version of 'date'. Added support for Telegram notifications.
 # 2024.05.21-3, janseppenrade2: Addressed a minor bug that was impacting the sorting of available image tags
 # 2024.05.21-2, janseppenrade2: Added support for container attribute "--privileged"
 # 2024.05.21-1, janseppenrade2: Fixed a typo in the email report and resolved an issue that sometimes caused the Docker version to be omitted from the email report. Additionally, support for defining a minimum age (docker_hub_image_minimum_age) for new Docker Hub image tags has been added.
@@ -1972,7 +1973,7 @@ Prune-ContainerBackups() {
     local container_backup_count=""
 
     if [ "$prune_container_backups" == true ]; then
-        $cmd_docker ps -a --format "{{.Names}}" | sort | while read -r container_name; do
+        for container_name in $($cmd_docker ps -a --format "{{.Names}}" | sort); do
             if [[ "$container_name" == *_bak_* && -z "$($cmd_docker ps -q -f name=$container_name)" ]]; then
                 Write-Log "DEBUG" "    Processing container \"$container_name\""
                 
@@ -1994,7 +1995,6 @@ Prune-ContainerBackups() {
                         { $cmd_docker rm -fv $container_name > /dev/null; result=$?; } || result=$?
                         [ $result -eq 0 ] && Write-Log "DEBUG" "          => Successfully removed container" && mail_report_removed_container_backups+="<li>$container_name</li>" && telegram_report_removed_container_backups+="    \\\\- $(Telegram-EscapeSpecialChars "$container_name")\n"
                         [ $result -ne 0 ] && Write-Log "ERROR" "          => Failed to remove container: $result"
-
                     else
                         Write-Log "DEBUG" "        The removal of this container backup is skipped as it is less than $container_backups_retention days old"
                     fi
@@ -2103,7 +2103,7 @@ Send-MailNotification() {
                         fi
 
                         if [ -n "$mail_report_available_updates" ]; then
-                            mail_message+="<p style=\"font-size: 14px; padding-top: 15px; padding-left: 5px; color: #4b4b4b;\"><strong>&#x1F527; OUTSTANDING UPDATES</strong></p>\n"
+                            mail_message+="<p style=\"font-size: 14px; padding-top: 15px; padding-left: 5px; color: #4b4b4b;\"><strong>&#x1F527; OUTSTANDING UPDATES IN PIPELINE</strong></p>\n"
                             mail_message+="<table border="0" style=\"font-size: 13px; padding: 0 30px 15px;\">"
                                 mail_message+="<tr>"
                                     mail_message+="<td><strong>Container Name</strong></td>"
@@ -2193,6 +2193,8 @@ Send-TelegramNotification() {
     local docker_version=$(Telegram-EscapeSpecialChars "$($cmd_docker --version | $cmd_cut -d ' ' -f3 | tr -d ',')")
     local message=""
     local telegram_api_response=""
+    local end_time=$(date +%s)
+    stats_execution_time=$((end_time - start_time))
 
     Write-Log "INFO" "    Generating telegram message..."
     message+="🐳 *DOCKER CONTAINER UPDATE REPORT*\n"
