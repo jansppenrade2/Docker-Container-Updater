@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.22-g
+# 2024.05.23-a
 #
 # ## Changelog
 # 2024.05.XX-X, janseppenrade2: Addressed a minor bug that prevented removed container backups from being listed in reports. Addressed a bug that caused an unexpected script termination on QNAP devices with an outdated version of 'date'. Added support for Telegram notifications. Some optimizations to Extract-VersionPart() (responsible for detecting Major, Minor, Patch, and Build updates).
@@ -2219,6 +2219,8 @@ Send-TelegramNotification() {
     message+="\`    Script Execution Time: $stats_execution_time seconds\`\n"
     message+="\`    Number of Warnings:    $stats_warnings_count\`\n"
     message+="\`    Number of Errors:      $stats_errors_count\`\n"
+    
+    # Count (somehow) characters in message except for formatting chars to be able to split (also: somehow) the message....
 
     for ((i = 1; i <= retry_limit; i++)); do
         Write-Log "INFO" "        Sending telegram message to chat ID \"$chat_id\" (Attempt $i of $retry_limit)..."
