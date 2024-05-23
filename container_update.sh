@@ -2248,6 +2248,7 @@ Main() {
     local cmd_sed=$(Read-INI "$configFile" "paths" "sed")
     local cmd_jq=$(Read-INI "$configFile" "paths" "jq")
     local cmd_docker=$(Read-INI "$configFile" "paths" "docker")
+    local cmd_date=$(Read-INI "$configFile" "paths" "date")
     local container_ids=($($cmd_docker ps -q))
     local container_id=""
     local container_config=""
@@ -2432,7 +2433,7 @@ Main() {
                 Write-Log "INFO"  "    Extracting a list of available image tag names..."
                 docker_hub_image_tag_digest=$(Get-DockerHubImageTagProperty "$docker_hub_image_tags" "$container_image_tag" "docker_hub_image_tag_digest")
                 docker_hub_image_tag_last_updated=$(Get-DockerHubImageTagProperty "$docker_hub_image_tags" "$container_image_tag" "docker_hub_image_tag_last_updated")
-                docker_hub_image_tag_age=$(( $(date +%s) - $(date -d "$docker_hub_image_tag_last_updated" +%s) ))
+                docker_hub_image_tag_age=$(( $(date +%s) - $($cmd_date -d "$docker_hub_image_tag_last_updated" +%s) ))
                 docker_hub_image_tag_names=$(Get-DockerHubImageTagNames "$docker_hub_image_tags")
                 image_updates_available_all=$(Get-AvailableUpdates "all" "$docker_hub_image_tag_names" "$docker_hub_image_tag_names_filter" "$container_image_tag")
                 [ -n "$docker_hub_image_tag_digest" ] && image_update_available_digest=$(Get-AvailableUpdates "digest" "$image_repoDigests" "$docker_hub_image_tag_digest")
