@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.24-a
+# 2024.05.24-b
 #
 # ## Changelog
 # 2024.05.XX-X, janseppenrade2: Addressed a minor bug that prevented removed container backups from being listed in reports. Addressed a bug that caused an unexpected script termination on QNAP devices with an outdated version of 'date'. Added support for Telegram notifications. Some optimizations to Extract-VersionPart() (responsible for detecting Major, Minor, Patch, and Build updates). Fixed a malformed table in generated HTML mail reports.
@@ -2310,73 +2310,6 @@ Send-TelegramNotification() {
             fi
         fi
     done
-}
-
-Send-TelegramNotification_old() {
-    local test_mode=$(Read-INI "$configFile" "general" "test_mode")
-    local logFile=$(Read-INI "$configFile" "log" "filePath")
-    local bot_token=$(Read-INI "$configFile" "telegram" "bot_token")
-    local chat_id=$(Read-INI "$configFile" "telegram" "chat_id")
-    local retry_interval=$(Read-INI "$configFile" "telegram" "retry_interval")
-    local retry_limit=$(Read-INI "$configFile" "telegram" "retry_limit")
-    local cmd_curl=$(Read-INI "$configFile" "paths" "curl")
-    local cmd_cut=$(Read-INI "$configFile" "paths" "cut")
-    local cmd_jq=$(Read-INI "$configFile" "paths" "jq")
-    local cmd_docker=$(Read-INI "$configFile" "paths" "docker")
-    local hostname=$(Telegram-EscapeSpecialChars "$(hostname)")
-    local primary_IPaddress=$(Telegram-EscapeSpecialChars  "$(hostname -I 2>/dev/null | $cmd_cut -d' ' -f1)")
-    local docker_version=$(Telegram-EscapeSpecialChars "$($cmd_docker --version | $cmd_cut -d ' ' -f3 | tr -d ',')")
-    local maximumMessageLength=4096
-    local message=""
-    local telegram_api_response=""
-    local end_time=$(date +%s)
-    stats_execution_time=$((end_time - start_time))
-
-    Write-Log "INFO" "    Generating telegram message..."
-    message+="🐳 *DOCKER CONTAINER UPDATE REPORT*\n"
-    message+="\n"
-    [ "$test_mode" == true ] && message+="\`\`\`\n"
-    [ "$test_mode" == true ] && message+="TEST MODE ENABLED\n"
-    [ "$test_mode" == true ] && message+="To disable test mode, please customize your configuration file\\\\.\n"
-    [ "$test_mode" == true ] && message+="\`\`\`\n"
-    [ "$test_mode" == true ] && message+="\n"
-    message+="📌 *Info*\n"
-    message+="\`    Hostname:       $hostname\`\n"
-    message+="\`    IP\\\\-Address:     $primary_IPaddress\`\n"
-    message+="\`    Docker Version: $docker_version\`\n"
-    message+="\n"
-    [ -n "$telegram_report_actions_taken" ] && message+="📋 *Actions Taken*\n"
-    [ -n "$telegram_report_actions_taken" ] && message+="$telegram_report_actions_taken"
-    [ -n "$telegram_report_actions_taken" ] && message+="\n"
-    [ -n "$telegram_report_removed_container_backups" ] && message+="🗑️ *Removed Container Backups*\n"
-    [ -n "$telegram_report_removed_container_backups" ] && message+="$telegram_report_removed_container_backups"
-    [ -n "$telegram_report_removed_container_backups" ] && message+="\n"
-    message+="📈 *Stats*\n"
-    message+="\`    Script Execution Time: $stats_execution_time seconds\`\n"
-    message+="\`    Number of Warnings:    $stats_warnings_count\`\n"
-    message+="\`    Number of Errors:      $stats_errors_count\`\n"
-
-    Write-Log "DEBUG" "        Message character count: $(Telegram-GetMessageCharCount "$message")"
-    
-    if [ $(Telegram-GetMessageCharCount "$message") -le $maximumMessageLength ]; then
-        for ((i = 1; i <= retry_limit; i++)); do
-            Write-Log "INFO" "        Sending telegram message to chat ID \"$chat_id\" (Attempt $i of $retry_limit)..."
-            telegram_api_response=$($cmd_curl -s -X POST "https://api.telegram.org/bot$bot_token/sendMessage" -H "Content-Type: application/json" -d '{ "chat_id": "'$chat_id'", "text": "'"$message"'", "parse_mode": "MarkdownV2" }')
-            
-            if [ "$(echo "$telegram_api_response" | $cmd_jq -r '.ok')" = "true" ]; then
-                Write-Log "INFO"  "          => Successfully sent message"
-                break
-            else
-                Write-Log "ERROR" "          => Failed to send message: $telegram_api_response"
-                if ((i < retry_limit)); then
-                    Write-Log "INFO"  "          => Retry in $retry_interval seconds..."
-                    sleep "$retry_interval"
-                fi
-            fi
-        done
-    else
-        Write-Log "ERROR" "        Message exceeded the maximum length of $maximumMessageLength characters with a length of $(Telegram-GetMessageCharCount "$message")"
-    fi
 }
 
 Main() {
