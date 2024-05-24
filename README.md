@@ -133,8 +133,6 @@ To receive e-mail notifications, you need to install and configure Sendmail (as 
 
 To receive Telegram notifications, you first need to obtain a Chat ID and a Bot Token, which you should enter in the configuration file.
 
-> ⚠️ Please note: Splitting messages is currently not supported. Therefore, if a generated report exceeds Telegram's character limit of 4096, the message will not be sent.
-
 ## Having Trouble?
 If you encounter any issues while executing this script, please provide the following information:
 - A full log in debug mode *(ensure sensitive data is replaced)*
