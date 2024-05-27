@@ -15,7 +15,7 @@ For the lazier and automation-loving nerds (like myself), constantly updating Do
 
 ## Installation / Update
 
-1. On your Docker host, navigate to the directory where the script should be downloaded
+1. On your Docker host, navigate to the directory where the script should be downloaded to
 2. Download this script to your Docker host and make it executable _(you can do it manually, or just use the following command)_
 ```
 wget --header='Accept: application/vnd.github.v3.raw' -O container_update.sh https://api.github.com/repos/jansppenrade2/Docker-Container-Updater/contents/container_update.sh?ref=main && chmod +x ./container_update.sh
