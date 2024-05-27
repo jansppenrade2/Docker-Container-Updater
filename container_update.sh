@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.27-3
+# 2024.05.27-c
 #
 # ## Changelog
 # 2024.05.XX-X, janseppenrade2: Fixed a bug that caused notifications to be sent even when no action was taken. Additionally, fixed an issue with log file pruning that resulted in the removal of various spaces, which were important for maintaining readability in the log file.
