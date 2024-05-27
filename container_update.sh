@@ -7,7 +7,7 @@
 # 2024.05.27-1
 #
 # ## Changelog
-# 2024.05.27-1, Keonik1: Add docker container installation, refactor some funtions.
+# 2024.05.27-1, Keonik1: Add docker container installation, refactor some functions.
 # 2024.05.26-1, janseppenrade2: Addressed a minor bug that prevented removed container backups from being listed in reports. Addressed a bug that caused an unexpected script termination on QNAP devices with an outdated version of 'date'. Added support for Telegram notifications. Some optimizations to Extract-VersionPart() (responsible for detecting Major, Minor, Patch, and Build updates). Fixed a malformed table in generated HTML mail reports. Optimized outstanding updates list in report. Fixed a bug in the update rule analysis related to build updates.
 # 2024.05.21-3, janseppenrade2: Addressed a minor bug that was impacting the sorting of available image tags
 # 2024.05.21-2, janseppenrade2: Added support for container attribute "--privileged"

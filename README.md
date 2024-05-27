@@ -27,7 +27,7 @@ wget --header='Accept: application/vnd.github.v3.raw' -O container_update.sh htt
 ### Docker
 1. Clone this repo and go to folder.
    ```
-   git clone https://github.com/Keonik1/Docker-Container-Updater.git
+   git clone https://github.com/jansppenrade2/Docker-Container-Updater.git
    cd Docker-Container-Updater/
    ```
 #### Docker build
