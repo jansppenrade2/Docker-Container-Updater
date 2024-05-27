@@ -4,9 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.27-2
+# 2024.05.27-3
 #
 # ## Changelog
+# 2024.05.27-3, janseppenrade2: Fixed a bug that caused notifications to be sent even when no action was taken. Additionally, fixed an issue with log file pruning that resulted in the removal of various spaces, which were important for maintaining readability in the log file.
 # 2024.05.27-2, janseppenrade2: Fixed a bug that reported incorrectly listed outstanding updates if an update was already performed during the same script execution.
 # 2024.05.27-1, Keonik1: Add docker container installation, refactor some functions.
 # 2024.05.26-1, janseppenrade2: Addressed a minor bug that prevented removed container backups from being listed in reports. Addressed a bug that caused an unexpected script termination on QNAP devices with an outdated version of 'date'. Added support for Telegram notifications. Some optimizations to Extract-VersionPart() (responsible for detecting Major, Minor, Patch, and Build updates). Fixed a malformed table in generated HTML mail reports. Optimized outstanding updates list in report. Fixed a bug in the update rule analysis related to build updates.
@@ -229,23 +230,22 @@ Prune-Log() {
 
     if [ -n "$logFile" ] && test -f "$logFile"; then
         local current_time=$(date +%s)
-        local timestamp=$(echo "$(head -n 1 "$logFile")" | $cmd_awk -F'[][]' '{print $2}')
+        local timestamp=$(head -n 1 "$logFile" | $cmd_awk -F'[][]' '{print $2}')
         local timestamp_seconds=$(date -d "$timestamp" +%s)
         local difference=$(( (current_time - timestamp_seconds) / 86400 ))
-        #local difference=$($cmd_awk 'BEGIN{ printf "%.0f", (current_time - timestamp_seconds) / 86400 }') # rounded up
         
         if [ "$difference" -gt "$retention" ]; then
             Write-Log "INFO" "Pruning log file (Keeping entries of the last $retention day(s))..."
-            while IFS= read -r line; do
+            while IFS= read -r line || [ -n "$line" ]; do
                 timestamp=$(echo "$line" | $cmd_awk -F'[][]' '{print $2}')
                 timestamp_seconds=$(date -d "$timestamp" +%s)
                 difference=$(( (current_time - timestamp_seconds) / 86400 ))
                 if (( $difference < $retention )); then
-                    echo $line >> "$logFile.truncated"
+                    printf '%s\n' "$line" >> "$logFile.truncated"
                 fi
-            done < "$logFile"   
+            done < "$logFile"
             mv -f "$logFile.truncated" "$logFile"
-            Write-Log "INFO"  "Pruning log file has been completed"
+            Write-Log "INFO" "Pruning log file has been completed"
         else
             Write-Log "DEBUG" "Pruning log file skipped"
         fi
@@ -2004,7 +2004,7 @@ Prune-ContainerBackups() {
                     if [ $days_diff -ge $container_backups_retention ]; then
                         Write-Log "INFO" "        Removing backed up container $container_name..."
                         { $cmd_docker rm -fv $container_name > /dev/null; result=$?; } || result=$?
-                        [ $result -eq 0 ] && Write-Log "DEBUG" "          => Successfully removed container" && mail_report_removed_container_backups+="<li>$container_name</li>" && telegram_report_removed_container_backups+="$(Telegram-EscapeSpecialChars "$container_name")\n"
+                        [ $result -eq 0 ] && Write-Log "DEBUG" "          => Successfully removed container" && report_available=true && mail_report_removed_container_backups+="<li>$container_name</li>" && telegram_report_removed_container_backups+="$(Telegram-EscapeSpecialChars "$container_name")\n"
                         [ $result -ne 0 ] && Write-Log "ERROR" "          => Failed to remove container: $result"
                     else
                         Write-Log "DEBUG" "        The removal of this container backup is skipped as it is less than $container_backups_retention days old"
@@ -2091,32 +2091,34 @@ Telegram-GenerateMessage() {
     local end_time=$(date +%s)
     stats_execution_time=$((end_time - start_time))
 
-    message+="🐳 *DOCKER CONTAINER UPDATE REPORT*\n"
-    message+="\n"
-    [ "$test_mode" == true ] && message+="\`\`\`\n"
-    [ "$test_mode" == true ] && message+="TEST MODE ENABLED\n"
-    [ "$test_mode" == true ] && message+="To disable test mode, please customize your configuration file\\\\.\n"
-    [ "$test_mode" == true ] && message+="\`\`\`\n"
-    [ "$test_mode" == true ] && message+="\n"
-    message+="📌 __*Info*__\n"
-    message+="*Hostname:* $hostname\n"
-    message+="*IP\\\\-Address:* $primary_IPaddress\n"
-    message+="*Docker Version:* $docker_version\n"
-    message+="*Script Version:* $(Telegram-EscapeSpecialChars "$(Get-ScriptVersion)")\n"
-    message+="\n"
-    [ -n "$telegram_report_actions_taken" ] && message+="📋 __*Actions Taken*__\n"
-    [ -n "$telegram_report_actions_taken" ] && message+="$telegram_report_actions_taken"
-    [ -n "$telegram_report_actions_taken" ] && message+="\n"
-    [ -n "$telegram_report_available_updates" ] && message+="🔧 __*Outstanding Updates*__\n"
-    [ -n "$telegram_report_available_updates" ] && message+="$telegram_report_available_updates"
-    [ -n "$telegram_report_available_updates" ] && message+="\n"
-    [ -n "$telegram_report_removed_container_backups" ] && message+="🗑️ __*Removed Container Backups*__\n"
-    [ -n "$telegram_report_removed_container_backups" ] && message+="$telegram_report_removed_container_backups"
-    [ -n "$telegram_report_removed_container_backups" ] && message+="\n"
-    message+="📈 __*Stats*__\n"
-    message+="*Script Execution Time:* $stats_execution_time seconds\n"
-    message+="*Number of Warnings:* $stats_warnings_count\n"
-    message+="*Number of Errors:* $stats_errors_count\n"
+    if [ "$report_available" == true ]; then
+        message+="🐳 *DOCKER CONTAINER UPDATE REPORT*\n"
+        message+="\n"
+        [ "$test_mode" == true ] && message+="\`\`\`\n"
+        [ "$test_mode" == true ] && message+="TEST MODE ENABLED\n"
+        [ "$test_mode" == true ] && message+="To disable test mode, please customize your configuration file\\\\.\n"
+        [ "$test_mode" == true ] && message+="\`\`\`\n"
+        [ "$test_mode" == true ] && message+="\n"
+        message+="📌 __*Info*__\n"
+        message+="*Hostname:* $hostname\n"
+        message+="*IP\\\\-Address:* $primary_IPaddress\n"
+        message+="*Docker Version:* $docker_version\n"
+        message+="*Script Version:* $(Telegram-EscapeSpecialChars "$(Get-ScriptVersion)")\n"
+        message+="\n"
+        [ -n "$telegram_report_actions_taken" ] && message+="📋 __*Actions Taken*__\n"
+        [ -n "$telegram_report_actions_taken" ] && message+="$telegram_report_actions_taken"
+        [ -n "$telegram_report_actions_taken" ] && message+="\n"
+        [ -n "$telegram_report_available_updates" ] && message+="🔧 __*Outstanding Updates*__\n"
+        [ -n "$telegram_report_available_updates" ] && message+="$telegram_report_available_updates"
+        [ -n "$telegram_report_available_updates" ] && message+="\n"
+        [ -n "$telegram_report_removed_container_backups" ] && message+="🗑️ __*Removed Container Backups*__\n"
+        [ -n "$telegram_report_removed_container_backups" ] && message+="$telegram_report_removed_container_backups"
+        [ -n "$telegram_report_removed_container_backups" ] && message+="\n"
+        message+="📈 __*Stats*__\n"
+        message+="*Script Execution Time:* $stats_execution_time seconds\n"
+        message+="*Number of Warnings:* $stats_warnings_count\n"
+        message+="*Number of Errors:* $stats_errors_count\n"
+    fi
 
     echo "$message"
     return
@@ -2128,27 +2130,31 @@ Telegram-SplitMessage() {
     local max_length=4096
     local current_length=0
     local message_part=""
-    
-    message=$(echo $message | $cmd_sed 's/\\n/\n/g')
 
-    while IFS="\n" read -r line; do
-        line_length=$(Telegram-GetMessageLength "$line")
-        if (( current_length + line_length + 1 > max_length )); then
-            Send-TelegramNotification "$message_part"
-            message_part="$line"
-            current_length=$line_length
-        else
-            if [[ -n "$message_part" ]]; then
-                message_part+=$'\\n'
-                current_length=$((current_length + 1))
+    if [ -n "$message" ]; then
+        message=$(echo $message | $cmd_sed 's/\\n/\n/g')
+
+        while IFS="\n" read -r line; do
+            line_length=$(Telegram-GetMessageLength "$line")
+            if (( current_length + line_length + 1 > max_length )); then
+                Send-TelegramNotification "$message_part"
+                message_part="$line"
+                current_length=$line_length
+            else
+                if [[ -n "$message_part" ]]; then
+                    message_part+=$'\\n'
+                    current_length=$((current_length + 1))
+                fi
+                message_part+="$line"
+                current_length=$((current_length + line_length))
             fi
-            message_part+="$line"
-            current_length=$((current_length + line_length))
-        fi
-    done <<< "$message"
+        done <<< "$message"
 
-    if [[ -n "$message_part" ]]; then
-        Send-TelegramNotification "$message_part"
+        if [[ -n "$message_part" ]]; then
+            Send-TelegramNotification "$message_part"
+        fi
+    else
+        Write-Log "INFO" "        There is nothing to report"
     fi
 }
 
@@ -2644,19 +2650,20 @@ Main() {
                         else
                             Write-Log "INFO" "       Update Rule Effectivity:                              Digest update for $container_name ($container_image_name:$container_image_tag) was prevented"
                             mail_report_available_updates+="<tr><td>$container_name</td><td>Digest</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$container_image_tag</td><td>$effective_update_rule</td></tr>"
-                            telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$container_image_tag") \\\\(new digest\\\\)\n"
+                            telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$container_image_tag")\n"
                             report_available=true
                         fi
                     else
                         Write-Log "INFO"  "       Insufficient Docker Hub image age"
                         Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
                         mail_report_available_updates+="<tr><td>$container_name</td><td>Digest</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$container_image_tag</td><td>$effective_update_rule</td></tr>"
-                        telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$container_image_tag") \\\\(new digest\\\\)\n"
+                        telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$container_image_tag")\n"
                         report_available=true
                     fi
                 else
+                    Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
                     mail_report_available_updates+="<tr><td>$container_name</td><td>Digest</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$container_image_tag</td><td></td></tr>"
-                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$container_image_tag") \\\\(new digest\\\\)\n"
+                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$container_image_tag")\n"
                     report_available=true
                 fi
             fi
@@ -2676,25 +2683,26 @@ Main() {
                             image_update_available_build_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
                             if [ -n "$image_update_available_build_next" ]; then
                                 mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td></td></tr>"
-                                telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_build_next") \\\\(new build\\\\)\n"
+                                telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_build_next")\n"
                                 report_available=true
                             fi
                         else
                             Write-Log "INFO" "       Update Rule Effectivity:                              Build update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_build_next) was prevented"
                             mail_report_available_updates+="<tr><td>$container_name</td><td>Build</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td>$effective_update_rule</td></tr>"
-                            telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_build_next") \\\\(new build\\\\)\n"
+                            telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_build_next")\n"
                             report_available=true
                         fi
                     else
                         Write-Log "INFO"  "       Insufficient Docker Hub image age"
                         Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
                         mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td></td></tr>"
-                        telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_build_next") \\\\(new build\\\\)\n"
+                        telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_build_next")\n"
                         report_available=true
                     fi
                 else
+                    Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
                     mail_report_available_updates+="<tr><td>$container_name</td><td>Build</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td></td></tr>"
-                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_build_next") \\\\(new build\\\\)\n"
+                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_build_next")\n"
                     report_available=true
                 fi
             fi
@@ -2714,25 +2722,26 @@ Main() {
                             image_update_available_patch_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
                             if [ -n "$image_update_available_patch_next" ]; then
                                 mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td></td></tr>"
-                                telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_patch_next") \\\\(new patch\\\\)\n"
+                                telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_patch_next")\n"
                                 report_available=true
                             fi
                         else
                             Write-Log "INFO" "       Update Rule Effectivity:                              Patch update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_patch_next) was prevented"
                             mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td>$effective_update_rule</td></tr>"
-                            telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_patch_next") \\\\(new patch\\\\)\n"
+                            telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_patch_next")\n"
                             report_available=true
                         fi
                     else
                         Write-Log "INFO"  "       Insufficient Docker Hub image age"
                         Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
                         mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td></td></tr>"
-                        telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_patch_next") \\\\(new patch\\\\)\n"
+                        telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_patch_next")\n"
                         report_available=true
                     fi
                 else
+                    Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
                     mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td></td></tr>"
-                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_patch_next") \\\\(new patch\\\\)\n"
+                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_patch_next")\n"
                     report_available=true
                 fi
             fi
@@ -2752,25 +2761,26 @@ Main() {
                             image_update_available_minor_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
                             if [ -n "$image_update_available_minor_next" ]; then
                                 mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td></td></tr>"
-                                telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_minor_next") \\\\(new minor\\\\)\n"
+                                telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_minor_next")\n"
                                 report_available=true
                             fi
                         else
                             Write-Log "INFO" "       Update Rule Effectivity:                              Minor update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_minor_next) was prevented"
                             mail_report_available_updates+="<tr><td>$container_name</td><td>Minor</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td>$effective_update_rule</td></tr>"
-                            telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_minor_next") \\\\(new minor\\\\)\n"
+                            telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_minor_next")\n"
                             report_available=true
                         fi
                     else
                         Write-Log "INFO"  "       Insufficient Docker Hub image age"
                         Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
                         mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td></td></tr>"
-                        telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_minor_next") \\\\(new minor\\\\)\n"
+                        telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_minor_next")\n"
                         report_available=true
                     fi
                 else
+                    Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
                     mail_report_available_updates+="<tr><td>$container_name</td><td>Minor</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td></td></tr>"
-                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_minor_next") \\\\(new minor\\\\)\n"
+                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_minor_next")\n"
                     report_available=true
                 fi
             fi
@@ -2790,25 +2800,26 @@ Main() {
                             image_update_available_major_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
                             if [ -n "$image_update_available_major_next" ]; then
                                 mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td></td></tr>"
-                                telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_major_next") \\\\(new major\\\\)\n"
+                                telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_major_next")\n"
                                 report_available=true
                             fi
                         else
                             Write-Log "INFO" "       Update Rule Effectivity:                              Major update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_major_next) was prevented"
                             mail_report_available_updates+="<tr><td>$container_name</td><td>Major</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td>$effective_update_rule</td></tr>"
-                            telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_major_next") \\\\(new major\\\\)\n"
+                            telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_major_next")\n"
                             report_available=true
                         fi
                     else
                         Write-Log "INFO"  "       Insufficient Docker Hub image age"
                         Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
                         mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td></td></tr>"
-                        telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_major_next") \\\\(new major\\\\)\n"
+                        telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_major_next")\n"
                         report_available=true
                     fi
                 else
+                    Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
                     mail_report_available_updates+="<tr><td>$container_name</td><td>Major</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td></td></tr>"
-                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_major_next") \\\\(new major\\\\)\n"
+                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_major_next")\n"
                     report_available=true
                 fi
             fi
@@ -2816,7 +2827,7 @@ Main() {
 
         if [ "$test_mode" == false ]; then
             Write-Log "INFO"  "<print_line>"
-            Write-Log "INFO"  "| PRUNING PROGRESS"
+            Write-Log "INFO"  " | PRUNING PROGRESS"
             Write-Log "INFO"  "<print_line>"
             Prune-ContainerBackups
             Prune-DockerImages
@@ -2832,8 +2843,7 @@ Main() {
         if [ "$telegram_notifications_enabled" == true ]; then
             Write-Log "INFO" "<print_line>"
             Write-Log "INFO" " | TELEGRAM NOTIFICATIONS"
-            Write-Log "INFO" "<print_line>"
-            #Send-TelegramNotification-old
+            Write-Log "INFO" "<print_line>"ˇ
             Telegram-SplitMessage "$(Telegram-GenerateMessage)"
         fi
         
