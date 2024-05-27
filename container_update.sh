@@ -4,9 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.26-1
+# 2024.05.27-1
 #
 # ## Changelog
+# 2024.05.27-1, Keonik1: Add docker container installation, refactor some functions.
 # 2024.05.26-1, janseppenrade2: Addressed a minor bug that prevented removed container backups from being listed in reports. Addressed a bug that caused an unexpected script termination on QNAP devices with an outdated version of 'date'. Added support for Telegram notifications. Some optimizations to Extract-VersionPart() (responsible for detecting Major, Minor, Patch, and Build updates). Fixed a malformed table in generated HTML mail reports. Optimized outstanding updates list in report. Fixed a bug in the update rule analysis related to build updates.
 # 2024.05.21-3, janseppenrade2: Addressed a minor bug that was impacting the sorting of available image tags
 # 2024.05.21-2, janseppenrade2: Added support for container attribute "--privileged"
@@ -14,7 +15,7 @@
 # 2024.05.17-1, janseppenrade2: Fixed a minor bug that prevented an email report from being generated when updates were found but no changes were made. (Those reports might be important for those who using this script just to monitor updates)
 # 2024.05.16-1, janseppenrade2: Completely redesigned for enhanced performance and a better overview and more reliability - Crafted with lots of love and a touch of magic
 
-configFile="/usr/local/etc/container_update/container_update.ini"
+configFile=${DCU_CONFIG_FILE:-"/usr/local/etc/container_update/container_update.ini"}
 pidFile="$(dirname "$(readlink -f "$0")")/`basename "$0"`.pid"
 start_time=$(date +%s)
 stats_execution_time=0
@@ -277,6 +278,15 @@ Get-Path() {
 }
 
 Validate-ConfigFile() {
+    Write-Log-Failed-To-Add-Some-Value() {
+        Write-Log "ERROR" "Failed to add value to \"$configFile\""
+        End-Script 1
+    }
+    Write-To-ConfigFile() {
+        local text_to_write=$1
+        # local error_funtion
+        echo "$text_to_write" >> $configFile 2>/dev/null || Write-Log-Failed-To-Add-Some-Value
+    }
     local configFileFolder=$(dirname "$configFile")
     local validationError=false
     local rule_default_exists=false
@@ -289,53 +299,53 @@ Validate-ConfigFile() {
         touch $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to create \"$configFile\""; End-Script 1; }
         chmod ugo+rw $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to modify permissons on \"$configFile\""; End-Script 1; }
 
-        echo "[general]" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "test_mode=true" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "prune_images=true" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "prune_container_backups=true" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "container_backups_retention=7" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "container_backups_keep_last=1" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "container_update_validation_time=120" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "update_rules=*[0.1.1-1,true]" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "docker_hub_api_url=https://registry.hub.docker.com/v2" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "docker_hub_api_image_tags_page_size_limit=100" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "docker_hub_api_image_tags_page_crawl_limit=10" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "docker_hub_image_minimum_age=21600" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "pre_scripts_folder=/usr/local/etc/container_update/pre-scripts" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "post_scripts_folder=/usr/local/etc/container_update/post-scripts" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "[paths]" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "tput=$(Get-Path tput)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "gawk=$(Get-Path gawk)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "cut=$(Get-Path cut)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "curl=$(Get-Path curl)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "date=$(Get-Path date)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "docker=$(Get-Path docker)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "grep=$(Get-Path grep)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "jq=$(Get-Path jq)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "sed=$(Get-Path sed)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "wget=$(Get-Path wget)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "sort=$(Get-Path sort)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "sendmail=$(Get-Path sendmail)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "[log]" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "filePath=/var/log/container_update.log" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "level=DEBUG" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "retention=7" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "[mail]" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "notifications_enabled=false" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "mode=sendmail" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "from=" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "recipients=" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "subject=Docker Container Update Report from $(hostname)" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "[telegram]" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "notifications_enabled=false" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "bot_token=" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "chat_id=" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "retry_interval=10" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
-        echo "retry_limit=2" >> $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to add value to \"$configFile\""; End-Script 1; }
+        Write-To-ConfigFile "[general]"
+        Write-To-ConfigFile "test_mode=${DCU_TEST_MODE:-"true"}"
+        Write-To-ConfigFile "prune_images=${DCU_PRUNE_IMAGES:-"true"}"
+        Write-To-ConfigFile "prune_container_backups=${DCU_PRUNE_CONTAINER_BACKUPS:-"true"}"
+        Write-To-ConfigFile "container_backups_retention=${DCU_CONTAINER_BACKUPS_RETENTION:-"7"}"
+        Write-To-ConfigFile "container_backups_keep_last=${DCU_CONTAINER_BACKUPS_KEEP_LAST:-"1"}"
+        Write-To-ConfigFile "container_update_validation_time=${DCU_CONTAINER_UPDATE_VALIDATION_TIME:-"120"}"
+        Write-To-ConfigFile "update_rules=${DCU_UPDATE_RULES:-"*[0.1.1-1,true]"}"
+        Write-To-ConfigFile "docker_hub_api_url=${DCU_DOCKER_HUB_API_URL:-"https://registry.hub.docker.com/v2"}"
+        Write-To-ConfigFile "docker_hub_api_image_tags_page_size_limit=${DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT:-"100"}"
+        Write-To-ConfigFile "docker_hub_api_image_tags_page_crawl_limit=${DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT:-"10"}"
+        Write-To-ConfigFile "docker_hub_image_minimum_age=${DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE:-"21600"}"
+        Write-To-ConfigFile "pre_scripts_folder=${DCU_PRE_SCRIPTS_FOLDER:-"/usr/local/etc/container_update/pre-scripts"}"
+        Write-To-ConfigFile "post_scripts_folder=${DCU_POST_SCRIPTS_FOLDER:-"/usr/local/etc/container_update/post-scripts"}"
+        Write-To-ConfigFile ""
+        Write-To-ConfigFile "[paths]"
+        Write-To-ConfigFile "tput=$(Get-Path tput)"
+        Write-To-ConfigFile "gawk=$(Get-Path gawk)"
+        Write-To-ConfigFile "cut=$(Get-Path cut)"
+        Write-To-ConfigFile "curl=$(Get-Path curl)"
+        Write-To-ConfigFile "date=$(Get-Path date)"
+        Write-To-ConfigFile "docker=$(Get-Path docker)"
+        Write-To-ConfigFile "grep=$(Get-Path grep)"
+        Write-To-ConfigFile "jq=$(Get-Path jq)"
+        Write-To-ConfigFile "sed=$(Get-Path sed)"
+        Write-To-ConfigFile "wget=$(Get-Path wget)"
+        Write-To-ConfigFile "sort=$(Get-Path sort)"
+        Write-To-ConfigFile "sendmail=$(Get-Path sendmail)"
+        Write-To-ConfigFile ""
+        Write-To-ConfigFile "[log]"
+        Write-To-ConfigFile "filePath=${DCU_LOG_FILEPATH:-"/var/log/container_update.log"}"
+        Write-To-ConfigFile "level=${DCU_LOG_LEVEL:-"INFO"}"
+        Write-To-ConfigFile "retention=${DCU_LOG_RETENTION:-"7"}"
+        Write-To-ConfigFile ""
+        Write-To-ConfigFile "[mail]"
+        Write-To-ConfigFile "notifications_enabled=${DCU_MAIL_NOTIFICATIONS_ENABLED:-"false"}"
+        Write-To-ConfigFile "mode=${DCU_MAIL_NOTIFICATION_MODE:-"sendmail"}"
+        Write-To-ConfigFile "from=${DCU_MAIL_FROM:-""}"
+        Write-To-ConfigFile "recipients=${DCU_MAIL_RECIPIENTS:-""}"
+        Write-To-ConfigFile "subject=${DCU_MAIL_SUBJECT:-"Docker Container Update Report from $(hostname)"}"
+        Write-To-ConfigFile ""
+        Write-To-ConfigFile "[telegram]"
+        Write-To-ConfigFile "notifications_enabled=${DCU_TELEGRAM_NOTIFICATIONS_ENABLED:-"false"}"
+        Write-To-ConfigFile "bot_token=${DCU_TELEGRAM_BOT_TOKEN:-""}"
+        Write-To-ConfigFile "chat_id=${DCU_TELEGRAM_CHAT_ID:-""}"
+        Write-To-ConfigFile "retry_interval=${DCU_TELEGRAM_RETRY_INTERVAL:-"10"}"
+        Write-To-ConfigFile "retry_limit=${DCU_TELEGRAM_RETRY_LIMIT:-"2"}"
     else
         Write-Log "INFO" "Existing configuration file found in \"$configFile\""
 
