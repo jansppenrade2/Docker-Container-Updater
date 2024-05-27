@@ -9,7 +9,7 @@
 - **⚙️ Customizable and Conditional Update Rules**: Define highly precise update rules for each individual container.
 - **🔁 Standard Update Sequence**: Updates follow the standard sequence: first digest, build, patch, minor, and then major updates. No updates are skipped.
 - **🛠️ Backup and Rollback**: Backups of your containers are created before updates. If an update fails, the change is rolled back and the old container is restarted.
-- **📧 Email Notifications**: Stay informed with detailed email reports *(requires sendmail to be installed and configured)*.
+- **📧 Notifications**: Stay informed with detailed email and telegram reports
 - **📜 Pre- and Post-Scripts Integration**: Integrate your own pre- and post-scripts to perform actions such as backing up configuration files or databases before any update and making adjustments to the container configuration after any update.
 
 > The default configuration has **test mode enabled**. Safety first 😉! After you've run your first test, checked for errors, and reviewed the generated Docker run commands, you can disable test mode in your configuration file *(see below)*.
@@ -59,6 +59,16 @@ The Docker Container Auto-Update script **now uses a configuration file**, which
 | mail        | from                                        | Email address for sending notifications                                                                       |                                                           | Any valid email address                                   |
 | mail        | recipients                                  | Space-separated list of recipient email addresses                                                             |                                                           | Any valid email addresses (seperated by space)            |
 | mail        | subject                                     | Subject of the notification email                                                                             | `Docker Container Update Report from <hostname>`          | Any valid string                                          |
+| telegram    | notifications_enabled                       | Enable or disable telegram notifications                                                                      | `false`                                                   | `true`, `false`                                           |
+| telegram    | retry_limit                                 | Number of retry attempts for sending a message                                                                | 2                                                         | Any positive integer                                      |
+| telegram    | retry_interval                              | Time interval between retry attempts (in seconds)                                                             | 10                                                        | Any positive integer                                      |
+| telegram    | chat_id                                     | Unique identifier for the target chat or user                                                                 |                                                           | A single valid chat ID                                    |
+| telegram    | bot_token                                   | Access token for the Telegram Bot API                                                                         |                                                           | A single valid Telegram Bot token                         |
+
+
+
+
+
 ---
 
 ### Update Rules
@@ -113,44 +123,15 @@ These precise rules provide granular control over the update behavior of specifi
 
 To give you more control, you can integrate pre- and post-scripts. These are created by default in the directories `/usr/local/etc/container_update/pre-scripts` and `/usr/local/etc/container_update/post-scripts`, and they must be named after the container. These are standard shell scripts that you can create and customize as needed. For example, you can create backups of databases, configuration files, etc., before updating a container, and make adjustments such as customized branding or changes to file permissions after the update. Essentially, you can tailor these scripts to your specific needs. The output of these scripts is redirected to the log located in `/var/log/container_update.log` by default, so you have all logs in one place.
 
----
----
+### Notifications
 
-## Mail Notification Example
+#### E-Mail Notifications
 
-This is an example of an email message. This way, you can get an idea of the type of information content you can expect.
+To receive e-mail notifications, you need to install and configure Sendmail (as only Sendmail is supported).
 
----
-### 🐳 Docker Container Update Report
+#### Telegram Notifications
 
-#### 📌 INFO
-- **Hostname:** MY-DOCKER-HOST
-- **IP-Address:** 192.168.1.2
-- **Docker Version:** 26.0.0
-- **Script Version:** 2024.05.16-1
-
-#### 📋 ACTIONS TAKEN
-- 🟢 A patch update for GLPI from `aalbng/glpi:10.0.12` to `aalbng/glpi:10.0.14` has been performed
-- 🔴 A minor update for ThingsBoard from `thingsboard/tb-postgres:3.5.1` to `thingsboard/tb-postgres:3.6.0` has failed (please refer to your logs)
-  - 🟢 The original container ThingsBoard (`thingsboard/tb-postgres:3.5.1`) has been successfully restored
-
-#### 🔧 AVAILABLE UPDATES FOR MANUAL INSTALLATION
-| Container Name | Update Type | Current Image | Available Image | Update Inhibitor Rule           |
-|----------------|-------------|---------------|----------------|--------------------------------|
-| PostgreSQL     | Major       | postgres:15.7 | postgres:16.0  | `*[0.1.1-1,true]`              |
-| Nextcloud      | Major       | nextcloud:28.0.5 | nextcloud:29.0.0 | `Nextcloud[1&(p>0).1.1-1,true]` |
-| Odoo           | Major       | odoo:16.0     | odoo:17.0      | `Odoo[0.0.0-0,true]`           |
-
-#### 🗑️ REMOVED CONTAINER BACKUPS
-- Portainer_bak_2024-05-13_23-39
-- Nextcloud_bak_2024-05-13_22-31
-
-#### 📈 STATS
-- **Script Execution Time:** 558 seconds
-- **Number of Warnings:** 1
-- **Number of Errors:** 1
-
-*For further information, please have a look into the provided log located in "/var/log/container_update.log". If you prefer not to receive these emails, please customize "/usr/local/etc/container_update/container_update.ini" according to your specific requirements.*
+To receive Telegram notifications, you first need to obtain a Chat ID and a Bot Token, which you should enter in the configuration file.
 
 ## Having Trouble?
 If you encounter any issues while executing this script, please provide the following information:
