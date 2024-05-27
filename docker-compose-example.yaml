@@ -46,7 +46,7 @@ services:
       DCU_MAIL_RECIPIENTS: '' # eq. recipients
       DCU_MAIL_SUBJECT: 'Docker Container Update Report from $(hostname)' # eq. subject
       ## telegramm
-      DCU_TELEGRAM_NOTIFICATIONS_ENABLED: true # eq. telegram notifications_enabled
+      DCU_TELEGRAM_NOTIFICATIONS_ENABLED: false # eq. telegram notifications_enabled
       DCU_TELEGRAM_BOT_TOKEN: '' # eq. bot_token
       DCU_TELEGRAM_CHAT_ID: '' # eq. chat_id
       DCU_TELEGRAM_RETRY_INTERVAL: 10 # eq. retry_interval
