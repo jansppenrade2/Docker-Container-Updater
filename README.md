@@ -26,7 +26,7 @@ wget --header='Accept: application/vnd.github.v3.raw' -O container_update.sh htt
 
 ## Configuration
 
-The Docker Container Auto-Update script **now uses a configuration file**, which is by default located at `/usr/local/etc/container_update/container_update.ini`. This file contains all the settings and parameters necessary for the script to run. You can customize the configuration file according to your requirements.
+The Docker Container Auto-Update script uses a configuration file, which is located at `/usr/local/etc/container_update/container_update.ini`. This file contains all the settings and parameters necessary for the script to run. You can customize the configuration file according to your requirements.
 
 | Section     | Parameter                                   | Description                                                                                                   | Default Value                                             | Possible Values                                           |
 |-------------|---------------------------------------------|---------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------|-----------------------------------------------------------|
