@@ -16,8 +16,6 @@
 
 ## Installation
 
-### Manual Installation
-
 1. On your Docker host, change the current directory where the script shold be downloaded
 2. Download this script to your Docker host and make it executable _(you can do it manually, or just use the following command)_
 ```
