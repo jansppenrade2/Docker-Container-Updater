@@ -16,9 +16,14 @@
 
 ## Installation
 
-1. Download this script to your Docker host
-2. Make it executable
-3. Run it with root *(the first run will be in test mode and also creates the default configuration file)*
+### Manual Installation
+
+1. On your Docker host, change the current directory where the script shold be downloaded
+2. Download this script to your Docker host and make it executable _(you can do it manually, or just use the following command)_
+```
+wget --header='Accept: application/vnd.github.v3.raw' -O container_update.sh https://api.github.com/repos/jansppenrade2/Docker-Container-Updater/contents/container_update.sh?ref=main && chmod +x ./container_update.sh
+```
+3. Execute it with root *(the first run will be in test mode and also creates the default configuration file)*
 4. Customize the default config according to your specific requirements *(see below)*
 5. Create a cron job for this script *(after testing 🫠)*
 
