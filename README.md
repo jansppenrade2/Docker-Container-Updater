@@ -1,7 +1,6 @@
 # Docker Container Auto-Update Script
 
-🎉 This script is completely redesigned for enhanced performance, providing a better overview, better customization and more reliability. Crafted with lots of love and a touch of magic, this script makes your Docker life easier and more efficient.
-
+For the lazier and automation-loving nerds (like myself), constantly updating Docker containers can be a tedious chore. Enter the Docker Container Auto-Update Script to save the day. It handles updates without relying on the "latest" tag or sticking to the current image tag, which might cause you to miss important updates. Instead, it plays by your rules!
 ## Features
 
 - **🔄 Automated Container Updates**: Effortlessly update all your Docker containers on your host under your own conditions.
