@@ -1,0 +1,53 @@
+version: '3'
+
+services:
+  docker_container_updater:
+    image: docker_container_updater:latest
+    container_name: docker_container_updater
+    hostname: docker_container_updater
+    privileged: true
+    restart: always
+    tty: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /etc/localtime:/etc/localtime:ro
+      - ./pre-scripts:/opt/docker_container_updater/pre-scripts
+      - ./post-scripts:/opt/docker_container_updater/post-scripts
+      - ./logs:/opt/docker_container_updater/logs
+    environment:
+      # descriptions here: https://github.com/jansppenrade2/Docker-Container-Updater?tab=readme-ov-file#configuration
+      # Common settings
+      DCU_TEST_MODE: true # eq. test_mode
+      DCU_UPDATE_RULES: '*[0.1.1-1,true] docker_container_updater[0.0.0-0,false]' # eq. update_rules
+      DCU_CRONTAB_EXECUTION_EXPRESSION: '0 0 * * *' # Every day at 12:00 AM
+      # paths
+      DCU_CONFIG_FILE: /opt/docker_container_updater/container_update.ini
+      DCU_PRE_SCRIPTS_FOLDER: /opt/docker_container_updater/pre-scripts # eq. pre_scripts_folder
+      DCU_POST_SCRIPTS_FOLDER: /opt/docker_container_updater/post-scripts # eq. post_scripts_folder
+      # containers settings
+      DCU_PRUNE_IMAGES: true # eq. prune_images
+      DCU_PRUNE_CONTAINER_BACKUPS: true # eq. prune_container_backups
+      DCU_CONTAINER_BACKUPS_RETENTION: 7 # eq. container_backups_retention
+      DCU_CONTAINER_BACKUPS_KEEP_LAST: 1 #eq. container_backups_keep_last
+      DCU_CONTAINER_UPDATE_VALIDATION_TIME: 120 # eq. container_update_validation_time
+      DCU_DOCKER_HUB_API_URL: 'https://registry.hub.docker.com/v2' # eq. docker_hub_api_url
+      DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT: 100 # eq. docker_hub_api_image_tags_page_size_limit
+      DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT: 10 # eq. docker_hub_api_image_tags_page_crawl_limit
+      DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE: 21600 #(6 hours) # eq. docker_hub_image_minimum_age
+      # logs
+      DCU_LOG_FILEPATH: /opt/docker_container_updater/logs/container_update.log # eq. filePath
+      DCU_LOG_LEVEL: INFO # eq. level
+      DCU_LOG_RETENTION: 7 # eq. retention
+      # Notifications
+      ## mail
+      DCU_MAIL_NOTIFICATIONS_ENABLED: false # eq. mail notifications_enabled
+      DCU_MAIL_NOTIFICATION_MODE: sendmail # eq. mode
+      DCU_MAIL_FROM: '' # eq. from
+      DCU_MAIL_RECIPIENTS: '' # eq. recipients
+      DCU_MAIL_SUBJECT: 'Docker Container Update Report from $(hostname)' # eq. subject
+      ## telegramm
+      DCU_TELEGRAM_NOTIFICATIONS_ENABLED: true # eq. telegram notifications_enabled
+      DCU_TELEGRAM_BOT_TOKEN: '' # eq. bot_token
+      DCU_TELEGRAM_CHAT_ID: '' # eq. chat_id
+      DCU_TELEGRAM_RETRY_INTERVAL: 10 # eq. retry_interval
+      DCU_TELEGRAM_RETRY_LIMIT: 2 # eq. retry_limit

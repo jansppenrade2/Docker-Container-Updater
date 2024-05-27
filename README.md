@@ -14,7 +14,7 @@ For the lazier and automation-loving nerds (like myself), constantly updating Do
 > The default configuration has **test mode enabled**. Safety first 😉! After you've run your first test, checked for errors, and reviewed the generated Docker run commands, you can disable test mode in your configuration file *(see below)*.
 
 ## Installation / Update
-
+### Manual
 1. On your Docker host, navigate to the directory where the script should be downloaded to
 2. Download this script to your Docker host and make it executable _(you can do it manually, or just use the following command)_
 ```
@@ -23,6 +23,37 @@ wget --header='Accept: application/vnd.github.v3.raw' -O container_update.sh htt
 3. Execute it with root *(the first run will be in test mode and also creates the default configuration file)*
 4. Customize the default config according to your specific requirements *(see below)*
 5. Create a cron job for this script *(after testing 🫠)*
+
+### Docker
+1. Clone this repo and go to folder.
+   ```
+   git clone https://github.com/Keonik1/Docker-Container-Updater.git
+   cd Docker-Container-Updater/
+   ```
+#### Docker build
+2. Build container:
+   ```bash
+   docker build -t docker_container_updater:latest \
+   -f ./DOCKERFILE .
+   ```
+   Build container behind corporate proxy:
+   ```bash
+   docker build -t docker_container_updater:latest \
+   --build-arg http_proxy=http://172.17.0.1:3128 \ 
+   --build-arg https_proxy=http://172.17.0.1:3128 \ 
+   -f ./DOCKERFILE .
+   ```
+   
+#### Docker compose
+3. Rename `docker-compose-example.yaml` to `docker-compose.yaml`
+4. Configure options via environment variables (update rules, test mode, crontab expression and etc.)
+5. Type in shell `docker compose up -d` to start.
+6. (Update) Type in shell 
+   ```bash
+   docker compose down
+   docker compose pull
+   docker compose up -d
+   ```
 
 ## Configuration
 
@@ -72,6 +103,11 @@ The Docker Container Auto-Update script uses a configuration file, which is loca
 
 
 ---
+
+### Docker specific options
+ - `DCU_CRONTAB_EXECUTION_EXPRESSION` - crontab expression when script. You can use [this site](https://crontab.cronhub.io/) to create expression.
+ - `DCU_CONFIG_FILE` - path to ini config file inside container. **Do not save this as persistence!**
+
 
 ### Update Rules
 
