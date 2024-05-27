@@ -4,9 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.27-1
+# 2024.05.27-2
 #
 # ## Changelog
+# 2024.05.27-2, janseppenrade2: Fixed a bug that reported incorrectly listed outstanding updates if an update was already performed during the same script execution.
 # 2024.05.27-1, Keonik1: Add docker container installation, refactor some functions.
 # 2024.05.26-1, janseppenrade2: Addressed a minor bug that prevented removed container backups from being listed in reports. Addressed a bug that caused an unexpected script termination on QNAP devices with an outdated version of 'date'. Added support for Telegram notifications. Some optimizations to Extract-VersionPart() (responsible for detecting Major, Minor, Patch, and Build updates). Fixed a malformed table in generated HTML mail reports. Optimized outstanding updates list in report. Fixed a bug in the update rule analysis related to build updates.
 # 2024.05.21-3, janseppenrade2: Addressed a minor bug that was impacting the sorting of available image tags
@@ -2670,6 +2671,7 @@ Main() {
                             #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
                             Perform-ImageUpdate "build" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_build_next"
                             updatePerformed=true
+                            container_config=$(echo $($cmd_docker container inspect "$container_name") | tr -d '\n') #json
                             container_image_tag=$(Get-ContainerProperty "$container_config" container_image_tag)
                             image_update_available_build_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
                             if [ -n "$image_update_available_build_next" ]; then
@@ -2707,6 +2709,7 @@ Main() {
                             #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
                             Perform-ImageUpdate "patch" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_patch_next"
                             updatePerformed=true
+                            container_config=$(echo $($cmd_docker container inspect "$container_name") | tr -d '\n') #json
                             container_image_tag=$(Get-ContainerProperty "$container_config" container_image_tag)
                             image_update_available_patch_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
                             if [ -n "$image_update_available_patch_next" ]; then
@@ -2744,6 +2747,7 @@ Main() {
                             #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
                             Perform-ImageUpdate "minor" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_minor_next"
                             updatePerformed=true
+                            container_config=$(echo $($cmd_docker container inspect "$container_name") | tr -d '\n') #json
                             container_image_tag=$(Get-ContainerProperty "$container_config" container_image_tag)
                             image_update_available_minor_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
                             if [ -n "$image_update_available_minor_next" ]; then
@@ -2781,6 +2785,7 @@ Main() {
                             #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
                             Perform-ImageUpdate "major" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_major_next"
                             updatePerformed=true
+                            container_config=$(echo $($cmd_docker container inspect "$container_name") | tr -d '\n') #json
                             container_image_tag=$(Get-ContainerProperty "$container_config" container_image_tag)
                             image_update_available_major_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
                             if [ -n "$image_update_available_major_next" ]; then
