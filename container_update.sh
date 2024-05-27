@@ -4,10 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.27-c
+# 2024.05.27-3
 #
 # ## Changelog
-# 2024.05.XX-X, janseppenrade2: Fixed a bug that caused notifications to be sent even when no action was taken. Additionally, fixed an issue with log file pruning that resulted in the removal of various spaces, which were important for maintaining readability in the log file.
+# 2024.05.27-3, janseppenrade2: Fixed a bug that caused notifications to be sent even when no action was taken. Additionally, fixed an issue with log file pruning that resulted in the removal of various spaces, which were important for maintaining readability in the log file.
 # 2024.05.27-2, janseppenrade2: Fixed a bug that reported incorrectly listed outstanding updates if an update was already performed during the same script execution.
 # 2024.05.27-1, Keonik1: Add docker container installation, refactor some functions.
 # 2024.05.26-1, janseppenrade2: Addressed a minor bug that prevented removed container backups from being listed in reports. Addressed a bug that caused an unexpected script termination on QNAP devices with an outdated version of 'date'. Added support for Telegram notifications. Some optimizations to Extract-VersionPart() (responsible for detecting Major, Minor, Patch, and Build updates). Fixed a malformed table in generated HTML mail reports. Optimized outstanding updates list in report. Fixed a bug in the update rule analysis related to build updates.
@@ -251,7 +251,6 @@ Prune-Log() {
         fi
     fi
 }
-
 
 Get-Path() {
     local name=$1
