@@ -14,7 +14,7 @@
 
 > The default configuration has **test mode enabled**. Safety first 😉! After you've run your first test, checked for errors, and reviewed the generated Docker run commands, you can disable test mode in your configuration file *(see below)*.
 
-## Installation
+## Installation / Update
 
 1. On your Docker host, change the current directory where the script shold be downloaded
 2. Download this script to your Docker host and make it executable _(you can do it manually, or just use the following command)_
