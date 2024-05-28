@@ -41,7 +41,7 @@ Here are three methods to get this tool up and running:
 
 #### Using Docker CLI
 
-##### Example Command with persistent data
+##### Example Command
 
 ```bash
 docker run  -d \
@@ -64,7 +64,7 @@ docker run  -d \
 
 > ⚠️ However, please remember to create an update rule for this container to prevent it from updating itself. For further information on how to use the environment variables to configure those update rules in detail, please review [Configuration](#configuration).
 
-###### Data Persistence**
+###### Data Persistence
 
 To ensure data persistence, you should configure the following mounts:
 
