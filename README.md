@@ -54,11 +54,9 @@ docker run  -d \
             --mount type=bind,source=/etc/localtime,target=/etc/localtime,readonly \
             --env DCU_TEST_MODE=true \
             --env DCU_CRONTAB_EXECUTION_EXPRESSION='30 2 * * *' \
-            --env DCU_UPDATE_RULES='*[0.1.1-1,true] Docker-Container-Updater[0.0.0-0,false]' \
+            --env DCU_UPDATE_RULES='*[0.1.1-1,true]' \
             janjk/docker-container-updater:latest
 ```
-
-> ⚠️ However, please remember to create an update rule for this container to prevent it from updating itself. For further information on how to use the environment variables to configure those update rules in detail, please review [Configuration](#configuration).
 
 ###### Data Persistence
 
