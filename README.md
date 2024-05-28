@@ -219,11 +219,15 @@ mycontainer[0.1(b>2).1-1,true]
 
 These precise rules provide granular control over the update behavior of specific containers based on various conditions such as patch versions, build versions, and more.
 
-**Hint**: These rules do not affect the order in which updates are installed! An update is never skipped.
+> ℹ️ These rules do not affect the order in which updates are installed! An update is never skipped.
+
+---
 
 ### Pre- and Post-Scripts
 
 To give you more control, you can integrate pre- and post-scripts. These are created by default in the directories `/usr/local/etc/container_update/pre-scripts` and `/usr/local/etc/container_update/post-scripts`, and they must be named after the container. These are standard shell scripts that you can create and customize as needed. For example, you can create backups of databases, configuration files, etc., before updating a container, and make adjustments such as customized branding or changes to file permissions after the update. Essentially, you can tailor these scripts to your specific needs. The output of these scripts is redirected to the log located in `/var/log/container_update.log` by default, so you have all logs in one place.
+
+---
 
 ### Notifications
 
