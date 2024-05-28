@@ -112,7 +112,7 @@ To ensure data persistence, you should configure the following mounts:
    docker compose up -d
    ```
 
-### Working with the running container
+### How it works
 
 ℹ️ After successfully starting the `Docker Container Updater`, a cron job inside the container will automatically manage the update mechanism for your Docker containers based on the cron expression defined in `DCU_CRONTAB_EXECUTION_EXPRESSION`.
 
