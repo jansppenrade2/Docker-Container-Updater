@@ -229,7 +229,8 @@ To give you more control, you can integrate pre- and post-scripts. These are cre
 
 #### E-Mail Notifications
 
-To receive e-mail notifications, you need to install and configure `sendmail` on your docker host. If you're using the Docker image you can allow the container to use your host's sendmail command and configuration by adding the following mounts:
+> ⚠️ To receive e-mail notifications, you need to install and configure `sendmail` on your docker host.
+> ℹ️ If you're using the Docker image you can allow the container to use your host's sendmail command and configuration by adding the following mounts:
 
 ##### Docker CLI
 ```
