@@ -4,9 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.27-3
+# 2024.05.28-1
 #
 # ## Changelog
+# 2024.05.XX-X, janseppenrade2: Added support for container attribute "--tty". Prevented self update in case Docker Container Updater is running in a Docker Container
 # 2024.05.27-3, janseppenrade2: Fixed a bug that caused notifications to be sent even when no action was taken. Additionally, fixed an issue with log file pruning that resulted in the removal of various spaces, which were important for maintaining readability in the log file.
 # 2024.05.27-2, janseppenrade2: Fixed a bug that reported incorrectly listed outstanding updates if an update was already performed during the same script execution.
 # 2024.05.27-1, Keonik1: Add docker container installation, refactor some functions.
@@ -887,6 +888,9 @@ Get-ContainerProperty() {
         return
     elif [ "$property" == "container_Privileged" ]; then
         echo "$(echo "$container_config" | $cmd_jq -r '.[0].HostConfig.Privileged' | $cmd_sed 's/^null$//')"
+        return
+    elif [ "$property" == "container_Tty" ]; then
+        echo "$(echo "$container_config" | $cmd_jq -r '.[0].Config.Tty' | $cmd_sed 's/^null$//')"
         return
     elif [ "$property" == "container_PortBindings" ]; then
         local PortBindings=$(echo "$container_config" | $cmd_jq -r '.[0].HostConfig.PortBindings')
@@ -2154,7 +2158,7 @@ Telegram-SplitMessage() {
             Send-TelegramNotification "$message_part"
         fi
     else
-        Write-Log "INFO" "        There is nothing to report"
+        Write-Log "INFO" "    There is nothing to report"
     fi
 }
 
@@ -2295,7 +2299,7 @@ Send-MailNotification() {
                 rm -f "$mail_message_file" 2>/dev/null || Write-Log "ERROR" "        Failed to delete temporary mail message file (\"$mail_message_file\")"
         done
     else
-        Write-Log "INFO" "        There is nothing to report"
+        Write-Log "INFO" "    There is nothing to report"
     fi
 }
 
@@ -2366,6 +2370,7 @@ Main() {
     local container_restartPolicy_MaximumRetryCount=""
     local container_PublishAllPorts=""
     local container_Privileged=""
+    local container_Tty=""
     local container_PortBindings=""
     local container_Mounts=""
     local container_envs=""
@@ -2429,6 +2434,7 @@ Main() {
             container_restartPolicy_MaximumRetryCount=""
             container_PublishAllPorts=""
             container_Privileged=""
+            container_Tty=""
             container_PortBindings=""
             container_Mounts=""
             container_envs=""
@@ -2495,6 +2501,7 @@ Main() {
             container_restartPolicy_MaximumRetryCount=$(Get-ContainerProperty "$container_config" container_restartPolicy_MaximumRetryCount)
             container_PublishAllPorts=$(Get-ContainerProperty "$container_config" container_PublishAllPorts)
             container_Privileged=$(Get-ContainerProperty "$container_config" container_Privileged)
+            container_Tty=$(Get-ContainerProperty "$container_config" container_Tty)
             container_PortBindings=$(Get-ContainerProperty "$container_config" container_PortBindings)
             container_Mounts=$(Get-ContainerProperty "$container_config" container_Mounts)
             container_envs=$(Get-ContainerProperty "$container_config" container_envs)
@@ -2580,6 +2587,7 @@ Main() {
             Write-Log "DEBUG" "       Container Maximum Retry Count:                        $container_restartPolicy_MaximumRetryCount"
             Write-Log "DEBUG" "       Container Publish All Ports:                          $container_PublishAllPorts"
             Write-Log "DEBUG" "       Container Privileged:                                 $container_Privileged"
+            Write-Log "DEBUG" "       Container TTY:                                        $container_Tty"
             Write-Log "DEBUG" "       Container Port Bindings:                              $container_PortBindings"
             Write-Log "DEBUG" "       Container Mounts:                                     $container_Mounts"
             Write-Log "DEBUG" "       Container Environment Variables:                      $container_envs"
@@ -2629,6 +2637,7 @@ Main() {
             [ -n "$container_networkMode_IPv6Address" ] &&                                      docker_run_cmd+=" --ip6=$container_networkMode_IPv6Address"
             [ -n "$container_PublishAllPorts" ] && [ "$container_PublishAllPorts" == true ] &&  docker_run_cmd+=" --publish-all"
             [ -n "$container_Privileged" ] && [ "$container_Privileged" == true ] &&            docker_run_cmd+=" --privileged"
+            [ -n "$container_Tty" ] && [ "$container_Tty" == true ] &&                          docker_run_cmd+=" --tty"
             [ -n "$container_capabilities" ] &&                                                 docker_run_cmd+=" $container_capabilities"
             [ -n "$container_PortBindings" ] &&                                                 docker_run_cmd+=" $container_PortBindings"
             [ -n "$container_Mounts" ] &&                                                       docker_run_cmd+=" $container_Mounts"
@@ -2637,191 +2646,195 @@ Main() {
             [ -n "$container_labels_unique" ] &&                                                docker_run_cmd+=" $container_labels_unique"
             [ -n "$container_image_name" ] &&                                                   docker_run_cmd+=" $container_image_name"
 
-            # Perform a digest update if available and update permission is granted by update rule definition
-            if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ "$image_update_available_digest" == true ]; then
-                if [ "$updatePerformed" == false ]; then
-                    if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
-                        updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$container_image_tag")
-                        if [ "$updatePermit" == true ]; then
-                            [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$container_image_tag"
-                            #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
-                            Perform-ImageUpdate "digest" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag"
-                            updatePerformed=true
+            if ! echo "$container_labels" | grep -q "Docker-Container-Updater"; then
+                # Perform a digest update if available and update permission is granted by update rule definition
+                if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ "$image_update_available_digest" == true ]; then
+                    if [ "$updatePerformed" == false ]; then
+                        if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                            updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$container_image_tag")
+                            if [ "$updatePermit" == true ]; then
+                                [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$container_image_tag"
+                                #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
+                                Perform-ImageUpdate "digest" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag"
+                                updatePerformed=true
+                            else
+                                Write-Log "INFO" "       Update Rule Effectivity:                              Digest update for $container_name ($container_image_name:$container_image_tag) was prevented"
+                                mail_report_available_updates+="<tr><td>$container_name</td><td>Digest</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$container_image_tag</td><td>$effective_update_rule</td></tr>"
+                                telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$container_image_tag")\n"
+                                report_available=true
+                            fi
                         else
-                            Write-Log "INFO" "       Update Rule Effectivity:                              Digest update for $container_name ($container_image_name:$container_image_tag) was prevented"
+                            Write-Log "INFO"  "       Insufficient Docker Hub image age"
+                            Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
                             mail_report_available_updates+="<tr><td>$container_name</td><td>Digest</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$container_image_tag</td><td>$effective_update_rule</td></tr>"
                             telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$container_image_tag")\n"
                             report_available=true
                         fi
                     else
-                        Write-Log "INFO"  "       Insufficient Docker Hub image age"
-                        Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
-                        mail_report_available_updates+="<tr><td>$container_name</td><td>Digest</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$container_image_tag</td><td>$effective_update_rule</td></tr>"
+                        Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
+                        mail_report_available_updates+="<tr><td>$container_name</td><td>Digest</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$container_image_tag</td><td></td></tr>"
                         telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$container_image_tag")\n"
                         report_available=true
                     fi
-                else
-                    Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
-                    mail_report_available_updates+="<tr><td>$container_name</td><td>Digest</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$container_image_tag</td><td></td></tr>"
-                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$container_image_tag")\n"
-                    report_available=true
                 fi
-            fi
 
-            # Perform a build update if available and update permission is granted by update rule definition
-            if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_build_next" ] && [ -n "$image_update_available_build_latest" ]; then
-                if [ "$updatePerformed" == false ]; then
-                    if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
-                        updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_build_next" "$image_update_available_build_latest")
-                        if [ "$updatePermit" == true ]; then
-                            [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_build_next"
-                            #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
-                            Perform-ImageUpdate "build" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_build_next"
-                            updatePerformed=true
-                            container_config=$(echo $($cmd_docker container inspect "$container_name") | tr -d '\n') #json
-                            container_image_tag=$(Get-ContainerProperty "$container_config" container_image_tag)
-                            image_update_available_build_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
-                            if [ -n "$image_update_available_build_next" ]; then
-                                mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td></td></tr>"
+                # Perform a build update if available and update permission is granted by update rule definition
+                if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_build_next" ] && [ -n "$image_update_available_build_latest" ]; then
+                    if [ "$updatePerformed" == false ]; then
+                        if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                            updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_build_next" "$image_update_available_build_latest")
+                            if [ "$updatePermit" == true ]; then
+                                [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_build_next"
+                                #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
+                                Perform-ImageUpdate "build" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_build_next"
+                                updatePerformed=true
+                                container_config=$(echo $($cmd_docker container inspect "$container_name") | tr -d '\n') #json
+                                container_image_tag=$(Get-ContainerProperty "$container_config" container_image_tag)
+                                image_update_available_build_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
+                                if [ -n "$image_update_available_build_next" ]; then
+                                    mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td></td></tr>"
+                                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_build_next")\n"
+                                    report_available=true
+                                fi
+                            else
+                                Write-Log "INFO" "       Update Rule Effectivity:                              Build update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_build_next) was prevented"
+                                mail_report_available_updates+="<tr><td>$container_name</td><td>Build</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td>$effective_update_rule</td></tr>"
                                 telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_build_next")\n"
                                 report_available=true
                             fi
                         else
-                            Write-Log "INFO" "       Update Rule Effectivity:                              Build update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_build_next) was prevented"
-                            mail_report_available_updates+="<tr><td>$container_name</td><td>Build</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td>$effective_update_rule</td></tr>"
+                            Write-Log "INFO"  "       Insufficient Docker Hub image age"
+                            Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
+                            mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td></td></tr>"
                             telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_build_next")\n"
                             report_available=true
                         fi
                     else
-                        Write-Log "INFO"  "       Insufficient Docker Hub image age"
-                        Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
-                        mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td></td></tr>"
+                        Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
+                        mail_report_available_updates+="<tr><td>$container_name</td><td>Build</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td></td></tr>"
                         telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_build_next")\n"
                         report_available=true
                     fi
-                else
-                    Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
-                    mail_report_available_updates+="<tr><td>$container_name</td><td>Build</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td></td></tr>"
-                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_build_next")\n"
-                    report_available=true
                 fi
-            fi
 
-            # Perform a patch update if available and update permission is granted by update rule definition
-            if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_patch_next" ] && [ -n "$image_update_available_patch_latest" ]; then
-                if [ "$updatePerformed" == false ]; then
-                    if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
-                        updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_patch_next" "$image_update_available_patch_latest")
-                        if [ "$updatePermit" == true ]; then
-                            [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_patch_next"
-                            #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
-                            Perform-ImageUpdate "patch" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_patch_next"
-                            updatePerformed=true
-                            container_config=$(echo $($cmd_docker container inspect "$container_name") | tr -d '\n') #json
-                            container_image_tag=$(Get-ContainerProperty "$container_config" container_image_tag)
-                            image_update_available_patch_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
-                            if [ -n "$image_update_available_patch_next" ]; then
-                                mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td></td></tr>"
+                # Perform a patch update if available and update permission is granted by update rule definition
+                if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_patch_next" ] && [ -n "$image_update_available_patch_latest" ]; then
+                    if [ "$updatePerformed" == false ]; then
+                        if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                            updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_patch_next" "$image_update_available_patch_latest")
+                            if [ "$updatePermit" == true ]; then
+                                [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_patch_next"
+                                #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
+                                Perform-ImageUpdate "patch" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_patch_next"
+                                updatePerformed=true
+                                container_config=$(echo $($cmd_docker container inspect "$container_name") | tr -d '\n') #json
+                                container_image_tag=$(Get-ContainerProperty "$container_config" container_image_tag)
+                                image_update_available_patch_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
+                                if [ -n "$image_update_available_patch_next" ]; then
+                                    mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td></td></tr>"
+                                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_patch_next")\n"
+                                    report_available=true
+                                fi
+                            else
+                                Write-Log "INFO" "       Update Rule Effectivity:                              Patch update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_patch_next) was prevented"
+                                mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td>$effective_update_rule</td></tr>"
                                 telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_patch_next")\n"
                                 report_available=true
                             fi
                         else
-                            Write-Log "INFO" "       Update Rule Effectivity:                              Patch update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_patch_next) was prevented"
-                            mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td>$effective_update_rule</td></tr>"
+                            Write-Log "INFO"  "       Insufficient Docker Hub image age"
+                            Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
+                            mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td></td></tr>"
                             telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_patch_next")\n"
                             report_available=true
                         fi
                     else
-                        Write-Log "INFO"  "       Insufficient Docker Hub image age"
-                        Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
+                        Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
                         mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td></td></tr>"
                         telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_patch_next")\n"
                         report_available=true
                     fi
-                else
-                    Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
-                    mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td></td></tr>"
-                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_patch_next")\n"
-                    report_available=true
                 fi
-            fi
 
-            # Perform a minor update if available and update permission is granted by update rule definition
-            if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_minor_next" ] && [ -n "$image_update_available_minor_latest" ]; then
-                if [ "$updatePerformed" == false ]; then
-                    if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
-                        updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_minor_next" "$image_update_available_minor_latest")
-                        if [ "$updatePermit" == true ]; then
-                            [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_minor_next"
-                            #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
-                            Perform-ImageUpdate "minor" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_minor_next"
-                            updatePerformed=true
-                            container_config=$(echo $($cmd_docker container inspect "$container_name") | tr -d '\n') #json
-                            container_image_tag=$(Get-ContainerProperty "$container_config" container_image_tag)
-                            image_update_available_minor_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
-                            if [ -n "$image_update_available_minor_next" ]; then
-                                mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td></td></tr>"
+                # Perform a minor update if available and update permission is granted by update rule definition
+                if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_minor_next" ] && [ -n "$image_update_available_minor_latest" ]; then
+                    if [ "$updatePerformed" == false ]; then
+                        if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                            updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_minor_next" "$image_update_available_minor_latest")
+                            if [ "$updatePermit" == true ]; then
+                                [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_minor_next"
+                                #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
+                                Perform-ImageUpdate "minor" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_minor_next"
+                                updatePerformed=true
+                                container_config=$(echo $($cmd_docker container inspect "$container_name") | tr -d '\n') #json
+                                container_image_tag=$(Get-ContainerProperty "$container_config" container_image_tag)
+                                image_update_available_minor_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
+                                if [ -n "$image_update_available_minor_next" ]; then
+                                    mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td></td></tr>"
+                                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_minor_next")\n"
+                                    report_available=true
+                                fi
+                            else
+                                Write-Log "INFO" "       Update Rule Effectivity:                              Minor update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_minor_next) was prevented"
+                                mail_report_available_updates+="<tr><td>$container_name</td><td>Minor</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td>$effective_update_rule</td></tr>"
                                 telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_minor_next")\n"
                                 report_available=true
                             fi
                         else
-                            Write-Log "INFO" "       Update Rule Effectivity:                              Minor update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_minor_next) was prevented"
-                            mail_report_available_updates+="<tr><td>$container_name</td><td>Minor</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td>$effective_update_rule</td></tr>"
+                            Write-Log "INFO"  "       Insufficient Docker Hub image age"
+                            Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
+                            mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td></td></tr>"
                             telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_minor_next")\n"
                             report_available=true
                         fi
                     else
-                        Write-Log "INFO"  "       Insufficient Docker Hub image age"
-                        Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
-                        mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td></td></tr>"
+                        Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
+                        mail_report_available_updates+="<tr><td>$container_name</td><td>Minor</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td></td></tr>"
                         telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_minor_next")\n"
                         report_available=true
                     fi
-                else
-                    Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
-                    mail_report_available_updates+="<tr><td>$container_name</td><td>Minor</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td></td></tr>"
-                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_minor_next")\n"
-                    report_available=true
                 fi
-            fi
 
-            # Perform a major update if available and update permission is granted by update rule definition
-            if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_major_next" ] && [ -n "$image_update_available_major_latest" ]; then
-                if [ "$updatePerformed" == false ]; then
-                    if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
-                        updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_major_next" "$image_update_available_major_latest")
-                        if [ "$updatePermit" == true ]; then
-                            [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_major_next"
-                            #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
-                            Perform-ImageUpdate "major" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_major_next"
-                            updatePerformed=true
-                            container_config=$(echo $($cmd_docker container inspect "$container_name") | tr -d '\n') #json
-                            container_image_tag=$(Get-ContainerProperty "$container_config" container_image_tag)
-                            image_update_available_major_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
-                            if [ -n "$image_update_available_major_next" ]; then
-                                mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td></td></tr>"
+                # Perform a major update if available and update permission is granted by update rule definition
+                if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_major_next" ] && [ -n "$image_update_available_major_latest" ]; then
+                    if [ "$updatePerformed" == false ]; then
+                        if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                            updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_major_next" "$image_update_available_major_latest")
+                            if [ "$updatePermit" == true ]; then
+                                [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_major_next"
+                                #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
+                                Perform-ImageUpdate "major" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_major_next"
+                                updatePerformed=true
+                                container_config=$(echo $($cmd_docker container inspect "$container_name") | tr -d '\n') #json
+                                container_image_tag=$(Get-ContainerProperty "$container_config" container_image_tag)
+                                image_update_available_major_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
+                                if [ -n "$image_update_available_major_next" ]; then
+                                    mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td></td></tr>"
+                                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_major_next")\n"
+                                    report_available=true
+                                fi
+                            else
+                                Write-Log "INFO" "       Update Rule Effectivity:                              Major update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_major_next) was prevented"
+                                mail_report_available_updates+="<tr><td>$container_name</td><td>Major</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td>$effective_update_rule</td></tr>"
                                 telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_major_next")\n"
                                 report_available=true
                             fi
                         else
-                            Write-Log "INFO" "       Update Rule Effectivity:                              Major update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_major_next) was prevented"
-                            mail_report_available_updates+="<tr><td>$container_name</td><td>Major</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td>$effective_update_rule</td></tr>"
+                            Write-Log "INFO"  "       Insufficient Docker Hub image age"
+                            Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
+                            mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td></td></tr>"
                             telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_major_next")\n"
                             report_available=true
                         fi
                     else
-                        Write-Log "INFO"  "       Insufficient Docker Hub image age"
-                        Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
-                        mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td></td></tr>"
+                        Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
+                        mail_report_available_updates+="<tr><td>$container_name</td><td>Major</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td></td></tr>"
                         telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_major_next")\n"
                         report_available=true
                     fi
-                else
-                    Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
-                    mail_report_available_updates+="<tr><td>$container_name</td><td>Major</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td></td></tr>"
-                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_major_next")\n"
-                    report_available=true
                 fi
+            else
+                Write-Log "DEBUG" "             Skipped self-update because it is not currently supported"
             fi
         done
 
