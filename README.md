@@ -17,11 +17,11 @@ For the lazier and automation-loving nerds (like myself), constantly updating Do
 ## Installation / Update
 
 **Here are three methods for running this script:**
-1. [Directly on your Docker host](https://github.com/jansppenrade2/Docker-Container-Updater/edit/development/README.md#1-directly-on-your-host)
-2. [Using the official Docker image](https://github.com/jansppenrade2/Docker-Container-Updater/blob/development/README.md#2-using-the-official-docker-image)
-   - [Docker CLI](https://github.com/jansppenrade2/Docker-Container-Updater/edit/development/README.md#docker-cli)
-   - [Docker Compose](https://github.com/jansppenrade2/Docker-Container-Updater/edit/development/README.md#docker-compose)
-4. [Cloning this repository and building your own container](https://github.com/jansppenrade2/Docker-Container-Updater/edit/development/README.md#3-build-your-own-docker-container)
+1. [Directly on your Docker host](#1-directly-on-your-host)
+2. [Using the official Docker image](#2-using-the-official-docker-image)
+   - [Docker CLI](#docker-cli)
+   - [Docker Compose](#docker-compose)
+4. [Cloning this repository and building your own container](#3-build-your-own-docker-container)
    
 ### 1. Directly on your host
 
