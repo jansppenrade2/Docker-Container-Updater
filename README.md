@@ -114,7 +114,7 @@ To ensure data persistence, you should configure the following mounts:
 
 ### Working with the running container
 
-ℹ️ After you started the `Docker Container Updater` successfully, a cronjob will execute the `container_update.sh` automatically by the configured cron expression defined in `DCU_CRONTAB_EXECUTION_EXPRESSION`.
+ℹ️ After successfully starting the `Docker Container Updater`, a cron job inside the container will automatically manage the update mechanism for your Docker containers based on the cron expression defined in `DCU_CRONTAB_EXECUTION_EXPRESSION`.
 
 If you want to manually execute the task, you can just run:
 ```
