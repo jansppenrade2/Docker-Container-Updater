@@ -4,10 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.28-1
+# 2024.05.28-2
 #
 # ## Changelog
-# 2024.05.28-1, janseppenrade2: Added support for container attribute "--tty". Prevented self update in case Docker Container Updater is running in a Docker Container.
+# 2024.05.28-2, janseppenrade2: Added support for container attribute "--tty". Prevented self update in case Docker Container Updater is running in a Docker Container.
 # 2024.05.27-3, janseppenrade2: Fixed a bug that caused notifications to be sent even when no action was taken. Additionally, fixed an issue with log file pruning that resulted in the removal of various spaces, which were important for maintaining readability in the log file.
 # 2024.05.27-2, janseppenrade2: Fixed a bug that reported incorrectly listed outstanding updates if an update was already performed during the same script execution.
 # 2024.05.27-1, Keonik1: Add docker container installation, refactor some functions.
@@ -2100,7 +2100,6 @@ Telegram-GenerateMessage() {
         message+="\n"
         [ "$test_mode" == true ] && message+="\`\`\`\n"
         [ "$test_mode" == true ] && message+="TEST MODE ENABLED\n"
-        [ "$test_mode" == true ] && message+="To disable test mode, please customize your configuration file\\\\.\n"
         [ "$test_mode" == true ] && message+="\`\`\`\n"
         [ "$test_mode" == true ] && message+="\n"
         message+="📌 __*Info*__\n"
@@ -2210,7 +2209,7 @@ Send-MailNotification() {
 
                         mail_message+="<p style=\"font-size: 14px; padding: 0px 5px; color: #4b4b4b;\"><strong>&#x1F4CC; INFO</strong></p>\n"
                         if [ "$test_mode" == true ]; then
-                            mail_message+="<p style=\"font-size: 13px; padding: 0 30px; color: darkgreen;\"><strong>TEST MODE ENABLED</strong> <br> To disable test mode, please customize \"$configFile\".</p>\n"
+                            mail_message+="<p style=\"font-size: 13px; padding: 0 30px; color: darkgreen;\"><strong>TEST MODE ENABLED</strong></p>\n"
                         fi
                         mail_message+="<table border="0" style=\"font-size: 13px; padding: 0 30px;\">"
                             mail_message+="<tr>"
