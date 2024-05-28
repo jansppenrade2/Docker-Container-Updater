@@ -55,6 +55,8 @@ docker run  -d \
             --mount type=bind,source=<YOUR_LOCAL_LOGS_PATH>,target=/opt/docker_container_updater/logs \
             --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
             --mount type=bind,source=/etc/localtime,target=/etc/localtime:ro \
+            --mount type=bind,source=/usr/lib/sendmail,target=/usr/lib/sendmail:ro \
+            --mount type=bind,source=/etc/localtime,target=/etc/localtime:ro \
             --env DCU_TEST_MODE=true \
             --env DCU_UPDATE_RULES='*[0.1.1-1,true] Docker-Container-Updater[0.0.0-0,false]' \
             --env DCU_CRONTAB_EXECUTION_EXPRESSION='30 2 * * *' \
