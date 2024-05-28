@@ -185,7 +185,7 @@ You can customize these rules for each container by specifying different pattern
 #### Basic Rule Example
 
 ```
-update_rules=*[0.1.1-1,true] mycontainer[1.0.0-1,true] another[0.0.1-1,false] further[2.1.1-1,true]
+*[0.1.1-1,true] mycontainer[1.0.0-1,true] another[0.0.1-1,false] further[2.1.1-1,true]
 ```
 
 > This example configuration means:
