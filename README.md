@@ -59,23 +59,12 @@ docker run  -d \
             --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
             --mount type=bind,source=/etc/localtime,target=/etc/localtime:ro \
             --env DCU_TEST_MODE=true \
-            --env DCU_UPDATE_RULES='*[0.1.1-1,true] Docker-Container-Updater[0.0.0-0,false]' \
             --env DCU_CRONTAB_EXECUTION_EXPRESSION='30 2 * * *' \
+            --env DCU_UPDATE_RULES='*[0.1.1-1,true] Docker-Container-Updater[0.0.0-0,false]' \
             --env DCU_CONFIG_FILE=/opt/docker_container_updater/container_update.ini \
             --env DCU_PRE_SCRIPTS_FOLDER=/opt/docker_container_updater/pre-scripts \
             --env DCU_POST_SCRIPTS_FOLDER=/opt/docker_container_updater/post-scripts \
-            --env DCU_PRUNE_IMAGES=true \
-            --env DCU_PRUNE_CONTAINER_BACKUPS=true \
-            --env DCU_CONTAINER_BACKUPS_RETENTION=7 \
-            --env DCU_CONTAINER_BACKUPS_KEEP_LAST=1 \
-            --env DCU_CONTAINER_UPDATE_VALIDATION_TIME=120 \
-            --env DCU_DOCKER_HUB_API_URL='https://registry.hub.docker.com/v2' \
-            --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT=100 \
-            --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT=10 \
-            --env DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE=21600 \
             --env DCU_LOG_FILEPATH=/opt/docker_container_updater/logs/container_update.log \
-            --env DCU_LOG_LEVEL=INFO \
-            --env DCU_LOG_RETENTION=7 \
             janjk/docker-container-updater:latest
 ```
 
