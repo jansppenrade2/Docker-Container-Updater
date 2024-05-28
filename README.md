@@ -26,7 +26,7 @@ For all the lazier and automation-loving nerds, constantly updating Docker conta
 ### 1. Directly on your host
 
 1. On your Docker host, navigate to the directory where the script `container_update.sh` should be downloaded.
-2. Download `container_update.sh` and make it executable _(this can be done manually or using the following command)_
+2. Download `container_update.sh` and make it executable _(this can be done manually or by using the following command)_
    ```bash
    wget --header='Accept: application/vnd.github.v3.raw' -O container_update.sh https://api.github.com/repos/jansppenrade2/Docker-Container-Updater/contents/container_update.sh?ref=main && chmod +x ./container_update.sh
    ```
