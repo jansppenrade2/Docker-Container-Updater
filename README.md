@@ -12,36 +12,39 @@ For all the lazier and automation-loving nerds, constantly updating Docker conta
 - **📧 Notifications**: Stay informed with detailed email and telegram reports
 - **📜 Pre- and Post-Scripts Integration**: Integrate your own pre- and post-scripts to perform actions such as backing up configuration files or databases before any update and making adjustments to the container configuration after any update.
 
-> The default configuration has **test mode enabled**. Safety first 😉! After you've run your first test, checked for errors, and reviewed the generated Docker run commands, you can disable test mode in your configuration file *(see below)*.
+> The default configuration has **test mode enabled**. Safety first 😉! After you've run your first test, checked for errors, and reviewed the generated Docker run commands, you can disable test mode in your configuration file *(see [Configuration](#configuration))*.
 
-## Installation / Update
+## Getting Started
 
-**Here are three methods for running this tool:**
-1. [Directly on your Docker host](#1-directly-on-your-host)
-2. [Using the official Docker image](#2-using-the-official-docker-image)
+### Choose your method
+Here are three methods to get this tool up and running:
+
+1. [Method: Directly on your Docker host as a normal Bash script executed by root](#1-directly-on-your-host)
+2. [Method: Using the official Docker image](#2-using-the-official-docker-image)
    - [Docker CLI](#docker-cli)
    - [Docker Compose](#docker-compose)
-4. [Cloning this repository and building your own image](#3-build-your-own-docker-image)
+3. [Method: Cloning this repository and building your own image](#3-build-your-own-docker-image)
    
-### 1. Directly on your host
+#### 1. Method: Run this script directly on your host
 
-1. On your Docker host, navigate to the directory where the script `container_update.sh` should be downloaded.
-2. Download `container_update.sh` and make it executable _(this can be done manually or by using the following command)_
+1. On your Docker host, navigate to the directory where the script `container_update.sh` should be downloaded
+2. Download `container_update.sh` and make it executable _(this can be done manually or by using the following command):_
    ```bash
    wget --header='Accept: application/vnd.github.v3.raw' -O container_update.sh https://api.github.com/repos/jansppenrade2/Docker-Container-Updater/contents/container_update.sh?ref=main && chmod +x ./container_update.sh
    ```
-3. Execute the script with root privileges *(the first run will be in **test mode** and will also create the default configuration file)*
-4. Customize the default configuration according to your specific requirements *(see below)*
+3. Execute `./container_update.sh` with root privileges *(the first run will be in **test mode** and will also create the default configuration file)*
+4. Customize the default configuration file according to your specific requirements *(see [Configuration](#configuration))*
 5. Create a cron job for this script *(after testing 🫠)*
 
-### 2. Using the official Docker image
+#### 2. Method: Using the [official Docker image](https://hub.docker.com/r/janjk/docker-container-updater)
 
-> ⚠️ In this case you need to configure an update rule for the Docker Container Updater itself to prevent it from updateing itself!
-> For further information on how to use the environment variables to configure those update rules, please review [Configuration](#configuration)
+> This method allows you to run a simple and dedicated Docker container that already includes all the necessary tools required by `container_update.sh`.
+>
+> ⚠️ However, please remember to create an update rule for this container to prevent it from updating itself. For further information on how to use the environment variables to configure those update rules, please review [Configuration](#configuration).
 
-#### Docker CLI
+##### Using Docker CLI
 
-##### Example Command with persistent data
+###### Example Command with persistent data
 
 ```bash
 docker run  -d \
@@ -86,7 +89,7 @@ docker run  -d \
             janjk/docker-container-updater:latest
 ```
 
-##### Docker Compose
+###### Docker Compose
 
 1. Download the docker-compose-example.yaml
 2. Rename `docker-compose-example.yaml` to `docker-compose.yaml`
@@ -96,7 +99,7 @@ docker run  -d \
 3. Customize your `docker-compose.yaml`
 4. run  `docker-compose up -d`
 
-### 3. Build your own Docker image
+#### 3. Method: Build your own Docker image
 
 1. Clone this repository and navigate to it's folder
    ```bash
@@ -119,8 +122,8 @@ docker run  -d \
    mv ./docker-compose-example.yaml ./docker-compose.yaml
    ```
 5. Customize your `docker-compose.yaml`
-6. Start the setup with the command `docker compose up -d`.
-7. Update the setup with:
+6. Start the setup with the command `docker compose up -d`
+7. Update the setup with
    ```bash
    docker compose down
    docker compose pull
@@ -129,7 +132,7 @@ docker run  -d \
 
 ## Configuration
 
-The Docker Container Updater utilizes a configuration file, by default located at `/usr/local/etc/container_update/container_update.ini`. This file contains all the settings and parameters necessary for the script to run. You have the flexibility to tailor the configuration file to your specific needs when executing the script directly on your Docker host. Alternatively, when opting to utilize the Docker image, you can simply add the corresponding environment variables.
+The Docker Container Updater utilizes a configuration file, by default located in `/usr/local/etc/container_update/container_update.ini`. This file contains all the settings and parameters necessary for `container_update.sh` to run. You have the flexibility to tailor the configuration file to your specific needs when executing `container_update.sh` directly on your Docker host. Alternatively, when opting to utilize the [official Docker image](https://hub.docker.com/r/janjk/docker-container-updater), you can simply add the corresponding environment variables.
 
 | Config File Parameter                                  | Docker Environment Variable                      | Description                                                                                                                                           | Default Value                                                 | Possible Values                                           |
 |--------------------------------------------------------|--------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|-----------------------------------------------------------|
@@ -169,8 +172,8 @@ The Docker Container Updater utilizes a configuration file, by default located a
 | [telegram] retry_interval                              | DCU_TELEGRAM_RETRY_INTERVAL                      | Time interval between retry attempts (in seconds)                                                                                                     | 10                                                            | Any positive integer                                      |
 | [telegram] chat_id                                     | DCU_TELEGRAM_CHAT_ID                             | Unique identifier for the target chat or user                                                                                                         |                                                               | A single valid chat ID                                    |
 | [telegram] bot_token                                   | DCU_TELEGRAM_BOT_TOKEN                           | Access token for the Telegram Bot API                                                                                                                 |                                                               | A single valid Telegram Bot token                         |
-|                                                        | DCU_CRONTAB_EXECUTION_EXPRESSION                 | Crontab expression when script to execute the update process automatically. You can use [this site](https://crontab.cronhub.io/) to create expression |                                                               | Any valid crontab expression                              |
-|                                                        | DCU_CONFIG_FILE                                  | Path to ini config file inside container. **Do not save this as persistence!**                                                                        |                                                               | Any valid file path                                       |
+|                                                        | DCU_CRONTAB_EXECUTION_EXPRESSION                 | Crontab expression for automating the update process execution. You can utilize [this site](https://crontab.cronhub.io/) to generate the expression   |                                                               | Any valid crontab expression                              |
+|                                                        | DCU_CONFIG_FILE                                  | Path to the INI configuration file inside the container. **Do not persist this!**                                                                     |                                                               | Any valid file path                                       |
 
 
 ### Update Rules
@@ -233,9 +236,9 @@ To give you more control, you can integrate pre- and post-scripts. These are cre
 
 #### E-Mail Notifications
 
-> ⚠️ To receive e-mail notifications, you need to install and configure `sendmail` on your docker host.
+> ⚠️ To receive e-mail notifications, you need to install and configure `sendmail` on your docker host first.
 
-> ℹ️ If you're using the Docker image you can allow the container to use your host's sendmail command and configuration by adding the following mounts:
+> ℹ️ If you're using the [official Docker image](https://hub.docker.com/r/janjk/docker-container-updater) of `Docker Container Updater` you can allow the container to use your host's `sendmail` command and configuration by adding the following mounts:
 >
 >##### Docker CLI
 >```
@@ -253,8 +256,6 @@ To give you more control, you can integrate pre- and post-scripts. These are cre
 #### Telegram Notifications
 
 > ⚠️ To receive Telegram notifications, you first need to obtain a Chat ID and a Bot Token, which you should enter in the configuration file.
-
----
 
 ## Having Trouble?
 If you encounter any issues while executing this script, please provide the following information:
