@@ -1,5 +1,11 @@
 FROM alpine:3.19.1 as base
 
+ARG MAINTAINER
+ARG VERSION
+
+LABEL maintainer="${MAINTAINER}"
+LABEL version="${VERSION}"
+
 RUN apk update && \
 apk add \
     jq \
@@ -22,7 +28,3 @@ COPY ./container_update.sh /opt/docker_container_updater/container_update.sh
 RUN chmod ugo+x container_update.sh entrypoint.sh
 
 ENTRYPOINT [ "/opt/docker_container_updater/entrypoint.sh" ]
-
-
-
-
