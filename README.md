@@ -42,7 +42,7 @@ For the lazier and automation-loving nerds (like myself), constantly updating Do
 
 ##### Example Command with Persistent Data
 
-> For further information, please review [Configuration](##Configuration)
+> For further information, please review [Configuration](#configuration)
 
 ```bash
 docker run  -d \
