@@ -18,7 +18,7 @@ services:
       # DETAILED DESCRIPTION: https://github.com/jansppenrade2/Docker-Container-Updater?tab=readme-ov-file#configuration
       # COMMON
       DCU_TEST_MODE: true
-      DCU_UPDATE_RULES: '*[0.1.1-1,true] Docker-Container-Updater[0.0.0-0,false]'
+      DCU_UPDATE_RULES: '*[0.1.1-1,true]'
       DCU_CRONTAB_EXECUTION_EXPRESSION: '30 2 * * *'
       # PATHS
       DCU_CONFIG_FILE: /opt/docker_container_updater/container_update.ini
