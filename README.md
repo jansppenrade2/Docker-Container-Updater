@@ -1,6 +1,6 @@
 # Docker Container Updater
 
-For the lazier and automation-loving nerds (like myself), constantly updating Docker containers can be a tedious chore. Enter the Docker Container Auto-Update Script to save the day. It handles updates without relying on the "latest" tag or sticking to the current image tag, which might cause you to miss important updates. Instead, it plays by your rules!
+For the lazier and automation-loving nerds (like myself), constantly updating Docker containers can be a tedious chore. Enter the Docker Container Updater to save the day. It handles updates without relying on the "latest" tag or sticking to the current image tag, which might cause you to miss important updates. Instead, it plays by your rules!
 
 ## Features
 
