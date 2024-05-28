@@ -38,8 +38,6 @@ Here are three methods to get this tool up and running:
 #### 2. Method: Using the [official Docker image](https://hub.docker.com/r/janjk/docker-container-updater)
 
 > This method allows you to run a simple and dedicated Docker container that already includes all the necessary tools required by `container_update.sh`.
->
-> ⚠️ However, please remember to create an update rule for this container to prevent it from updating itself. For further information on how to use the environment variables to configure those update rules, please review [Configuration](#configuration).
 
 ##### Using Docker CLI
 
@@ -52,9 +50,6 @@ docker run  -d \
             --restart=always \
             --privileged \
             --tty \
-            --mount type=bind,source=<YOUR_LOCAL_PRE_SCRIPTS_PATH>,target=/usr/local/etc/container_update/pre-scripts \
-            --mount type=bind,source=<YOUR_LOCAL_POST_SCRIPTS_PATH>,target=/usr/local/etc/container_update/post-scripts \
-            --mount type=bind,source=<YOUR_LOCAL_LOGS_PATH>,target=/opt/docker_container_updater/logs \
             --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
             --mount type=bind,source=/etc/localtime,target=/etc/localtime:ro \
             --env DCU_TEST_MODE=true \
@@ -67,14 +62,26 @@ docker run  -d \
             janjk/docker-container-updater:latest
 ```
 
+> ⚠️ However, please remember to create an update rule for this container to prevent it from updating itself. For further information on how to use the environment variables to configure those update rules in detail, please review [Configuration](#configuration).
+
+**Data Persistence**
+
+To ensure data persistence, you should configure the following mounts:
+
+```
+--mount type=bind,source=<YOUR_LOCAL_PRE_SCRIPTS_PATH>,target=/usr/local/etc/container_update/pre-scripts \
+--mount type=bind,source=<YOUR_LOCAL_POST_SCRIPTS_PATH>,target=/usr/local/etc/container_update/post-scripts \
+--mount type=bind,source=<YOUR_LOCAL_LOGS_PATH>,target=/opt/docker_container_updater/logs \
+```
+
 ###### Using Docker Compose
 
-1. Download the docker-compose-example.yaml
+1. Download the `docker-compose-example.yaml`
 2. Rename `docker-compose-example.yaml` to `docker-compose.yaml`
    ```bash
    mv ./docker-compose-example.yaml ./docker-compose.yaml
    ```
-3. Customize your `docker-compose.yaml`
+3. Customize your `docker-compose.yaml` according to your needs
 4. run  `docker-compose up -d`
 
 #### 3. Method: Build your own Docker image
@@ -214,53 +221,57 @@ To give you more control, you can integrate pre- and post-scripts. These are cre
 
 #### 1. E-Mail Notifications
 
->ℹ️ To receive e-mail notifications, you need to install and configure `sendmail` on your docker host first.
+>ℹ️ To receive e-mail notifications, you need to install and configure `sendmail`, or `postfix` on your docker host first.
 
-##### Using sendmail in combination with the Docker Image of `Docker Container Updater`:
->  If you're using the [official Docker image](https://hub.docker.com/r/janjk/docker-container-updater) of `Docker Container Updater` you can allow the container to use your host's `sendmail` command and it's configuration by adding the following options:
->
->##### Docker CLI
->```
->--mount type=bind,source=/usr/sbin/sendmail,target=/usr/sbin/sendmail:ro \
->--mount type=bind,source=/usr/lib/sendmail,target=/usr/lib/sendmail:ro \
->--env DCU_MAIL_NOTIFICATIONS_ENABLED=true \
->--env DCU_MAIL_FROM='<some@mail.address>' \
->--env DCU_MAIL_RECIPIENTS='<some@mail.address>' \
->--env DCU_MAIL_SUBJECT='Docker Container Update Report from $(hostname)' \
->```
->
->##### Docker Compose
->```
->volumes:
->      - /usr/sbin/sendmail:/usr/sbin/sendmail:ro
->      - /usr/lib/sendmail:/usr/lib/sendmail:ro
->environment:
->      DCU_MAIL_NOTIFICATIONS_ENABLED: true
->      DCU_MAIL_FROM: '<some@mail.address>'
->      DCU_MAIL_RECIPIENTS: '<some@mail.address>'
->      DCU_MAIL_SUBJECT: 'Docker Container Update Report from $(hostname)'
->```
+##### Using sendmail in combination with the Docker Image of `Docker Container Updater`
+  If you're using the [official Docker image](https://hub.docker.com/r/janjk/docker-container-updater) of `Docker Container Updater` you can allow the container to use your host's `sendmail` command and it's configuration by adding the following options:
+
+##### Docker CLI
+```
+--mount type=bind,source=/usr/sbin/sendmail,target=/usr/sbin/sendmail:ro \
+--mount type=bind,source=/usr/lib/sendmail,target=/usr/lib/sendmail:ro \
+--mount type=bind,source=/etc/mail,target=/etc/mail:ro \
+--mount type=bind,source=/etc/postfix,target=/etc/postfix:ro \
+--env DCU_MAIL_NOTIFICATIONS_ENABLED=true \
+--env DCU_MAIL_FROM='<some@mail.address>' \
+--env DCU_MAIL_RECIPIENTS='<some@mail.address>' \
+--env DCU_MAIL_SUBJECT='Docker Container Update Report from $(hostname)' \
+```
+
+##### Docker Compose
+```
+volumes:
+      - /usr/sbin/sendmail:/usr/sbin/sendmail:ro
+      - /usr/lib/sendmail:/usr/lib/sendmail:ro
+      - /etc/mail:/etc/mail:ro
+      - /etc/postfix:/etc/postfix:ro
+environment:
+      DCU_MAIL_NOTIFICATIONS_ENABLED: true
+      DCU_MAIL_FROM: '<some@mail.address>'
+      DCU_MAIL_RECIPIENTS: '<some@mail.address>'
+      DCU_MAIL_SUBJECT: 'Docker Container Update Report from $(hostname)'
+```
 
 #### 2. Telegram Notifications
 
 > ℹ️ To receive Telegram notifications, you first need to obtain a Chat ID and a Bot Token.
 
-##### Setting up telegram notifications in combination with the Docker Image of `Docker Container Updater`:
+##### Setting up telegram notifications in combination with the Docker Image of `Docker Container Updater`
 
->##### Docker CLI
->```
->--env DCU_TELEGRAM_NOTIFICATIONS_ENABLED=false \
->--env DCU_TELEGRAM_BOT_TOKEN='<your_bot_token>' \
->--env DCU_TELEGRAM_CHAT_ID='<your_chat_id' \
->```
->
->##### Docker Compose
->```
->environment:
->      DCU_TELEGRAM_NOTIFICATIONS_ENABLED: true
->      DCU_TELEGRAM_BOT_TOKEN: '<your_bot_token>'
->      DCU_TELEGRAM_CHAT_ID: '<your_chat_id>'
->```
+##### Docker CLI
+```
+--env DCU_TELEGRAM_NOTIFICATIONS_ENABLED=false \
+--env DCU_TELEGRAM_BOT_TOKEN='<your_bot_token>' \
+--env DCU_TELEGRAM_CHAT_ID='<your_chat_id' \
+```
+
+##### Docker Compose
+```
+environment:
+      DCU_TELEGRAM_NOTIFICATIONS_ENABLED: true
+      DCU_TELEGRAM_BOT_TOKEN: '<your_bot_token>'
+      DCU_TELEGRAM_CHAT_ID: '<your_chat_id>'
+```
 
 ## Having Trouble?
 If you encounter any issues while executing this script, please provide the following information:
