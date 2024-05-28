@@ -51,7 +51,7 @@ docker run  -d \
             --privileged \
             --tty \
             --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
-            --mount type=bind,source=/etc/localtime,target=/etc/localtime:ro \
+            --mount type=bind,source=/etc/localtime,target=/etc/localtime,readonly \
             --env DCU_TEST_MODE=true \
             --env DCU_CRONTAB_EXECUTION_EXPRESSION='30 2 * * *' \
             --env DCU_UPDATE_RULES='*[0.1.1-1,true] Docker-Container-Updater[0.0.0-0,false]' \
@@ -74,7 +74,7 @@ To ensure data persistence, you should configure the following mounts:
 
 > ℹ️ To enable notifications, please refer to [Notifications](#notifications-1)
 
-##### Using Docker Compose
+#### Using Docker Compose
 
 1. Download the `docker-compose-example.yaml`
 2. Rename `docker-compose-example.yaml` to `docker-compose.yaml`
@@ -115,9 +115,18 @@ To ensure data persistence, you should configure the following mounts:
    docker compose up -d
    ```
 
+### Working with the running container
+
+ℹ️ After you started the `Docker Container Updater` successfully, a cronjob will execute the `container_update.sh` automatically by the configured cron expression defined in `DCU_CRONTAB_EXECUTION_EXPRESSION`.
+
+If you want to manually execute the task, you can just run:
+```
+docker exec -it Docker-Container-Updater ./container_update.sh
+```
+
 ## Configuration
 
-The Docker Container Updater utilizes a configuration file, by default located in `/usr/local/etc/container_update/container_update.ini`. This file contains all the settings and parameters necessary for `container_update.sh` to run. You have the flexibility to tailor the configuration file to your specific needs when executing `container_update.sh` directly on your Docker host. Alternatively, when opting to utilize the [official Docker image](https://hub.docker.com/r/janjk/docker-container-updater), you can simply add the corresponding environment variables.
+The Docker Container Updater utilizes a configuration file, by default located in `/usr/local/etc/container_update/container_update.ini`. This file contains all the settings and parameters necessary for `container_update.sh` to run. You have the flexibility to tailor the configuration file to your specific needs when executing `container_update.sh` directly on your Docker host. Alternatively, when opting to utilize the [official Docker image](https://hub.docker.com/r/janjk/docker-container-updater), you can simply add the corresponding environment variables to your `docker run` command.
 
 | Config File Parameter                                  | Docker Environment Variable                      | Description                                                                                                                                           | Default Value                                                 | Possible Values                                           |
 |--------------------------------------------------------|--------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|-----------------------------------------------------------|
@@ -127,7 +136,7 @@ The Docker Container Updater utilizes a configuration file, by default located i
 | [general]  container_backups_retention                 | DCU_CONTAINER_BACKUPS_RETENTION                  | Number of days to retain container backups                                                                                                            | `7`                                                           | Any positive integer                                      |
 | [general]  container_backups_keep_last                 | DCU_CONTAINER_BACKUPS_KEEP_LAST                  | Number of last container backups to keep regardless of retention time                                                                                 | `1`                                                           | Any positive integer                                      |
 | [general]  container_update_validation_time            | DCU_CONTAINER_UPDATE_VALIDATION_TIME             | Time in seconds to validate if a container runs successfully after an update                                                                          | `120`                                                         | Any positive integer                                      |
-| [general]  update_rules                                | DCU_UPDATE_RULES                                 | Rules for updating containers (see detailed explanation below)                                                                                        | `*[0.1.1-1,true]` `Docker-Container-Updater[0.0.0-0,false]`   | Custom rules (seperated by space)                         |
+| [general]  update_rules                                | DCU_UPDATE_RULES                                 | Rules for updating containers (see detailed explanation below)                                                                                        | `*[0.1.1-1,true]`                                             | Custom rules *(separated by space)*                       |
 | [general]  docker_hub_api_url                          | DCU_DOCKER_HUB_API_URL                           | URL for the Docker Hub API                                                                                                                            | `https://registry.hub.docker.com/v2`                          | Any valid URL                                             |
 | [general]  docker_hub_api_image_tags_page_size_limit   | DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT    | Number of tags to fetch per page from Docker Hub                                                                                                      | `100`                                                         | Positive integer (1-100)                                  |
 | [general]  docker_hub_api_image_tags_page_crawl_limit  | DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT   | Number of pages to crawl for tags from Docker Hub                                                                                                     | `10`                                                          | Any positive integer                                      |
@@ -150,8 +159,9 @@ The Docker Container Updater utilizes a configuration file, by default located i
 | [mail]     notifications_enabled                       | DCU_MAIL_NOTIFICATIONS_ENABLED                   | Enable or disable email notifications                                                                                                                 | `false`                                                       | `true`, `false`                                           |
 | [mail]     mode                                        | DCU_MAIL_NOTIFICATION_MODE                       | Mode of sending emails  (currently only sendmail is supported)                                                                                        | `sendmail`                                                    | `sendmail`                                                |
 | [mail]     from                                        | DCU_MAIL_FROM                                    | Email address for sending notifications                                                                                                               |                                                               | Any valid email address                                   |
-| [mail]     recipients                                  | DCU_MAIL_RECIPIENTS                              | Space-separated list of recipient email addresses                                                                                                     |                                                               | Any valid email addresses (seperated by space)            |
+| [mail]     recipients                                  | DCU_MAIL_RECIPIENTS                              | Space-separated list of recipient email addresses                                                                                                     |                                                               | Any valid email addresses *(separated by space)*          |
 | [mail]     subject                                     | DCU_MAIL_SUBJECT                                 | Subject of the notification email                                                                                                                     | `Docker Container Update Report from <hostname>`              | Any valid string                                          |
+|                                                        | DCU_MAIL_RELAYHOST                               | The relay host to which the Docker container's Postfix forwards its mails                                                                             |                                                               | IP address or hostname and port (e.g.: `[10.1.1.30]:25` ) |
 | [telegram] notifications_enabled                       | DCU_TELEGRAM_NOTIFICATIONS_ENABLED               | Enable or disable telegram notifications                                                                                                              | `false`                                                       | `true`, `false`                                           |
 | [telegram] retry_limit                                 | DCU_TELEGRAM_RETRY_LIMIT                         | Number of retry attempts for sending a message                                                                                                        | 2                                                             | Any positive integer                                      |
 | [telegram] retry_interval                              | DCU_TELEGRAM_RETRY_INTERVAL                      | Time interval between retry attempts (in seconds)                                                                                                     | 10                                                            | Any positive integer                                      |
@@ -163,7 +173,7 @@ The Docker Container Updater utilizes a configuration file, by default located i
 
 ### Update Rules
 
-The `update_rules` parameter allows you to define the update behavior for your containers. The default rule is `*[0.1.1-1,true]`, which means:
+The `update_rules` parameter, or `DCU_UPDATE_RULES` environment variable allows you to define the update behavior for your containers. The default rule is `*[0.1.1-1,true]`, which means:
 
 - `*`: Applies to all containers.
 - `0.1.1-1`: Specifies the update policy, where each number represents:
@@ -221,40 +231,29 @@ To give you more control, you can integrate pre- and post-scripts. These are cre
 
 #### 1. E-Mail Notifications
 
->ℹ️ To receive e-mail notifications, you need to install and configure `sendmail`, or `postfix` on your docker host first.
+##### General Information
 
-##### Using sendmail in combination with the Docker Image of `Docker Container Updater`
-  If you're using the [official Docker image](https://hub.docker.com/r/janjk/docker-container-updater) of `Docker Container Updater` you can allow the container to use your host's `sendmail` command and it's configuration by adding the following options:
+If you are running the `container_update.sh` script directly on your Docker host, you just need to ensure that `sendmail` is installed and configured on your Docker host.
+If you are using the [official Docker image](https://hub.docker.com/r/janjk/docker-container-updater), you need to have a Mail Transfer Agent (MTA) (e.g., Postfix) installed, configured and reachable in your network, to which the Docker container can relay its emails. The IP address or the hostname of your MTA needs be specified in the environment variable `DCU_MAIL_RELAYHOST` when running the container.
+
 
 ##### Docker CLI
 ```
---network host \
---mount type=bind,source=/usr/sbin/sendmail,target=/etc/alternatives/mta \
---mount type=bind,source=/etc/alternatives/mta-sendmail,target=/usr/lib/sendmail \
---mount type=bind,source=/etc/postfix,target=/etc/postfix \
---mount type=bind,source=/var/spool/mail,target=/var/spool/mail \
---mount type=bind,source=/etc/aliases,target=/etc/aliases \
 --env DCU_MAIL_NOTIFICATIONS_ENABLED=true \
 --env DCU_MAIL_FROM='<some@mail.address>' \
 --env DCU_MAIL_RECIPIENTS='<some@mail.address>' \
 --env DCU_MAIL_SUBJECT='Docker Container Update Report from $(hostname)' \
+--env DCU_MAIL_RELAYHOST='[<IP address or hostname>]:<Port>' \
 ```
 
 ##### Docker Compose
 ```
-networks:
-      - host
-volumes:
-      - /usr/sbin/sendmail:/etc/alternatives/mta
-      - /etc/alternatives/mta-sendmail:/usr/lib/sendmail
-      - /etc/postfix:/etc/postfix
-      - /var/spool/mail:/var/spool/mail
-      - /etc/aliases:/etc/aliases
 environment:
       DCU_MAIL_NOTIFICATIONS_ENABLED: true
       DCU_MAIL_FROM: '<some@mail.address>'
       DCU_MAIL_RECIPIENTS: '<some@mail.address>'
       DCU_MAIL_SUBJECT: 'Docker Container Update Report from $(hostname)'
+      DCU_MAIL_RELAYHOST: '[<IP address or hostname>]:<Port>'
 ```
 
 #### 2. Telegram Notifications
