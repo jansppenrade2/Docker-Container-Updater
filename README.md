@@ -67,7 +67,7 @@ docker run  -d \
             janjk/docker-container-updater:latest
 ```
 
-###### Docker Compose
+###### Using Docker Compose
 
 1. Download the docker-compose-example.yaml
 2. Rename `docker-compose-example.yaml` to `docker-compose.yaml`
