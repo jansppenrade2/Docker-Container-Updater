@@ -3,8 +3,8 @@ FROM alpine:3.19.1 as base
 ARG MAINTAINER
 ARG VERSION
 
-LABEL maintainer="${MAINTAINER}"
-LABEL version="${VERSION}"
+LABEL DCU_MAINTAINER="${MAINTAINER}"
+LABEL DCU_VERSION="${VERSION}"
 
 RUN apk update && \
 apk add \
