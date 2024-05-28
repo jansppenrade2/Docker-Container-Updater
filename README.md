@@ -74,6 +74,10 @@ To ensure data persistence, you should configure the following mounts:
 --mount type=bind,source=<YOUR_LOCAL_LOGS_PATH>,target=/opt/docker_container_updater/logs \
 ```
 
+###### Notifications
+
+> ℹ️ To enable notifications, please refer to [Notifications](#notifications)
+
 ##### Using Docker Compose
 
 1. Download the `docker-compose-example.yaml`
