@@ -36,14 +36,12 @@ For the lazier and automation-loving nerds (like myself), constantly updating Do
 
 ### 2. Using the official Docker image
 
-> At this point, I would like to express my gratitude to @Keonik1 for his invaluable assistance! 🎉
+> In this case you need to configure a rule for the Docker Container Updater itself, as self-updating is currently not supported!
+> For further information, please review [Configuration](#configuration)
 
 #### Docker CLI
 
 ##### Example Command with persistent data
-
-> In this case you need to configure a rule for the Docker Container Updater itself, as self-updating is currently not supported!
-> For further information, please review [Configuration](#configuration)
 
 ```bash
 docker run  -d \
