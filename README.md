@@ -1,6 +1,7 @@
-# Docker Container Auto-Update Script
+# Docker Container Updater
 
 For the lazier and automation-loving nerds (like myself), constantly updating Docker containers can be a tedious chore. Enter the Docker Container Auto-Update Script to save the day. It handles updates without relying on the "latest" tag or sticking to the current image tag, which might cause you to miss important updates. Instead, it plays by your rules!
+
 ## Features
 
 - **🔄 Automated Container Updates**: Effortlessly update all your Docker containers on your host under your own conditions.
@@ -14,41 +15,105 @@ For the lazier and automation-loving nerds (like myself), constantly updating Do
 > The default configuration has **test mode enabled**. Safety first 😉! After you've run your first test, checked for errors, and reviewed the generated Docker run commands, you can disable test mode in your configuration file *(see below)*.
 
 ## Installation / Update
-### Manual
-1. On your Docker host, navigate to the directory where the script should be downloaded to
-2. Download this script to your Docker host and make it executable _(you can do it manually, or just use the following command)_
-```
-wget --header='Accept: application/vnd.github.v3.raw' -O container_update.sh https://api.github.com/repos/jansppenrade2/Docker-Container-Updater/contents/container_update.sh?ref=main && chmod +x ./container_update.sh
-```
-3. Execute it with root *(the first run will be in test mode and also creates the default configuration file)*
-4. Customize the default config according to your specific requirements *(see below)*
+
+**Here are three methods for running this script:**
+1. Directly on your Docker host
+2. Using the official Docker image
+3. Cloning this repository and building your own container
+   
+### 1. Directly on your host
+
+1. On your Docker host, navigate to the directory where the script `container_update.sh` should be downloaded.
+2. Download `container_update.sh` and make it executable _(this can be done manually or using the following command)_
+   ```bash
+   wget --header='Accept: application/vnd.github.v3.raw' -O container_update.sh https://api.github.com/repos/jansppenrade2/Docker-Container-Updater/contents/container_update.sh?ref=main && chmod +x ./container_update.sh
+   ```
+3. Execute the script with root privileges *(the first run will be in **test mode** and will also create the default configuration file)*
+4. Customize the default configuration according to your specific requirements *(see below)*
 5. Create a cron job for this script *(after testing 🫠)*
 
-### Docker
-1. Clone this repo and go to folder.
-   ```
+### 2. Using the official Docker image
+
+> At this point, I would like to express my gratitude to @Keonik1 for his invaluable assistance! 🎉
+
+#### Docker CLI
+
+##### Example Command with Persistent Data
+
+```bash
+docker run  -d \
+            --name=Docker-Container-Updater \
+            --hostname=Docker-Container-Updater \
+            --restart=always \
+            --privileged \
+            --tty \
+            --mount type=bind,source=<YOUR_LOCAL_PRE_SCRIPTS_PATH>,target=/usr/local/etc/container_update/pre-scripts \
+            --mount type=bind,source=<YOUR_LOCAL_POST_SCRIPTS_PATH>,target=/usr/local/etc/container_update/post-scripts \
+            --mount type=bind,source=<YOUR_LOCAL_LOGS_PATH>,target=/opt/docker_container_updater/logs \
+            --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
+            --mount type=bind,source=/etc/localtime,target=/etc/localtime:ro \
+            --env DCU_TEST_MODE=true \
+            --env DCU_UPDATE_RULES='*[0.1.1-1,true] Docker-Container-Updater[0.0.0-0,false]' \
+            --env DCU_CRONTAB_EXECUTION_EXPRESSION='30 2 * * *' \
+            --env DCU_CONFIG_FILE=/opt/docker_container_updater/container_update.ini \
+            --env DCU_PRE_SCRIPTS_FOLDER=/opt/docker_container_updater/pre-scripts \
+            --env DCU_POST_SCRIPTS_FOLDER=/opt/docker_container_updater/post-scripts \
+            --env DCU_PRUNE_IMAGES=true \
+            --env DCU_PRUNE_CONTAINER_BACKUPS=true \
+            --env DCU_CONTAINER_BACKUPS_RETENTION=7 \
+            --env DCU_CONTAINER_BACKUPS_KEEP_LAST=1 \
+            --env DCU_CONTAINER_UPDATE_VALIDATION_TIME=120 \
+            --env DCU_DOCKER_HUB_API_URL='https://registry.hub.docker.com/v2' \
+            --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT=100 \
+            --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT=10 \
+            --env DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE=21600 \
+            --env DCU_LOG_FILEPATH=/opt/docker_container_updater/logs/container_update.log \
+            --env DCU_LOG_LEVEL=INFO \
+            --env DCU_LOG_RETENTION=7 \
+            --env DCU_MAIL_NOTIFICATIONS_ENABLED=false \
+            --env DCU_MAIL_NOTIFICATION_MODE=sendmail \
+            --env DCU_MAIL_FROM='' \
+            --env DCU_MAIL_RECIPIENTS='' \
+            --env DCU_MAIL_SUBJECT='Docker Container Update Report from $(hostname)' \
+            --env DCU_TELEGRAM_NOTIFICATIONS_ENABLED=false \
+            --env DCU_TELEGRAM_BOT_TOKEN='' \
+            --env DCU_TELEGRAM_CHAT_ID='' \
+            --env DCU_TELEGRAM_RETRY_INTERVAL=10 \
+            --env DCU_TELEGRAM_RETRY_LIMIT=2 \
+            janjk/docker-container-updater:latest
+```
+
+##### Docker Compose
+
+```
+>>>>>>> To be continued...
+```
+
+### 3. Build your own Docker container
+
+1. Clone this repository and navigate to it's folder
+   ```bash
    git clone https://github.com/jansppenrade2/Docker-Container-Updater.git
    cd Docker-Container-Updater/
    ```
-#### Docker build
-2. Build container:
+2. Build the container
    ```bash
-   docker build -t docker_container_updater:latest \
-   -f ./DOCKERFILE .
+   docker build -t docker_container_updater:latest -f ./DOCKERFILE .
    ```
-   Build container behind corporate proxy:
+   Or build a corporate proxy:
    ```bash
    docker build -t docker_container_updater:latest \
    --build-arg http_proxy=http://172.17.0.1:3128 \ 
    --build-arg https_proxy=http://172.17.0.1:3128 \ 
    -f ./DOCKERFILE .
    ```
-   
-#### Docker compose
 3. Rename `docker-compose-example.yaml` to `docker-compose.yaml`
-4. Configure options via environment variables (update rules, test mode, crontab expression and etc.)
-5. Type in shell `docker compose up -d` to start.
-6. (Update) Type in shell 
+   ```bash
+   mv ./docker-compose-example.yaml ./docker-compose.yaml
+   ```
+5. Customize your `docker-compose.yaml`
+6. Start the setup with the command `docker compose up -d`.
+7. Update the setup with:
    ```bash
    docker compose down
    docker compose pull
@@ -57,56 +122,48 @@ wget --header='Accept: application/vnd.github.v3.raw' -O container_update.sh htt
 
 ## Configuration
 
-The Docker Container Auto-Update script uses a configuration file, which is located at `/usr/local/etc/container_update/container_update.ini`. This file contains all the settings and parameters necessary for the script to run. You can customize the configuration file according to your requirements.
+The Docker Container Updater utilizes a configuration file, by default located at `/usr/local/etc/container_update/container_update.ini`. This file contains all the settings and parameters necessary for the script to run. You have the flexibility to tailor the configuration file to your specific needs when executing the script directly on your Docker host. Alternatively, when opting to utilize Docker container, you can simply add the corresponding environment variables.
 
-| Section     | Parameter                                   | Description                                                                                                   | Default Value                                             | Possible Values                                           |
-|-------------|---------------------------------------------|---------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------|-----------------------------------------------------------|
-| general     | test_mode                                   | Enables or disables test mode                                                                                 | `true`                                                    | `true`, `false`                                           |
-| general     | prune_images                                | Automatically prune unused images                                                                             | `true`                                                    | `true`, `false`                                           |
-| general     | prune_container_backups                     | Automatically prune old container backups                                                                     | `true`                                                    | `true`, `false`                                           |
-| general     | container_backups_retention                 | Number of days to retain container backups                                                                    | `7`                                                       | Any positive integer                                      |
-| general     | container_backups_keep_last                 | Number of last container backups to keep regardless of retention time                                         | `1`                                                       | Any positive integer                                      |
-| general     | container_update_validation_time            | Time in seconds to validate if a container runs successfully after an update                                  | `120`                                                     | Any positive integer                                      |
-| general     | update_rules                                | Rules for updating containers (see detailed explanation below)                                                | `*[0.1.1-1,true]`                                         | Custom rules (seperated by space)                         |
-| general     | docker_hub_api_url                          | URL for the Docker Hub API                                                                                    | `https://registry.hub.docker.com/v2`                      | Any valid URL                                             |
-| general     | docker_hub_api_image_tags_page_size_limit   | Number of tags to fetch per page from Docker Hub                                                              | `100`                                                     | Positive integer (1-100)                                  |
-| general     | docker_hub_api_image_tags_page_crawl_limit  | Number of pages to crawl for tags from Docker Hub                                                             | `10`                                                      | Any positive integer                                      |
-| general     | docker_hub_image_minimum_age                | Minimum age in seconds threshold for a newly pulled Docker image                                              | `21600`                                                   | Any positive integer                                      |
-| general     | pre_scripts_folder                          | Folder containing pre-update scripts                                                                          | `/usr/local/etc/container_update/pre-scripts`             | Any valid directory path                                  |
-| general     | post_scripts_folder                         | Folder containing post-update scripts                                                                         | `/usr/local/etc/container_update/post-scripts`            | Any valid directory path                                  |
-| paths       | tput                                        | Path to the `tput` command                                                                                    | *(automatically detected by script)*                      | Any valid file path                                       |
-| paths       | gawk                                        | Path to the `gawk` command                                                                                    | *(automatically detected by script)*                      | Any valid file path                                       |
-| paths       | cut                                         | Path to the `cut` command                                                                                     | *(automatically detected by script)*                      | Any valid file path                                       |
-| paths       | docker                                      | Path to the `docker` command                                                                                  | *(automatically detected by script)*                      | Any valid file path                                       |
-| paths       | grep                                        | Path to the `grep` command                                                                                    | *(automatically detected by script)*                      | Any valid file path                                       |
-| paths       | jq                                          | Path to the `jq` command                                                                                      | *(automatically detected by script)*                      | Any valid file path                                       |
-| paths       | sed                                         | Path to the `sed` command                                                                                     | *(automatically detected by script)*                      | Any valid file path                                       |
-| paths       | wget                                        | Path to the `wget` command                                                                                    | *(automatically detected by script)*                      | Any valid file path                                       |
-| paths       | sort                                        | Path to the `sort` command                                                                                    | *(automatically detected by script)*                      | Any valid file path                                       |
-| paths       | sendmail                                    | Path to the `sendmail` command                                                                                | *(automatically detected by script)*                      | Any valid file path                                       |
-| log         | filePath                                    | Path to the log file                                                                                          | `/var/log/container_update.log`                           | Any valid file path                                       |
-| log         | level                                       | Log level                                                                                                     | `DEBUG`                                                   | `DEBUG`, `INFO`, `WARN`, `ERROR`                          |
-| log         | retention                                   | Number of days to retain log file entries                                                                     | `7`                                                       | Any positive integer                                      |
-| mail        | notifications_enabled                       | Enable or disable email notifications                                                                         | `false`                                                   | `true`, `false`                                           |
-| mail        | mode                                        | Mode of sending emails  (currently only sendmail is supported)                                                | `sendmail`                                                | `sendmail`                                                |
-| mail        | from                                        | Email address for sending notifications                                                                       |                                                           | Any valid email address                                   |
-| mail        | recipients                                  | Space-separated list of recipient email addresses                                                             |                                                           | Any valid email addresses (seperated by space)            |
-| mail        | subject                                     | Subject of the notification email                                                                             | `Docker Container Update Report from <hostname>`          | Any valid string                                          |
-| telegram    | notifications_enabled                       | Enable or disable telegram notifications                                                                      | `false`                                                   | `true`, `false`                                           |
-| telegram    | retry_limit                                 | Number of retry attempts for sending a message                                                                | 2                                                         | Any positive integer                                      |
-| telegram    | retry_interval                              | Time interval between retry attempts (in seconds)                                                             | 10                                                        | Any positive integer                                      |
-| telegram    | chat_id                                     | Unique identifier for the target chat or user                                                                 |                                                           | A single valid chat ID                                    |
-| telegram    | bot_token                                   | Access token for the Telegram Bot API                                                                         |                                                           | A single valid Telegram Bot token                         |
-
-
-
-
-
----
-
-### Docker specific options
- - `DCU_CRONTAB_EXECUTION_EXPRESSION` - crontab expression when script. You can use [this site](https://crontab.cronhub.io/) to create expression.
- - `DCU_CONFIG_FILE` - path to ini config file inside container. **Do not save this as persistence!**
+| Config File Parameter                                  | Docker Environment Variable                      | Description                                                                                                                                           | Default Value                                                 | Possible Values                                           |
+|--------------------------------------------------------|--------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|-----------------------------------------------------------|
+| [general]  test_mode                                   | DCU_TEST_MODE                                    | Enables or disables test mode                                                                                                                         | `true`                                                        | `true`, `false`                                           |
+| [general]  prune_images                                | DCU_PRUNE_IMAGES                                 | Automatically prune unused images                                                                                                                     | `true`                                                        | `true`, `false`                                           |
+| [general]  prune_container_backups                     | DCU_PRUNE_CONTAINER_BACKUPS                      | Automatically prune old container backups                                                                                                             | `true`                                                        | `true`, `false`                                           |
+| [general]  container_backups_retention                 | DCU_CONTAINER_BACKUPS_RETENTION                  | Number of days to retain container backups                                                                                                            | `7`                                                           | Any positive integer                                      |
+| [general]  container_backups_keep_last                 | DCU_CONTAINER_BACKUPS_KEEP_LAST                  | Number of last container backups to keep regardless of retention time                                                                                 | `1`                                                           | Any positive integer                                      |
+| [general]  container_update_validation_time            | DCU_CONTAINER_UPDATE_VALIDATION_TIME             | Time in seconds to validate if a container runs successfully after an update                                                                          | `120`                                                         | Any positive integer                                      |
+| [general]  update_rules                                | DCU_UPDATE_RULES                                 | Rules for updating containers (see detailed explanation below)                                                                                        | `*[0.1.1-1,true]` `Docker-Container-Updater[0.0.0-0,false]`   | Custom rules (seperated by space)                         |
+| [general]  docker_hub_api_url                          | DCU_DOCKER_HUB_API_URL                           | URL for the Docker Hub API                                                                                                                            | `https://registry.hub.docker.com/v2`                          | Any valid URL                                             |
+| [general]  docker_hub_api_image_tags_page_size_limit   | DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT    | Number of tags to fetch per page from Docker Hub                                                                                                      | `100`                                                         | Positive integer (1-100)                                  |
+| [general]  docker_hub_api_image_tags_page_crawl_limit  | DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT   | Number of pages to crawl for tags from Docker Hub                                                                                                     | `10`                                                          | Any positive integer                                      |
+| [general]  docker_hub_image_minimum_age                | DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE                 | Minimum age in seconds threshold for a newly pulled Docker image                                                                                      | `21600`                                                       | Any positive integer                                      |
+| [general]  pre_scripts_folder                          | DCU_PRE_SCRIPTS_FOLDER                           | Folder containing pre-update scripts                                                                                                                  | `/usr/local/etc/container_update/pre-scripts`                 | Any valid directory path                                  |
+| [general]  post_scripts_folder                         | DCU_POST_SCRIPTS_FOLDER                          | Folder containing post-update scripts                                                                                                                 | `/usr/local/etc/container_update/post-scripts`                | Any valid directory path                                  |
+| [paths]    tput                                        |                                                  | Path to the `tput` command                                                                                                                            | *(automatically detected by script)*                          | Any valid file path                                       |
+| [paths]    gawk                                        |                                                  | Path to the `gawk` command                                                                                                                            | *(automatically detected by script)*                          | Any valid file path                                       |
+| [paths]    cut                                         |                                                  | Path to the `cut` command                                                                                                                             | *(automatically detected by script)*                          | Any valid file path                                       |
+| [paths]    docker                                      |                                                  | Path to the `docker` command                                                                                                                          | *(automatically detected by script)*                          | Any valid file path                                       |
+| [paths]    grep                                        |                                                  | Path to the `grep` command                                                                                                                            | *(automatically detected by script)*                          | Any valid file path                                       |
+| [paths]    jq                                          |                                                  | Path to the `jq` command                                                                                                                              | *(automatically detected by script)*                          | Any valid file path                                       |
+| [paths]    sed                                         |                                                  | Path to the `sed` command                                                                                                                             | *(automatically detected by script)*                          | Any valid file path                                       |
+| [paths]    wget                                        |                                                  | Path to the `wget` command                                                                                                                            | *(automatically detected by script)*                          | Any valid file path                                       |
+| [paths]    sort                                        |                                                  | Path to the `sort` command                                                                                                                            | *(automatically detected by script)*                          | Any valid file path                                       |
+| [paths]    sendmail                                    |                                                  | Path to the `sendmail` command                                                                                                                        | *(automatically detected by script)*                          | Any valid file path                                       |
+| [log]      filePath                                    | DCU_LOG_FILEPATH                                 | Path to the log file                                                                                                                                  | `/var/log/container_update.log`                               | Any valid file path                                       |
+| [log]      level                                       | DCU_LOG_LEVEL                                    | Log level                                                                                                                                             | `INFO`                                                        | `DEBUG`, `INFO`, `WARN`, `ERROR`                          |
+| [log]      retention                                   | DCU_LOG_RETENTION                                | Number of days to retain log file entries                                                                                                             | `7`                                                           | Any positive integer                                      |
+| [mail]     notifications_enabled                       | DCU_MAIL_NOTIFICATIONS_ENABLED                   | Enable or disable email notifications                                                                                                                 | `false`                                                       | `true`, `false`                                           |
+| [mail]     mode                                        | DCU_MAIL_NOTIFICATION_MODE                       | Mode of sending emails  (currently only sendmail is supported)                                                                                        | `sendmail`                                                    | `sendmail`                                                |
+| [mail]     from                                        | DCU_MAIL_FROM                                    | Email address for sending notifications                                                                                                               |                                                               | Any valid email address                                   |
+| [mail]     recipients                                  | DCU_MAIL_RECIPIENTS                              | Space-separated list of recipient email addresses                                                                                                     |                                                               | Any valid email addresses (seperated by space)            |
+| [mail]     subject                                     | DCU_MAIL_SUBJECT                                 | Subject of the notification email                                                                                                                     | `Docker Container Update Report from <hostname>`              | Any valid string                                          |
+| [telegram] notifications_enabled                       | DCU_TELEGRAM_NOTIFICATIONS_ENABLED               | Enable or disable telegram notifications                                                                                                              | `false`                                                       | `true`, `false`                                           |
+| [telegram] retry_limit                                 | DCU_TELEGRAM_RETRY_LIMIT                         | Number of retry attempts for sending a message                                                                                                        | 2                                                             | Any positive integer                                      |
+| [telegram] retry_interval                              | DCU_TELEGRAM_RETRY_INTERVAL                      | Time interval between retry attempts (in seconds)                                                                                                     | 10                                                            | Any positive integer                                      |
+| [telegram] chat_id                                     | DCU_TELEGRAM_CHAT_ID                             | Unique identifier for the target chat or user                                                                                                         |                                                               | A single valid chat ID                                    |
+| [telegram] bot_token                                   | DCU_TELEGRAM_BOT_TOKEN                           | Access token for the Telegram Bot API                                                                                                                 |                                                               | A single valid Telegram Bot token                         |
+|                                                        | DCU_CRONTAB_EXECUTION_EXPRESSION                 | Crontab expression when script to execute the update process automatically. You can use [this site](https://crontab.cronhub.io/) to create expression |                                                               | Any valid crontab expression                              |
+|                                                        | DCU_CONFIG_FILE                                  | Path to ini config file inside container. **Do not save this as persistence!**                                                                        |                                                               | Any valid file path                                       |
 
 
 ### Update Rules
