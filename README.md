@@ -24,7 +24,7 @@ Here are three methods to get this tool up and running:
    - [Docker Compose](#using-docker-compose)
 3. [Method: Cloning this repository and building your own image](#3-method-build-your-own-docker-image)
    
-#### 1. Method: Run this script directly on your host
+### 1. Method: Run this script directly on your host
 
 1. On your Docker host, navigate to the directory where the script `container_update.sh` should be downloaded
 2. Download `container_update.sh` and make it executable _(this can be done manually or by using the following command):_
@@ -35,13 +35,13 @@ Here are three methods to get this tool up and running:
 4. Customize the default configuration file according to your specific requirements *(see [Configuration](#configuration))*
 5. Create a cron job for this script *(after testing 🫠)*
 
-#### 2. Method: Using the [official Docker image](https://hub.docker.com/r/janjk/docker-container-updater)
+### 2. Method: Using the [official Docker image](https://hub.docker.com/r/janjk/docker-container-updater)
 
 > This method allows you to run a simple and dedicated Docker container that already includes all the necessary tools required by `container_update.sh`.
 
-##### Using Docker CLI
+#### Using Docker CLI
 
-###### Example Command with persistent data
+##### Example Command with persistent data
 
 ```bash
 docker run  -d \
@@ -64,7 +64,7 @@ docker run  -d \
 
 > ⚠️ However, please remember to create an update rule for this container to prevent it from updating itself. For further information on how to use the environment variables to configure those update rules in detail, please review [Configuration](#configuration).
 
-**Data Persistence**
+###### Data Persistence**
 
 To ensure data persistence, you should configure the following mounts:
 
@@ -74,7 +74,7 @@ To ensure data persistence, you should configure the following mounts:
 --mount type=bind,source=<YOUR_LOCAL_LOGS_PATH>,target=/opt/docker_container_updater/logs \
 ```
 
-###### Using Docker Compose
+##### Using Docker Compose
 
 1. Download the `docker-compose-example.yaml`
 2. Rename `docker-compose-example.yaml` to `docker-compose.yaml`
@@ -84,7 +84,7 @@ To ensure data persistence, you should configure the following mounts:
 3. Customize your `docker-compose.yaml` according to your needs
 4. run  `docker-compose up -d`
 
-#### 3. Method: Build your own Docker image
+### 3. Method: Build your own Docker image
 
 1. Clone this repository and navigate to it's folder
    ```bash
