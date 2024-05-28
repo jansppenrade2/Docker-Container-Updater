@@ -21,7 +21,7 @@ For the lazier and automation-loving nerds (like myself), constantly updating Do
 2. [Using the official Docker image](#2-using-the-official-docker-image)
    - [Docker CLI](#docker-cli)
    - [Docker Compose](#docker-compose)
-4. [Cloning this repository and building your own container](#3-build-your-own-docker-container)
+4. [Cloning this repository and building your own image](#3-build-your-own-docker-image)
    
 ### 1. Directly on your host
 
@@ -40,7 +40,7 @@ For the lazier and automation-loving nerds (like myself), constantly updating Do
 
 #### Docker CLI
 
-##### Example Command with Persistent Data
+##### Example Command with persistent data
 
 > For further information, please review [Configuration](#configuration)
 
@@ -97,7 +97,7 @@ docker run  -d \
 3. Customize your `docker-compose.yaml`
 4. run  `docker-compose up -d`
 
-### 3. Build your own Docker container
+### 3. Build your own Docker image
 
 1. Clone this repository and navigate to it's folder
    ```bash
@@ -108,7 +108,7 @@ docker run  -d \
    ```bash
    docker build -t docker_container_updater:latest -f ./DOCKERFILE .
    ```
-   Or build a corporate proxy:
+   Or behind a corporate proxy:
    ```bash
    docker build -t docker_container_updater:latest \
    --build-arg http_proxy=http://172.17.0.1:3128 \ 
