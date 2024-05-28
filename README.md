@@ -230,20 +230,21 @@ To give you more control, you can integrate pre- and post-scripts. These are cre
 #### E-Mail Notifications
 
 > ⚠️ To receive e-mail notifications, you need to install and configure `sendmail` on your docker host.
+
 > ℹ️ If you're using the Docker image you can allow the container to use your host's sendmail command and configuration by adding the following mounts:
-
-##### Docker CLI
-```
---mount type=bind,source=/usr/sbin/sendmail,target=/usr/sbin/sendmail:ro \
---mount type=bind,source=/usr/lib/sendmail,target=/usr/lib/sendmail:ro \
-```
-
-##### Docker Compose
-```
-volumes:
-      - /usr/sbin/sendmail:/usr/sbin/sendmail:ro
-      - /usr/lib/sendmail:/usr/lib/sendmail:ro
-```
+>
+>##### Docker CLI
+>```
+>--mount type=bind,source=/usr/sbin/sendmail,target=/usr/sbin/sendmail:ro \
+>--mount type=bind,source=/usr/lib/sendmail,target=/usr/lib/sendmail:ro \
+>```
+>
+>##### Docker Compose
+>```
+>volumes:
+>      - /usr/sbin/sendmail:/usr/sbin/sendmail:ro
+>      - /usr/lib/sendmail:/usr/lib/sendmail:ro
+>```
 
 #### Telegram Notifications
 
