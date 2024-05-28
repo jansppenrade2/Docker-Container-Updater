@@ -129,7 +129,7 @@ docker run  -d \
 
 ## Configuration
 
-The Docker Container Updater utilizes a configuration file, by default located at `/usr/local/etc/container_update/container_update.ini`. This file contains all the settings and parameters necessary for the script to run. You have the flexibility to tailor the configuration file to your specific needs when executing the script directly on your Docker host. Alternatively, when opting to utilize Docker container, you can simply add the corresponding environment variables.
+The Docker Container Updater utilizes a configuration file, by default located at `/usr/local/etc/container_update/container_update.ini`. This file contains all the settings and parameters necessary for the script to run. You have the flexibility to tailor the configuration file to your specific needs when executing the script directly on your Docker host. Alternatively, when opting to utilize the Docker image, you can simply add the corresponding environment variables.
 
 | Config File Parameter                                  | Docker Environment Variable                      | Description                                                                                                                                           | Default Value                                                 | Possible Values                                           |
 |--------------------------------------------------------|--------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|-----------------------------------------------------------|
