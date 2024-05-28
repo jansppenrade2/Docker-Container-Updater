@@ -45,6 +45,7 @@ services:
       DCU_MAIL_FROM: ''
       DCU_MAIL_RECIPIENTS: ''
       DCU_MAIL_SUBJECT: 'Docker Container Update Report from $(hostname)'
+      DCU_MAIL_RELAYHOST: ''
       ## TELEGRAM
       DCU_TELEGRAM_NOTIFICATIONS_ENABLED: false
       DCU_TELEGRAM_BOT_TOKEN: ''
