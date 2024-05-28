@@ -1,8 +1,8 @@
-version: '4'
+version: '5'
 
 services:
   Docker-Container-Updater:
-    image: Docker-Container-Updater:latest
+    image: janjk/Docker-Container-Updater:latest
     container_name: Docker-Container-Updater
     hostname: Docker-Container-Updater
     privileged: true
