@@ -36,8 +36,8 @@ For all the lazier and automation-loving nerds, constantly updating Docker conta
 
 ### 2. Using the official Docker image
 
-> In this case you need to configure an exception rule for the Docker Container Updater itself, as self-updating is currently not supported!
-> For further information on how to use the environment variables, please review [Configuration](#configuration)
+> ⚠️ In this case you need to configure an update rule for the Docker Container Updater itself to prevent it from updateing itself!
+> For further information on how to use the environment variables to configure those update rules, please review [Configuration](#configuration)
 
 #### Docker CLI
 
