@@ -30,7 +30,7 @@ COPY ./LICENSE /opt/docker_container_updater/LICENSE
 COPY ./entrypoint.sh /opt/docker_container_updater/entrypoint.sh
 COPY ./container_update.sh /opt/docker_container_updater/container_update.sh
 RUN chmod ugo+x container_update.sh entrypoint.sh
-RUN echo "relayhost = [$DCU_MAIL_RELAYHOST]" >> /etc/postfix/main.cf
+RUN postconf -e "relayhost = $(echo $DCU_MAIL_RELAYHOST)"
 CMD ["postfix", "start"]
 
 ENTRYPOINT [ "/opt/docker_container_updater/entrypoint.sh" ]
