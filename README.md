@@ -55,10 +55,6 @@ docker run  -d \
             --env DCU_TEST_MODE=true \
             --env DCU_CRONTAB_EXECUTION_EXPRESSION='30 2 * * *' \
             --env DCU_UPDATE_RULES='*[0.1.1-1,true] Docker-Container-Updater[0.0.0-0,false]' \
-            --env DCU_CONFIG_FILE=/opt/docker_container_updater/container_update.ini \
-            --env DCU_PRE_SCRIPTS_FOLDER=/opt/docker_container_updater/pre-scripts \
-            --env DCU_POST_SCRIPTS_FOLDER=/opt/docker_container_updater/post-scripts \
-            --env DCU_LOG_FILEPATH=/opt/docker_container_updater/logs/container_update.log \
             janjk/docker-container-updater:latest
 ```
 
@@ -71,7 +67,7 @@ To ensure data persistence, you should configure the following mounts:
 ```
 --mount type=bind,source=<YOUR_LOCAL_PRE_SCRIPTS_PATH>,target=/usr/local/etc/container_update/pre-scripts \
 --mount type=bind,source=<YOUR_LOCAL_POST_SCRIPTS_PATH>,target=/usr/local/etc/container_update/post-scripts \
---mount type=bind,source=<YOUR_LOCAL_LOGS_PATH>,target=/opt/docker_container_updater/logs \
+--mount type=bind,source=<YOUR_LOCAL_LOGS_PATH>,target=/var/log \
 ```
 
 ###### Notifications
@@ -232,10 +228,12 @@ To give you more control, you can integrate pre- and post-scripts. These are cre
 
 ##### Docker CLI
 ```
---mount type=bind,source=/usr/sbin/sendmail,target=/usr/sbin/sendmail:ro \
---mount type=bind,source=/usr/lib/sendmail,target=/usr/lib/sendmail:ro \
---mount type=bind,source=/etc/mail,target=/etc/mail:ro \
---mount type=bind,source=/etc/postfix,target=/etc/postfix:ro \
+--network host \
+--mount type=bind,source=/usr/sbin/sendmail,target=/etc/alternatives/mta \
+--mount type=bind,source=/etc/alternatives/mta-sendmail,target=/usr/lib/sendmail \
+--mount type=bind,source=/etc/postfix,target=/etc/postfix \
+--mount type=bind,source=/var/spool/mail,target=/var/spool/mail \
+--mount type=bind,source=/etc/aliases,target=/etc/aliases \
 --env DCU_MAIL_NOTIFICATIONS_ENABLED=true \
 --env DCU_MAIL_FROM='<some@mail.address>' \
 --env DCU_MAIL_RECIPIENTS='<some@mail.address>' \
@@ -244,11 +242,14 @@ To give you more control, you can integrate pre- and post-scripts. These are cre
 
 ##### Docker Compose
 ```
+networks:
+      - host
 volumes:
-      - /usr/sbin/sendmail:/usr/sbin/sendmail:ro
-      - /usr/lib/sendmail:/usr/lib/sendmail:ro
-      - /etc/mail:/etc/mail:ro
-      - /etc/postfix:/etc/postfix:ro
+      - /usr/sbin/sendmail:/etc/alternatives/mta
+      - /etc/alternatives/mta-sendmail:/usr/lib/sendmail
+      - /etc/postfix:/etc/postfix
+      - /var/spool/mail:/var/spool/mail
+      - /etc/aliases:/etc/aliases
 environment:
       DCU_MAIL_NOTIFICATIONS_ENABLED: true
       DCU_MAIL_FROM: '<some@mail.address>'
