@@ -85,9 +85,13 @@ docker run  -d \
 
 ##### Docker Compose
 
-```
->>>>>>> To be continued...
-```
+1. Download the docker-compose-example.yaml
+2. Rename `docker-compose-example.yaml` to `docker-compose.yaml`
+   ```bash
+   mv ./docker-compose-example.yaml ./docker-compose.yaml
+   ```
+3. Customize your `docker-compose.yaml`
+4. run  `docker-compose up -d`
 
 ### 3. Build your own Docker container
 
