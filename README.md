@@ -76,16 +76,6 @@ docker run  -d \
             --env DCU_LOG_FILEPATH=/opt/docker_container_updater/logs/container_update.log \
             --env DCU_LOG_LEVEL=INFO \
             --env DCU_LOG_RETENTION=7 \
-            --env DCU_MAIL_NOTIFICATIONS_ENABLED=false \
-            --env DCU_MAIL_NOTIFICATION_MODE=sendmail \
-            --env DCU_MAIL_FROM='' \
-            --env DCU_MAIL_RECIPIENTS='' \
-            --env DCU_MAIL_SUBJECT='Docker Container Update Report from $(hostname)' \
-            --env DCU_TELEGRAM_NOTIFICATIONS_ENABLED=false \
-            --env DCU_TELEGRAM_BOT_TOKEN='' \
-            --env DCU_TELEGRAM_CHAT_ID='' \
-            --env DCU_TELEGRAM_RETRY_INTERVAL=10 \
-            --env DCU_TELEGRAM_RETRY_LIMIT=2 \
             janjk/docker-container-updater:latest
 ```
 
@@ -234,16 +224,21 @@ To give you more control, you can integrate pre- and post-scripts. These are cre
 
 ### Notifications
 
-#### E-Mail Notifications
+#### 1. E-Mail Notifications
 
-> ⚠️ To receive e-mail notifications, you need to install and configure `sendmail` on your docker host first.
+>ℹ️ To receive e-mail notifications, you need to install and configure `sendmail` on your docker host first.
 
-> ℹ️ If you're using the [official Docker image](https://hub.docker.com/r/janjk/docker-container-updater) of `Docker Container Updater` you can allow the container to use your host's `sendmail` command and configuration by adding the following mounts:
+##### Using sendmail in combination with the Docker Image of `Docker Container Updater`:
+>  If you're using the [official Docker image](https://hub.docker.com/r/janjk/docker-container-updater) of `Docker Container Updater` you can allow the container to use your host's `sendmail` command and it's configuration by adding the following options:
 >
 >##### Docker CLI
 >```
 >--mount type=bind,source=/usr/sbin/sendmail,target=/usr/sbin/sendmail:ro \
 >--mount type=bind,source=/usr/lib/sendmail,target=/usr/lib/sendmail:ro \
+>--env DCU_MAIL_NOTIFICATIONS_ENABLED=true \
+>--env DCU_MAIL_FROM='<some@mail.address>' \
+>--env DCU_MAIL_RECIPIENTS='<some@mail.address>' \
+>--env DCU_MAIL_SUBJECT='Docker Container Update Report from $(hostname)' \
 >```
 >
 >##### Docker Compose
@@ -251,11 +246,33 @@ To give you more control, you can integrate pre- and post-scripts. These are cre
 >volumes:
 >      - /usr/sbin/sendmail:/usr/sbin/sendmail:ro
 >      - /usr/lib/sendmail:/usr/lib/sendmail:ro
+>environment:
+>      DCU_MAIL_NOTIFICATIONS_ENABLED: true
+>      DCU_MAIL_FROM: '<some@mail.address>'
+>      DCU_MAIL_RECIPIENTS: '<some@mail.address>'
+>      DCU_MAIL_SUBJECT: 'Docker Container Update Report from $(hostname)'
 >```
 
-#### Telegram Notifications
+#### 2. Telegram Notifications
 
-> ⚠️ To receive Telegram notifications, you first need to obtain a Chat ID and a Bot Token, which you should enter in the configuration file.
+> ℹ️ To receive Telegram notifications, you first need to obtain a Chat ID and a Bot Token.
+
+##### Setting up telegram notifications in combination with the Docker Image of `Docker Container Updater`:
+
+>##### Docker CLI
+>```
+>--env DCU_TELEGRAM_NOTIFICATIONS_ENABLED=false \
+>--env DCU_TELEGRAM_BOT_TOKEN='<your_bot_token>' \
+>--env DCU_TELEGRAM_CHAT_ID='<your_chat_id' \
+>```
+>
+>##### Docker Compose
+>```
+>environment:
+>      DCU_TELEGRAM_NOTIFICATIONS_ENABLED: true
+>      DCU_TELEGRAM_BOT_TOKEN: '<your_bot_token>'
+>      DCU_TELEGRAM_CHAT_ID: '<your_chat_id>'
+>```
 
 ## Having Trouble?
 If you encounter any issues while executing this script, please provide the following information:
