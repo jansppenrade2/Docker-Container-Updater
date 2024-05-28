@@ -54,6 +54,7 @@ docker run  -d \
             --mount type=bind,source=/etc/localtime,target=/etc/localtime,readonly \
             --env DCU_TEST_MODE=true \
             --env DCU_UPDATE_RULES='*[0.1.1-1,true]' \
+            --env DCU_MAIL_SUBJECT="🐳 Docker Container Update Report from $(hostname)" \
             janjk/docker-container-updater:latest
 ```
 
