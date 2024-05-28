@@ -42,6 +42,8 @@ For the lazier and automation-loving nerds (like myself), constantly updating Do
 
 ##### Example Command with Persistent Data
 
+> For further information, please review [Configuration](##Configuration)
+
 ```bash
 docker run  -d \
             --name=Docker-Container-Updater \
