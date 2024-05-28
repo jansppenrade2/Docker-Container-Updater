@@ -7,7 +7,7 @@
 # 2024.05.28-1
 #
 # ## Changelog
-# 2024.05.28-1, janseppenrade2: Added support for container attribute "--tty". Prevented self update in case Docker Container Updater is running in a Docker Container
+# 2024.05.28-1, janseppenrade2: Added support for container attribute "--tty". Prevented self update in case Docker Container Updater is running in a Docker Container.
 # 2024.05.27-3, janseppenrade2: Fixed a bug that caused notifications to be sent even when no action was taken. Additionally, fixed an issue with log file pruning that resulted in the removal of various spaces, which were important for maintaining readability in the log file.
 # 2024.05.27-2, janseppenrade2: Fixed a bug that reported incorrectly listed outstanding updates if an update was already performed during the same script execution.
 # 2024.05.27-1, Keonik1: Add docker container installation, refactor some functions.
