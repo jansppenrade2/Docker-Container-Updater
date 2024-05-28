@@ -19,7 +19,7 @@ For all the lazier and automation-loving nerds, constantly updating Docker conta
 ### Choose your method
 Here are three methods to get this tool up and running:
 1. [Method: Directly on your Docker host as a normal Bash script executed by root](#1-method-run-this-script-directly-on-your-host)
-2. [Method: Using the official Docker image](2-method-using-the-official-docker-image)
+2. [Method: Using the official Docker image](#2-method-using-the-official-docker-image)
    - [Docker CLI](#using-docker-cli)
    - [Docker Compose](#using-docker-compose)
 3. [Method: Cloning this repository and building your own image](#3-method-build-your-own-docker-image)
