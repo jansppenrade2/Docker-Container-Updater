@@ -248,7 +248,7 @@ To give you more control, you can integrate pre- and post-scripts. These are cre
 
 #### Telegram Notifications
 
-To receive Telegram notifications, you first need to obtain a Chat ID and a Bot Token, which you should enter in the configuration file.
+> ⚠️ To receive Telegram notifications, you first need to obtain a Chat ID and a Bot Token, which you should enter in the configuration file.
 
 ## Having Trouble?
 If you encounter any issues while executing this script, please provide the following information:
