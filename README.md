@@ -42,6 +42,7 @@ For the lazier and automation-loving nerds (like myself), constantly updating Do
 
 ##### Example Command with persistent data
 
+> In case of usinf the a docker image, you need to confugure a rule for the Docker-Container-Updater itself, because currently a self-update is not supported!
 > For further information, please review [Configuration](#configuration)
 
 ```bash
