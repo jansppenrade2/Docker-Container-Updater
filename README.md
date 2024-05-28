@@ -76,7 +76,7 @@ To ensure data persistence, you should configure the following mounts:
 
 ###### Notifications
 
-> ℹ️ To enable notifications, please refer to [Notifications](#notifications)
+> ℹ️ To enable notifications, please refer to [Notifications](#notifications-1)
 
 ##### Using Docker Compose
 
