@@ -16,7 +16,7 @@ For the lazier and automation-loving nerds (like myself), constantly updating Do
 
 ## Installation / Update
 
-**Here are three methods for running this script:**
+**Here are three methods for running this tool:**
 1. [Directly on your Docker host](#1-directly-on-your-host)
 2. [Using the official Docker image](#2-using-the-official-docker-image)
    - [Docker CLI](#docker-cli)
