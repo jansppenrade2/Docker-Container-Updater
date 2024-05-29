@@ -2096,9 +2096,9 @@ Telegram-GenerateMessage() {
     local end_time=$(date +%s)
     stats_execution_time=$((end_time - start_time))
 
-    [ -n "$DCU_REPORT_REAL_HOSTNAME" ]          && hostname="$DCU_REPORT_REAL_HOSTNAME"
-    [ -n "$DCU_REPORT_REAL_IP" ]                && primary_IPaddress="$DCU_REPORT_REAL_IP"
-    [ -n "$DCU_REPORT_REAL_DOCKER_VERSION" ]    && docker_version="$DCU_REPORT_REAL_DOCKER_VERSION"
+    [ -n "$DCU_REPORT_REAL_HOSTNAME" ]          && hostname="$(Telegram-EscapeSpecialChars  "$DCU_REPORT_REAL_HOSTNAME")"
+    [ -n "$DCU_REPORT_REAL_IP" ]                && primary_IPaddress="$(Telegram-EscapeSpecialChars  "$DCU_REPORT_REAL_IP")"
+    [ -n "$DCU_REPORT_REAL_DOCKER_VERSION" ]    && docker_version="$(Telegram-EscapeSpecialChars  "$DCU_REPORT_REAL_DOCKER_VERSION")"
     
     if [ "$report_available" == true ]; then
         message+="🐳 *DOCKER CONTAINER UPDATE REPORT*\n"
