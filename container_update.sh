@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.29-b
+# 2024.05.29-d
 #
 # ## Changelog
 # 2024.05.29-1, janseppenrade2: Implemented functionality to retrieve and display the Docker host's information (hostname, IP address, and Docker version) in the reports when running the Docker Container Updater as a Docker container by passing this information via the environment variables `DCU_REPORT_REAL_HOSTNAME`, `DCU_REPORT_REAL_IP` and `DCU_REPORT_REAL_DOCKER_VERSION`.
@@ -2096,9 +2096,9 @@ Telegram-GenerateMessage() {
     local end_time=$(date +%s)
     stats_execution_time=$((end_time - start_time))
 
-    [ -n "$DCU_REPORT_REAL_HOSTNAME" ]          && hostname="$(Telegram-EscapeSpecialChars  "$DCU_REPORT_REAL_HOSTNAME")"
-    [ -n "$DCU_REPORT_REAL_IP" ]                && primary_IPaddress="$(Telegram-EscapeSpecialChars  "$DCU_REPORT_REAL_IP")"
-    [ -n "$DCU_REPORT_REAL_DOCKER_VERSION" ]    && docker_version="$(Telegram-EscapeSpecialChars  "$DCU_REPORT_REAL_DOCKER_VERSION")"
+    [ -n "$DCU_REPORT_REAL_HOSTNAME" ]          && hostname="$(Telegram-EscapeSpecialChars "$DCU_REPORT_REAL_HOSTNAME")"
+    [ -n "$DCU_REPORT_REAL_IP" ]                && primary_IPaddress="$(Telegram-EscapeSpecialChars "$DCU_REPORT_REAL_IP")"
+    [ -n "$DCU_REPORT_REAL_DOCKER_VERSION" ]    && docker_version="$(Telegram-EscapeSpecialChars "$DCU_REPORT_REAL_DOCKER_VERSION")"
     
     if [ "$report_available" == true ]; then
         message+="🐳 *DOCKER CONTAINER UPDATE REPORT*\n"
@@ -2321,7 +2321,7 @@ Send-TelegramNotification() {
     local retry_interval=$(Read-INI "$configFile" "telegram" "retry_interval")
     local retry_limit=$(Read-INI "$configFile" "telegram" "retry_limit")
     local telegram_api_response=""
-    local telegram_sendMessage_command="$cmd_curl -s -X POST \"https://api.telegram.org/bot$bot_token/sendMessage\" -H \"Content-Type: application/json\" -d '{ \"chat_id\": "\'$chat_id\'", \"text\": "\'"$message"\'", \"parse_mode\": \"MarkdownV2\" }'"
+    local telegram_sendMessage_command="$cmd_curl -s -X POST \"https://api.telegram.org/bot$bot_token/sendMessage\" -H \"Content-Type: application/json\" -d '{ \"chat_id\": "$chat_id", \"text\": \"$message\", \"parse_mode\": \"MarkdownV2\" }'"
 
     for ((i = 1; i <= retry_limit; i++)); do
 
@@ -2334,7 +2334,7 @@ Send-TelegramNotification() {
         telegram_api_response=$($cmd_curl -s -X POST "https://api.telegram.org/bot$bot_token/sendMessage" -H "Content-Type: application/json" -d '{ "chat_id": "'$chat_id'", "text": "'"$message"'", "parse_mode": "MarkdownV2" }')
         
         if [ "$(echo "$telegram_api_response" | $cmd_jq -r '.ok')" = "true" ]; then
-            Write-Log "DEBUG" "          => Successfully sent message"
+            Write-Log "DEBUG" "          => Successfully sent message: $telegram_api_response"
             break
         else
             Write-Log "ERROR" "          => Failed to send message: $telegram_api_response"
