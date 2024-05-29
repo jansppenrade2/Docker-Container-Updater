@@ -12,8 +12,6 @@ For all the lazier and automation-loving nerds, constantly updating Docker conta
 - **📧 Notifications**: Stay informed with detailed email and telegram reports
 - **📜 Pre- and Post-Scripts Integration**: Integrate your own pre- and post-scripts to perform actions such as backing up configuration files or databases before any update and making adjustments to the container configuration after any update.
 
-> The default configuration has **test mode enabled**. Safety first 😉! After you've run your first test, checked for errors, and reviewed the generated Docker run commands, you can disable test mode in your configuration file *(see [Configuration](#configuration))*.
-
 ## Getting Started
 
 ### Choose your method
@@ -57,6 +55,8 @@ docker run  -d \
             --env DCU_MAIL_SUBJECT="🐳 Docker Container Update Report from $(hostname)" \
             janjk/docker-container-updater:latest
 ```
+
+> The default configuration has **test mode enabled**. Safety first 😉! After you've run your first test, checked for errors, and reviewed the generated Docker run commands, you can disable test mode in your configuration file *(see [Configuration](#configuration))*.
 
 ###### Data Persistence
 
