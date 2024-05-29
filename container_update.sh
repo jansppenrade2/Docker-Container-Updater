@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.29-a
+# 2024.05.29-b
 #
 # ## Changelog
 # 2024.05.29-1, janseppenrade2: Implemented functionality to retrieve and display the Docker host's information (hostname, IP address, and Docker version) in the reports when running the Docker Container Updater as a Docker container by passing this information via the environment variables `DCU_REPORT_REAL_HOSTNAME`, `DCU_REPORT_REAL_IP` and `DCU_REPORT_REAL_DOCKER_VERSION`.
@@ -2321,15 +2321,20 @@ Send-TelegramNotification() {
     local retry_interval=$(Read-INI "$configFile" "telegram" "retry_interval")
     local retry_limit=$(Read-INI "$configFile" "telegram" "retry_limit")
     local telegram_api_response=""
+    local telegram_sendMessage_command="$cmd_curl -s -X POST \"https://api.telegram.org/bot$bot_token/sendMessage\" -H \"Content-Type: application/json\" -d '{ \"chat_id\": "\'$chat_id\'", \"text\": "\'"$message"\'", \"parse_mode\": \"MarkdownV2\" }'"
 
     for ((i = 1; i <= retry_limit; i++)); do
-        Write-Log "INFO"  "        Sending telegram message to chat ID \"$chat_id\" (Attempt $i of $retry_limit)..."
+
+        Write-Log "INFO"  "        Sending telegram message to chat ID \"$chat_id\" with \"$bot_token\" (Attempt $i of $retry_limit)..."
+        Write-Log "DEBUG" "          => Bot Token:       \"$bot_token\""
+        Write-Log "DEBUG" "          => Chat ID:         \"$chat_id\""
         Write-Log "DEBUG" "          => Message Length:  $(Telegram-GetMessageLength \""$message"\")"
-        Write-Log "DEBUG" "          => Message: \"$message\""
+        Write-Log "DEBUG" "          => Message Content: \"$message\""
+        Write-Log "DEBUG" "          => Command:         \"$telegram_sendMessage_command\""
         telegram_api_response=$($cmd_curl -s -X POST "https://api.telegram.org/bot$bot_token/sendMessage" -H "Content-Type: application/json" -d '{ "chat_id": "'$chat_id'", "text": "'"$message"'", "parse_mode": "MarkdownV2" }')
         
         if [ "$(echo "$telegram_api_response" | $cmd_jq -r '.ok')" = "true" ]; then
-            Write-Log "DEBUG"  "          => Successfully sent message"
+            Write-Log "DEBUG" "          => Successfully sent message"
             break
         else
             Write-Log "ERROR" "          => Failed to send message: $telegram_api_response"
