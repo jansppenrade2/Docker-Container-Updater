@@ -4,9 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.28-2
+# 2024.05.29-a
 #
 # ## Changelog
+# 2024.05.29-1, janseppenrade2: Implemented functionality to retrieve and display the Docker host's information (hostname, IP address, and Docker version) in the reports when running the Docker Container Updater as a Docker container by passing this information via the environment variables `DCU_REPORT_REAL_HOSTNAME`, `DCU_REPORT_REAL_IP` and `DCU_REPORT_REAL_DOCKER_VERSION`.
 # 2024.05.28-2, janseppenrade2: Added support for container attribute "--tty". Prevented self update in case Docker Container Updater is running in a Docker Container.
 # 2024.05.27-3, janseppenrade2: Fixed a bug that caused notifications to be sent even when no action was taken. Additionally, fixed an issue with log file pruning that resulted in the removal of various spaces, which were important for maintaining readability in the log file.
 # 2024.05.27-2, janseppenrade2: Fixed a bug that reported incorrectly listed outstanding updates if an update was already performed during the same script execution.
@@ -2095,6 +2096,10 @@ Telegram-GenerateMessage() {
     local end_time=$(date +%s)
     stats_execution_time=$((end_time - start_time))
 
+    [ -n "$DCU_REPORT_REAL_HOSTNAME" ]          && hostname="$DCU_REPORT_REAL_HOSTNAME"
+    [ -n "$DCU_REPORT_REAL_IP" ]                && primary_IPaddress="$DCU_REPORT_REAL_IP"
+    [ -n "$DCU_REPORT_REAL_DOCKER_VERSION" ]    && docker_version="$DCU_REPORT_REAL_DOCKER_VERSION"
+    
     if [ "$report_available" == true ]; then
         message+="🐳 *DOCKER CONTAINER UPDATE REPORT*\n"
         message+="\n"
@@ -2178,6 +2183,10 @@ Send-MailNotification() {
     local docker_version=$($cmd_docker --version | $cmd_cut -d ' ' -f3 | tr -d ',')
     local end_time=$(date +%s)
     stats_execution_time=$((end_time - start_time))
+
+    [ -n "$DCU_REPORT_REAL_HOSTNAME" ]          && hostname="$DCU_REPORT_REAL_HOSTNAME"
+    [ -n "$DCU_REPORT_REAL_IP" ]                && primary_IPaddress="$DCU_REPORT_REAL_IP"
+    [ -n "$DCU_REPORT_REAL_DOCKER_VERSION" ]    && docker_version="$DCU_REPORT_REAL_DOCKER_VERSION"
 
     if [[ "$report_available" == true && -n "$mail_from" && -n "$mail_recipients" && -n "$mail_subject" ]]; then
 
