@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.29-e
+# 2024.05.29-f
 #
 # ## Changelog
 # 2024.05.29-1, janseppenrade2: Implemented functionality to retrieve and display the Docker host's information (hostname, IP address, and Docker version) in the reports when running the Docker Container Updater as a Docker container by passing this information via the environment variables `DCU_REPORT_REAL_HOSTNAME`, `DCU_REPORT_REAL_IP` and `DCU_REPORT_REAL_DOCKER_VERSION`.
@@ -2338,7 +2338,7 @@ Send-TelegramNotification() {
             Write-Log "DEBUG" "          => Successfully sent message: $telegram_api_response"
             break
         else
-            if [ -n "$telegram_api_response" ]; then
+            if [ -z "$telegram_api_response" ]; then
                 curl_response=$($cmd_curl "https://api.telegram.org/")
                 Write-Log "ERROR" "          => Failed to send message: $curl_response"
             else
