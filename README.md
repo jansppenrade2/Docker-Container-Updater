@@ -50,6 +50,9 @@ docker run  -d \
             --tty \
             --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
             --mount type=bind,source=/etc/localtime,target=/etc/localtime,readonly \
+            --env DCU_REPORT_REAL_HOSTNAME="$(hostname)" \
+            --env DCU_REPORT_REAL_IP="$(hostname -I | awk '{print $1}')" \
+            --env DCU_REPORT_REAL_DOCKER_VERSION="$(docker --version | awk '{print $3}' | tr -d ',')" \
             --env DCU_TEST_MODE=true \
             --env DCU_UPDATE_RULES='*[0.1.1-1,true]' \
             --env DCU_MAIL_SUBJECT="🐳 Docker Container Update Report from $(hostname)" \
