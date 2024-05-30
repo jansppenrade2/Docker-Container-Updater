@@ -4,9 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.29-1
+# 2024.05.30-1
 #
 # ## Changelog
+# 2024.05.30-1, janseppenrade2: Issue: Digests not compared correctly #11
 # 2024.05.29-1, janseppenrade2: Implemented functionality to retrieve and display the Docker host's information (hostname, IP address, and Docker version) in the reports when running the Docker Container Updater as a Docker container by passing this information via the environment variables `DCU_REPORT_REAL_HOSTNAME`, `DCU_REPORT_REAL_IP` and `DCU_REPORT_REAL_DOCKER_VERSION`.
 # 2024.05.28-2, janseppenrade2: Added support for container attribute "--tty". Prevented self update in case Docker Container Updater is running in a Docker Container.
 # 2024.05.27-3, janseppenrade2: Fixed a bug that caused notifications to be sent even when no action was taken. Additionally, fixed an issue with log file pruning that resulted in the removal of various spaces, which were important for maintaining readability in the log file.
@@ -1772,13 +1773,23 @@ Get-AvailableUpdates() {
         local docker_hub_image_tag_digest=$3
 
         if [ -n "$image_repoDigests" ] && [ -n "$docker_hub_image_tag_digest" ]; then
-            if echo "$docker_hub_image_tag_digest" | $cmd_grep -q "\<$image_repoDigests\>"; then
-                echo false
-                return
-            else
-                echo true
-                return
-            fi
+
+            for digest in $image_repoDigests; do
+                if echo "$docker_hub_image_tag_digest" | $cmd_grep -q "\<$digest\>"; then
+                    echo false
+                    return
+                fi
+            done
+
+            for digest in $docker_hub_image_tag_digest; do
+                if echo "$image_repoDigests" | $cmd_grep -q "\<$digest\>"; then
+                    echo false
+                    return
+                fi
+            done
+
+            echo true
+            return
         else
             echo false
             Write-Log "WARNING" "                => An empty value was passed to \"Get-AvailableUpdates()\" - Either the Image Repository Digests, or the Docker Hub Image Digest was not found"
