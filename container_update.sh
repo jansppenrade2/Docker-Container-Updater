@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.30-a
+# 2024.05.30-1
 #
 # ## Changelog
 # 2024.05.30-1, janseppenrade2: Issue: Digests not compared correctly #11
