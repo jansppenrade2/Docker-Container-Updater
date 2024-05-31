@@ -44,7 +44,7 @@ docker run  -d \
             janjk/docker-container-updater:latest
 ```
 
-> The default configuration has **test mode enabled** *(even if you not specify the variable `DCU_TEST_MODE`)*. Safety first 😉! After you've run your first test, checked for errors, and reviewed the generated Docker run commands, you can disable test mode in your configuration file *(see [Configuration](#configuration))*.
+> ⚠️ The default configuration has **test mode enabled** *(even if you not specify the variable `DCU_TEST_MODE`)*. Safety first 😉! After you've run your first test, checked for errors, and reviewed the generated Docker run commands, you can disable test mode in your configuration file *(see [Configuration](#configuration))*.
 
 ###### Data Persistence
 
