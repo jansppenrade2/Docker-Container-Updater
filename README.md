@@ -50,12 +50,8 @@ docker run  -d \
             --tty \
             --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
             --mount type=bind,source=/etc/localtime,target=/etc/localtime,readonly \
-            --env DCU_REPORT_REAL_HOSTNAME="$(hostname)" \
-            --env DCU_REPORT_REAL_IP="$(hostname -I | awk '{print $1}')" \
-            --env DCU_REPORT_REAL_DOCKER_VERSION="$(docker --version | awk '{print $3}' | tr -d ',')" \
             --env DCU_TEST_MODE=true \
             --env DCU_UPDATE_RULES='*[0.1.1-1,true]' \
-            --env DCU_MAIL_SUBJECT="🐳 Docker Container Update Report from $(hostname)" \
             janjk/docker-container-updater:latest
 ```
 
@@ -243,11 +239,15 @@ If you are using the [official Docker image](https://hub.docker.com/r/janjk/dock
 
 ##### Docker CLI
 ```
+--env DCU_REPORT_REAL_HOSTNAME="$(hostname)" \
+--env DCU_REPORT_REAL_IP="$(hostname -I | awk '{print $1}')" \
+--env DCU_REPORT_REAL_DOCKER_VERSION="$(docker --version | awk '{print $3}' | tr -d ',')" \
 --env DCU_MAIL_NOTIFICATIONS_ENABLED=true \
 --env DCU_MAIL_FROM='<some@mail.address>' \
 --env DCU_MAIL_RECIPIENTS='<some@mail.address>' \
 --env DCU_MAIL_SUBJECT='Docker Container Update Report from $(hostname)' \
 --env DCU_MAIL_RELAYHOST='[<IP address or hostname>]:<Port>' \
+--env DCU_MAIL_SUBJECT="🐳 Docker Container Update Report from $(hostname)" \
 ```
 
 ##### Docker Compose
@@ -268,7 +268,10 @@ environment:
 
 ##### Docker CLI
 ```
---env DCU_TELEGRAM_NOTIFICATIONS_ENABLED=false \
+--env DCU_REPORT_REAL_HOSTNAME="$(hostname)" \
+--env DCU_REPORT_REAL_IP="$(hostname -I | awk '{print $1}')" \
+--env DCU_REPORT_REAL_DOCKER_VERSION="$(docker --version | awk '{print $3}' | tr -d ',')" \
+--env DCU_TELEGRAM_NOTIFICATIONS_ENABLED=true \
 --env DCU_TELEGRAM_BOT_TOKEN='<your_bot_token>' \
 --env DCU_TELEGRAM_CHAT_ID='<your_chat_id' \
 ```
