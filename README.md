@@ -236,7 +236,6 @@ To give you more control, you can integrate pre- and post-scripts. These are cre
 If you are running the `container_update.sh` script directly on your Docker host, you just need to ensure that `sendmail` is installed and configured on your Docker host.
 If you are using the [Docker image](https://hub.docker.com/r/janjk/docker-container-updater), you need to have a Mail Transfer Agent (MTA) (e.g., Postfix) installed, configured and reachable in your network, to which the Docker container can relay its emails. The IP address or the hostname of your MTA needs be specified in the environment variable `DCU_MAIL_RELAYHOST` when running the container.
 
-
 ##### Docker CLI
 ```
 --env DCU_REPORT_REAL_HOSTNAME="$(hostname)" \
@@ -265,8 +264,6 @@ environment:
 ##### General Information
 
 To receive Telegram notifications, you first need to obtain a Chat ID and a Bot Token.
-
-##### Setting up telegram notifications in combination with the Docker Image of `Docker Container Updater`
 
 ##### Docker CLI
 ```
