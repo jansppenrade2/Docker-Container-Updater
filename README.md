@@ -16,24 +16,13 @@ For all the lazier and automation-loving nerds, constantly updating Docker conta
 
 ### Choose your method
 Here are three methods to get this tool up and running:
-1. [Method: Directly on your Docker host as a normal Bash script executed by root](#1-method-run-this-script-directly-on-your-host)
-2. [Method: Using the official Docker image](#2-method-using-the-official-docker-image)
+1. [Method: Using the official Docker image](#1-method-using-the-official-docker-image)
    - [Docker CLI](#using-docker-cli)
    - [Docker Compose](#using-docker-compose)
+2. [Method: Directly on your Docker host as a normal Bash script executed by root](#2-method-run-this-script-directly-on-your-host)
 3. [Method: Cloning this repository and building your own image](#3-method-build-your-own-docker-image)
-   
-### 1. Method: Run this script directly on your host
 
-1. On your Docker host, navigate to the directory where the script `container_update.sh` should be downloaded
-2. Download `container_update.sh` and make it executable _(this can be done manually or by using the following command):_
-   ```bash
-   wget --header='Accept: application/vnd.github.v3.raw' -O container_update.sh https://api.github.com/repos/jansppenrade2/Docker-Container-Updater/contents/container_update.sh?ref=main && chmod +x ./container_update.sh
-   ```
-3. Execute `./container_update.sh` with root privileges *(the first run will be in **test mode** and will also create the default configuration file)*
-4. Customize the default configuration file according to your specific requirements *(see [Configuration](#configuration))*
-5. Create a cron job for this script *(after testing 🫠)*
-
-### 2. Method: Using the [official Docker image](https://hub.docker.com/r/janjk/docker-container-updater)
+### 1. Method: Using the [official Docker image](https://hub.docker.com/r/janjk/docker-container-updater)
 
 > This method allows you to run a simple and dedicated Docker container that already includes all the necessary tools required by `container_update.sh`.
 
@@ -55,7 +44,7 @@ docker run  -d \
             janjk/docker-container-updater:latest
 ```
 
-> The default configuration has **test mode enabled**. Safety first 😉! After you've run your first test, checked for errors, and reviewed the generated Docker run commands, you can disable test mode in your configuration file *(see [Configuration](#configuration))*.
+> The default configuration has **test mode enabled** *(even if you not specify the variable `DCU_TEST_MODE`)*. Safety first 😉! After you've run your first test, checked for errors, and reviewed the generated Docker run commands, you can disable test mode in your configuration file *(see [Configuration](#configuration))*.
 
 ###### Data Persistence
 
@@ -80,6 +69,17 @@ To ensure data persistence, you should configure the following mounts:
    ```
 3. Customize your `docker-compose.yaml` according to your needs
 4. run  `docker-compose up -d`
+   
+### 2. Method: Run this script directly on your host
+
+1. On your Docker host, navigate to the directory where the script `container_update.sh` should be downloaded
+2. Download `container_update.sh` and make it executable _(this can be done manually or by using the following command):_
+   ```bash
+   wget --header='Accept: application/vnd.github.v3.raw' -O container_update.sh https://api.github.com/repos/jansppenrade2/Docker-Container-Updater/contents/container_update.sh?ref=main && chmod +x ./container_update.sh
+   ```
+3. Execute `./container_update.sh` with root privileges *(the first run will be in **test mode** and will also create the default configuration file)*
+4. Customize the default configuration file according to your specific requirements *(see [Configuration](#configuration))*
+5. Create a cron job for this script *(after testing 🫠)*
 
 ### 3. Method: Build your own Docker image
 
