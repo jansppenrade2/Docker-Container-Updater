@@ -4,10 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.31-a
+# 2024.05.31-b
 #
 # ## Changelog
-# 2024.05.31-1, janseppenrade2: Issue: Version Recognition in some cases not working #13
+# 2024.05.31-1, janseppenrade2: Issue: Version Recognition in some cases not working #13. Issue: Blocking rule not shown in update report (Mail only) #14
 # 2024.05.30-1, janseppenrade2: Issue: Digests not compared correctly #11
 # 2024.05.29-1, janseppenrade2: Implemented functionality to retrieve and display the Docker host's information (hostname, IP address, and Docker version) in the reports when running the Docker Container Updater as a Docker container by passing this information via the environment variables `DCU_REPORT_REAL_HOSTNAME`, `DCU_REPORT_REAL_IP` and `DCU_REPORT_REAL_DOCKER_VERSION`.
 # 2024.05.28-2, janseppenrade2: Added support for container attribute "--tty". Prevented self update in case Docker Container Updater is running in a Docker Container.
@@ -2697,17 +2697,17 @@ Main() {
             if ! echo "$container_labels" | grep -q "Docker-Container-Updater"; then
                 # Perform a digest update if available and update permission is granted by update rule definition
                 if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ "$image_update_available_digest" == true ]; then
-                    if [ "$updatePerformed" == false ]; then
+                    updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$container_image_tag")
+                    if [ "$updatePermit" == true ]; then
                         if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
-                            updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$container_image_tag")
-                            if [ "$updatePermit" == true ]; then
+                            if [ "$updatePerformed" == false ]; then
                                 [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$container_image_tag"
                                 #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
                                 Perform-ImageUpdate "digest" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag"
                                 updatePerformed=true
                             else
-                                Write-Log "INFO" "       Update Rule Effectivity:                              Digest update for $container_name ($container_image_name:$container_image_tag) was prevented"
-                                mail_report_available_updates+="<tr><td>$container_name</td><td>Digest</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$container_image_tag</td><td>$effective_update_rule</td></tr>"
+                                Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
+                                mail_report_available_updates+="<tr><td>$container_name</td><td>Digest</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$container_image_tag</td><td></td></tr>"
                                 telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$container_image_tag")\n"
                                 report_available=true
                             fi
@@ -2719,8 +2719,8 @@ Main() {
                             report_available=true
                         fi
                     else
-                        Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
-                        mail_report_available_updates+="<tr><td>$container_name</td><td>Digest</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$container_image_tag</td><td></td></tr>"
+                        Write-Log "INFO" "       Update Rule Effectivity:                              Digest update for $container_name ($container_image_name:$container_image_tag) was prevented"
+                        mail_report_available_updates+="<tr><td>$container_name</td><td>Digest</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$container_image_tag</td><td>$effective_update_rule</td></tr>"
                         telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$container_image_tag")\n"
                         report_available=true
                     fi
@@ -2728,10 +2728,10 @@ Main() {
 
                 # Perform a build update if available and update permission is granted by update rule definition
                 if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_build_next" ] && [ -n "$image_update_available_build_latest" ]; then
-                    if [ "$updatePerformed" == false ]; then
+                    updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_build_next" "$image_update_available_build_latest")
+                    if [ "$updatePermit" == true ]; then
                         if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
-                            updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_build_next" "$image_update_available_build_latest")
-                            if [ "$updatePermit" == true ]; then
+                            if [ "$updatePerformed" == false ]; then
                                 [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_build_next"
                                 #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
                                 Perform-ImageUpdate "build" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_build_next"
@@ -2745,8 +2745,8 @@ Main() {
                                     report_available=true
                                 fi
                             else
-                                Write-Log "INFO" "       Update Rule Effectivity:                              Build update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_build_next) was prevented"
-                                mail_report_available_updates+="<tr><td>$container_name</td><td>Build</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td>$effective_update_rule</td></tr>"
+                                Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
+                                mail_report_available_updates+="<tr><td>$container_name</td><td>Build</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td></td></tr>"
                                 telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_build_next")\n"
                                 report_available=true
                             fi
@@ -2758,8 +2758,8 @@ Main() {
                             report_available=true
                         fi
                     else
-                        Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
-                        mail_report_available_updates+="<tr><td>$container_name</td><td>Build</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td></td></tr>"
+                        Write-Log "INFO" "       Update Rule Effectivity:                              Build update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_build_next) was prevented"
+                        mail_report_available_updates+="<tr><td>$container_name</td><td>Build</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td>$effective_update_rule</td></tr>"
                         telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_build_next")\n"
                         report_available=true
                     fi
@@ -2767,10 +2767,10 @@ Main() {
 
                 # Perform a patch update if available and update permission is granted by update rule definition
                 if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_patch_next" ] && [ -n "$image_update_available_patch_latest" ]; then
-                    if [ "$updatePerformed" == false ]; then
+                    updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_patch_next" "$image_update_available_patch_latest")
+                    if [ "$updatePermit" == true ]; then
                         if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
-                            updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_patch_next" "$image_update_available_patch_latest")
-                            if [ "$updatePermit" == true ]; then
+                            if [ "$updatePerformed" == false ]; then
                                 [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_patch_next"
                                 #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
                                 Perform-ImageUpdate "patch" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_patch_next"
@@ -2784,8 +2784,8 @@ Main() {
                                     report_available=true
                                 fi
                             else
-                                Write-Log "INFO" "       Update Rule Effectivity:                              Patch update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_patch_next) was prevented"
-                                mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td>$effective_update_rule</td></tr>"
+                                Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
+                                mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td></td></tr>"
                                 telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_patch_next")\n"
                                 report_available=true
                             fi
@@ -2797,8 +2797,8 @@ Main() {
                             report_available=true
                         fi
                     else
-                        Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
-                        mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td></td></tr>"
+                        Write-Log "INFO" "       Update Rule Effectivity:                              Patch update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_patch_next) was prevented"
+                        mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td>$effective_update_rule</td></tr>"
                         telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_patch_next")\n"
                         report_available=true
                     fi
@@ -2806,10 +2806,10 @@ Main() {
 
                 # Perform a minor update if available and update permission is granted by update rule definition
                 if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_minor_next" ] && [ -n "$image_update_available_minor_latest" ]; then
-                    if [ "$updatePerformed" == false ]; then
+                    updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_minor_next" "$image_update_available_minor_latest")
+                    if [ "$updatePermit" == true ]; then
                         if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
-                            updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_minor_next" "$image_update_available_minor_latest")
-                            if [ "$updatePermit" == true ]; then
+                            if [ "$updatePerformed" == false ]; then
                                 [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_minor_next"
                                 #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
                                 Perform-ImageUpdate "minor" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_minor_next"
@@ -2823,8 +2823,8 @@ Main() {
                                     report_available=true
                                 fi
                             else
-                                Write-Log "INFO" "       Update Rule Effectivity:                              Minor update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_minor_next) was prevented"
-                                mail_report_available_updates+="<tr><td>$container_name</td><td>Minor</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td>$effective_update_rule</td></tr>"
+                                Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
+                                mail_report_available_updates+="<tr><td>$container_name</td><td>Minor</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td></td></tr>"
                                 telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_minor_next")\n"
                                 report_available=true
                             fi
@@ -2836,8 +2836,8 @@ Main() {
                             report_available=true
                         fi
                     else
-                        Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
-                        mail_report_available_updates+="<tr><td>$container_name</td><td>Minor</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td></td></tr>"
+                        Write-Log "INFO" "       Update Rule Effectivity:                              Minor update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_minor_next) was prevented"
+                        mail_report_available_updates+="<tr><td>$container_name</td><td>Minor</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td>$effective_update_rule</td></tr>"
                         telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_minor_next")\n"
                         report_available=true
                     fi
@@ -2845,10 +2845,10 @@ Main() {
 
                 # Perform a major update if available and update permission is granted by update rule definition
                 if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_major_next" ] && [ -n "$image_update_available_major_latest" ]; then
-                    if [ "$updatePerformed" == false ]; then
+                    updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_major_next" "$image_update_available_major_latest")
+                    if [ "$updatePermit" == true ]; then
                         if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
-                            updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_major_next" "$image_update_available_major_latest")
-                            if [ "$updatePermit" == true ]; then
+                            if [ "$updatePerformed" == false ]; then
                                 [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_major_next"
                                 #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
                                 Perform-ImageUpdate "major" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_major_next"
@@ -2862,8 +2862,8 @@ Main() {
                                     report_available=true
                                 fi
                             else
-                                Write-Log "INFO" "       Update Rule Effectivity:                              Major update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_major_next) was prevented"
-                                mail_report_available_updates+="<tr><td>$container_name</td><td>Major</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td>$effective_update_rule</td></tr>"
+                                Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
+                                mail_report_available_updates+="<tr><td>$container_name</td><td>Major</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td></td></tr>"
                                 telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_major_next")\n"
                                 report_available=true
                             fi
@@ -2873,10 +2873,10 @@ Main() {
                             mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td></td></tr>"
                             telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_major_next")\n"
                             report_available=true
-                        fi
+                        vir
                     else
-                        Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
-                        mail_report_available_updates+="<tr><td>$container_name</td><td>Major</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td></td></tr>"
+                        Write-Log "INFO" "       Update Rule Effectivity:                              Major update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_major_next) was prevented"
+                        mail_report_available_updates+="<tr><td>$container_name</td><td>Major</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td>$effective_update_rule</td></tr>"
                         telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_major_next")\n"
                         report_available=true
                     fi
