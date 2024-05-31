@@ -260,9 +260,11 @@ environment:
       DCU_MAIL_RELAYHOST: '[<IP address or hostname>]:<Port>'
 ```
 
-#### 2. Telegram Notifications
+#### 2. Telegram Notificationss
 
-> ℹ️ To receive Telegram notifications, you first need to obtain a Chat ID and a Bot Token.
+##### General Information
+
+To receive Telegram notifications, you first need to obtain a Chat ID and a Bot Token.
 
 ##### Setting up telegram notifications in combination with the Docker Image of `Docker Container Updater`
 
