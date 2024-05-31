@@ -16,13 +16,13 @@ For all the lazier and automation-loving nerds, constantly updating Docker conta
 
 ### Choose your method
 Here are three methods to get this tool up and running:
-1. [Method: Using the official Docker image](#1-method-using-the-official-docker-image)
+1. [Method: Using the Docker image](#1-method-using-the-docker-image)
    - [Docker CLI](#using-docker-cli)
    - [Docker Compose](#using-docker-compose)
 2. [Method: Directly on your Docker host as a normal Bash script executed by root](#2-method-run-this-script-directly-on-your-host)
 3. [Method: Cloning this repository and building your own image](#3-method-build-your-own-docker-image)
 
-### 1. Method: Using the [official Docker image](https://hub.docker.com/r/janjk/docker-container-updater)
+### 1. Method: Using the [Docker image](https://hub.docker.com/r/janjk/docker-container-updater)
 
 > This method allows you to run a simple and dedicated Docker container that already includes all the necessary tools required by `container_update.sh`.
 
@@ -46,7 +46,7 @@ docker run  -d \
 
 > ⚠️ The default configuration has **test mode enabled** *(even if you not specify the variable `DCU_TEST_MODE`)*. Safety first 😉! After you've run your first test, checked for errors, and reviewed the generated Docker run commands, you can disable test mode in your configuration file *(see [Configuration](#configuration))*.
 
-###### Data Persistence
+##### Data Persistence
 
 To ensure data persistence, you should configure the following mounts:
 
@@ -56,7 +56,7 @@ To ensure data persistence, you should configure the following mounts:
 --mount type=bind,source=<YOUR_LOCAL_LOGS_PATH>,target=/var/log \
 ```
 
-###### Notifications
+##### Notifications
 
 > ℹ️ To enable notifications, please refer to [Notifications](#notifications-1)
 
@@ -123,7 +123,7 @@ docker exec -it Docker-Container-Updater ./container_update.sh
 
 ## Configuration
 
-The Docker Container Updater utilizes a configuration file, by default located in `/usr/local/etc/container_update/container_update.ini`. This file contains all the settings and parameters necessary for `container_update.sh` to run. You have the flexibility to tailor the configuration file to your specific needs when executing `container_update.sh` directly on your Docker host. Alternatively, when opting to utilize the [official Docker image](https://hub.docker.com/r/janjk/docker-container-updater), you can simply add the corresponding environment variables to your `docker run` command.
+The Docker Container Updater utilizes a configuration file, by default located in `/usr/local/etc/container_update/container_update.ini`. This file contains all the settings and parameters necessary for `container_update.sh` to run. You have the flexibility to tailor the configuration file to your specific needs when executing `container_update.sh` directly on your Docker host. Alternatively, when opting to utilize the [Docker image](https://hub.docker.com/r/janjk/docker-container-updater), you can simply add the corresponding environment variables to your `docker run` command.
 
 | Config File Parameter                                  | Docker Environment Variable                      | Description                                                                                                                                           | Default Value                                                 | Possible Values                                           |
 |--------------------------------------------------------|--------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|-----------------------------------------------------------|
@@ -234,7 +234,7 @@ To give you more control, you can integrate pre- and post-scripts. These are cre
 ##### General Information
 
 If you are running the `container_update.sh` script directly on your Docker host, you just need to ensure that `sendmail` is installed and configured on your Docker host.
-If you are using the [official Docker image](https://hub.docker.com/r/janjk/docker-container-updater), you need to have a Mail Transfer Agent (MTA) (e.g., Postfix) installed, configured and reachable in your network, to which the Docker container can relay its emails. The IP address or the hostname of your MTA needs be specified in the environment variable `DCU_MAIL_RELAYHOST` when running the container.
+If you are using the [Docker image](https://hub.docker.com/r/janjk/docker-container-updater), you need to have a Mail Transfer Agent (MTA) (e.g., Postfix) installed, configured and reachable in your network, to which the Docker container can relay its emails. The IP address or the hostname of your MTA needs be specified in the environment variable `DCU_MAIL_RELAYHOST` when running the container.
 
 
 ##### Docker CLI
