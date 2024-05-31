@@ -223,7 +223,28 @@ These precise rules provide granular control over the update behavior of specifi
 
 ### Pre- and Post-Scripts
 
-To give you more control, you can integrate pre- and post-scripts. These are created by default in the directories `/usr/local/etc/container_update/pre-scripts` and `/usr/local/etc/container_update/post-scripts`, and they must be named after the container. These are standard shell scripts that you can create and customize as needed. For example, you can create backups of databases, configuration files, etc., before updating a container, and make adjustments such as customized branding or changes to file permissions after the update. Essentially, you can tailor these scripts to your specific needs. The output of these scripts is redirected to the log located in `/var/log/container_update.log` by default, so you have all logs in one place.
+To give you more control, you can integrate your own pre- and post-scripts. These are created by default in the directories `/usr/local/etc/container_update/pre-scripts` and `/usr/local/etc/container_update/post-scripts` *(if you are using the Docker container, you can find these directories within the container, or at the mounted location)*, and they must be named after the relevant container. These are standard bash scripts that you can create and customize as needed. For example, you can create backups of databases, configuration files, etc., before updating a container, and make adjustments such as customized branding or changes to file permissions after any update. Essentially, you can tailor these scripts to your specific needs. The output of these scripts is redirected to the log of `Docker Container Updater`, so you have all logs in one place.
+
+#### When are the Pre- and Post-Scripts executed?
+
+##### Description of the Update Process
+
+1. A **pre-script** is executed as soon as all conditions for an update are met:
+   - The effective rule for the respective container allows an update
+   - The age of the image on Docker Hub meets the configured minimum age in `DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE` or in `docker_hub_image_minimum_age`
+   - The new image has been successfully downloaded
+
+   > Only at this point is the pre-script executed. Once the pre-script has been processed, the procedure continues as follows...
+
+2. The original container is renamed *(to allow for a backup of the container)*
+3. The startup policy of the original container is overwritten *(to prevent simultaneous startups)*
+4. The original container is stopped
+5. The new container with the new image is started
+7. If the new container was successfully started, the **post-script** is now executed.
+
+> ℹ️ A little tip if you are using `Docker Container Updater` as a container:
+> 
+> To gain full access to the directories of individual Docker containers, you may need to mount additional directories into `Docker Container Updater`. There are various approaches to this, which vary depending on the system your architecture/design. Decide for yourself what works best for you.
 
 ---
 
