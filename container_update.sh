@@ -4,9 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.30-1
+# 2024.05.31-a
 #
 # ## Changelog
+# 2024.05.31-1, janseppenrade2: Issue: Version Recognition in some cases not working #13
 # 2024.05.30-1, janseppenrade2: Issue: Digests not compared correctly #11
 # 2024.05.29-1, janseppenrade2: Implemented functionality to retrieve and display the Docker host's information (hostname, IP address, and Docker version) in the reports when running the Docker Container Updater as a Docker container by passing this information via the environment variables `DCU_REPORT_REAL_HOSTNAME`, `DCU_REPORT_REAL_IP` and `DCU_REPORT_REAL_DOCKER_VERSION`.
 # 2024.05.28-2, janseppenrade2: Added support for container attribute "--tty". Prevented self update in case Docker Container Updater is running in a Docker Container.
@@ -1207,6 +1208,8 @@ Extract-VersionPart() {
     local cmd_cut=$(Read-INI "$configFile" "paths" "cut")
     local cmd_grep=$(Read-INI "$configFile" "paths" "grep")
     local cmd_sed=$(Read-INI "$configFile" "paths" "sed")
+    local template_extraDotsRemoved=""
+    local dot_count=0
 
     # Replace all dashes with dots  
     template=$(echo "$template" | $cmd_sed 's/-/./g' )  
@@ -1218,6 +1221,20 @@ Extract-VersionPart() {
     while [[ "$template" == *..* ]]; do
         template="${template//../.}"
     done
+    
+    # Remove all dots after the fourth
+    for (( i=0; i<${#template}; i++ )); do
+        char="${template:$i:1}"
+        if [[ "$char" == "." ]]; then
+            dot_count=$((dot_count + 1))
+            if [[ $dot_count -lt 4 ]]; then
+                template_extraDotsRemoved+="$char"
+            fi
+        else
+            template_extraDotsRemoved+="$char"
+        fi
+    done
+    template="$template_extraDotsRemoved"
 
     # Remove leading and trailing dots
     template=$(echo "$template" | $cmd_sed 's/^\.//;s/\.$//')
