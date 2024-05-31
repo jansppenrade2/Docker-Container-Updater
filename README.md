@@ -265,9 +265,8 @@ If you are using the [Docker image](https://hub.docker.com/r/janjk/docker-contai
 --env DCU_MAIL_NOTIFICATIONS_ENABLED=true \
 --env DCU_MAIL_FROM='<some@mail.address>' \
 --env DCU_MAIL_RECIPIENTS='<some@mail.address>' \
---env DCU_MAIL_SUBJECT='Docker Container Update Report from $(hostname)' \
---env DCU_MAIL_RELAYHOST='[<IP address or hostname>]:<Port>' \
 --env DCU_MAIL_SUBJECT="🐳 Docker Container Update Report from $(hostname)" \
+--env DCU_MAIL_RELAYHOST='[<IP address or hostname>]:<Port>' \
 ```
 
 ##### Docker Compose
