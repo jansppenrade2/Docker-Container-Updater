@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.03-a
+# 2024.06.03-b
 #
 # ## Changelog
 # 2024.06.03-1, janseppenrade2: Issue: Bind Mounts not taken over to new container after update #16
@@ -945,7 +945,6 @@ Get-ContainerProperty() {
                 [ -n $mount_type ]          && mounts_string+="type=$mount_type"
                 [ -n $mount_source ]        && mounts_string+=",source=$mount_source"
                 [ -n $mount_destination ]   && mounts_string+=",target=$mount_destination"
-                [ -n $mount_propagation ]   && mounts_string+=",propagation=$mount_propagation"
                 [ $mount_rw == "false" ]    && mounts_string+=",readonly"
             done
         fi
