@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.03-b
+# 2024.06.03-c
 #
 # ## Changelog
 # 2024.06.03-1, janseppenrade2: Issue: Bind Mounts not taken over to new container after update #16
@@ -188,7 +188,7 @@ Write-Log () {
         logLevel="DEBUG"
     fi
 
-    if [[ "$message" == *"<print_line>"* ]] && [ -n "$cmd_tput" ]; then
+    if [[ "$message" == *"<print_line>"* ]] && [ -n "$cmd_tput" ] && [[ $($cmd_tput cols 2>/dev/null) =~ ^[0-9]+$ ]]; then
         local leading_spaces=$(expr match "$message" ' *')
         local cols=$(( $($cmd_tput cols) - ( 35 + $leading_spaces ) ))
         local line_prefix=$(printf "%-${leading_spaces}s" " ")
