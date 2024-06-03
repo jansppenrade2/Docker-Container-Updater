@@ -4,9 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.05.31-1
+# 2024.06.03-a
 #
 # ## Changelog
+# 2024.06.03-1, janseppenrade2: Issue: Bind Mounts not taken over to new container after update #16
 # 2024.05.31-1, janseppenrade2: Issue: Version Recognition in some cases not working #13. Issue: Blocking rule not shown in update report (Mail only) #14
 # 2024.05.30-1, janseppenrade2: Issue: Digests not compared correctly #11
 # 2024.05.29-1, janseppenrade2: Implemented functionality to retrieve and display the Docker host's information (hostname, IP address, and Docker version) in the reports when running the Docker Container Updater as a Docker container by passing this information via the environment variables `DCU_REPORT_REAL_HOSTNAME`, `DCU_REPORT_REAL_IP` and `DCU_REPORT_REAL_DOCKER_VERSION`.
@@ -922,23 +923,34 @@ Get-ContainerProperty() {
         echo "$(echo "$PortBindings_sting" | $cmd_sed -e 's/^[[:space:]]*//' | $cmd_sed 's/^null$//')"
         return
     elif [ "$property" == "container_Mounts" ]; then
-        local mounts=$(echo "$container_config" | $cmd_jq -r '.[0].HostConfig.Mounts')
+        local mounts=$(echo "$container_config" | $cmd_jq -r '.[0].Mounts')
         local mounts_count=$(echo "$mounts" | $cmd_jq '. | length')
-        local type=""
-        local source=""
-        local target=""
-        local mounts_sting=""
+        local mounts_string=""
+        local mount_destination=""
+        local mount_mode=""
+        local mount_propagation=""
+        local mount_rw=""
+        local mount_source=""
+        local mount_type=""
 
         if [ "$mounts_count" -gt 0 ] && [ -n "$mounts_count" ]; then
             for ((i = 0; i < mounts_count; i++)); do
-                type=$(echo "$mounts" | $cmd_jq -r ".[$i].Type")
-                source=$(echo "$mounts" | $cmd_jq -r ".[$i].Source" | $cmd_sed 's/ /\\ /g')
-                target=$(echo "$mounts" | $cmd_jq -r ".[$i].Target" | $cmd_sed 's/ /\\ /g')
-                mounts_sting+=" --mount type=$type,source=$source,target=$target"
+                mount_destination=$(echo "$mounts" | $cmd_jq -r ".[$i].Destination" | $cmd_sed 's/ /\\ /g')
+                mount_mode=$(echo "$mounts" | $cmd_jq -r ".[$i].Mode" | $cmd_sed 's/ /\\ /g')
+                mount_propagation=$(echo "$mounts" | $cmd_jq -r ".[$i].Propagation" | $cmd_sed 's/ /\\ /g')
+                mount_rw=$(echo "$mounts" | $cmd_jq -r ".[$i].RW" | $cmd_sed 's/ /\\ /g')
+                mount_source=$(echo "$mounts" | $cmd_jq -r ".[$i].Source" | $cmd_sed 's/ /\\ /g')
+                mount_type=$(echo "$mounts" | $cmd_jq -r ".[$i].Type")
+                mounts_string+=" --mount "
+                [ -n $mount_type ]          && mounts_string+="type=$mount_type"
+                [ -n $mount_source ]        && mounts_string+=",source=$mount_source"
+                [ -n $mount_destination ]   && mounts_string+=",target=$mount_destination"
+                [ -n $mount_propagation ]   && mounts_string+=",propagation=$mount_propagation"
+                [ $mount_rw == "false" ]    && mounts_string+=",readonly"
             done
         fi
 
-        echo "$(echo "$mounts_sting" | $cmd_sed -e 's/^[[:space:]]*//' | $cmd_sed 's/^null$//')"
+        echo "$(echo "$mounts_string" | $cmd_sed -e 's/^[[:space:]]*//' | $cmd_sed 's/^null$//')"
         return
     elif [ "$property" == "container_envs" ]; then
         local envs=$(echo "$container_config" | $cmd_jq -r '.[0].Config.Env')
@@ -2061,7 +2073,7 @@ Prune-DockerImages() {
     local cmd_docker=$(Read-INI "$configFile" "paths" "docker")
 
     if [ "$prune_images" == true ]; then
-        Write-Log "INFO" "    Pruning docker images..."
+        Write-Log "INFO" "        Pruning docker images..."
         { $cmd_docker image prune -af > /dev/null; result=$?; } || result=$?
         [ $result -eq 0 ] && Write-Log "DEBUG" "      => Successfully pruned images"
         [ $result -ne 0 ] && Write-Log "ERROR" "      => Failed to prune images: $result"
@@ -2329,7 +2341,7 @@ Send-MailNotification() {
                 echo -e $mail_message > "$mail_message_file" || Write-Log "ERROR" "        Failed to create temporary mail message file (\"$mail_message_file\")"
                 
             Write-Log "INFO" "        Sending notification via $mail_mode (\"$cmd_sendmail -t < $mail_message_file\")..."
-                $cmd_sendmail -t < "$mail_message_file"  2>/dev/null
+                $cmd_sendmail -f "$mail_from" -t < "$mail_message_file"  2>/dev/null
 
             Write-Log "INFO" "        Removing temporary mail message file (\"$mail_message_file\")..."
                 rm -f "$mail_message_file" 2>/dev/null || Write-Log "ERROR" "        Failed to delete temporary mail message file (\"$mail_message_file\")"
