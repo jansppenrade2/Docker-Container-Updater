@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.03-d
+# 2024.06.03-1
 #
 # ## Changelog
 # 2024.06.03-1, janseppenrade2: Issue: Bind Mounts not taken over to new container after update #16
