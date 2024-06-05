@@ -34,8 +34,9 @@ COPY ./LICENSE /opt/dcu/LICENSE
 COPY ./entrypoint.sh /opt/dcu/entrypoint.sh
 COPY ./dcu_main.sh /opt/dcu/dcu_main.sh
 COPY ./dcu_self_update_helper.sh /opt/dcu/dcu_self_update_helper.sh
-RUN ln -s /usr/local/etc/dcu /usr/local/etc/container_update
-RUN ln -s /var/log/dcu.log /var/log/container_update.log
+RUN ln -s /usr/local/etc/container_update /usr/local/etc/dcu
+RUN ln -s /var/log/container_update.log /var/log/dcu.log
+RUN ln -s /opt/dcu/dcu_main.sh /opt/docker_container_updater/container_update.sh
 RUN chmod ugo+x dcu_main.sh dcu_self_update_helper entrypoint.sh
 
 ENTRYPOINT [ "/opt/dcu/entrypoint.sh" ]
