@@ -1897,7 +1897,8 @@ Perform-ImageUpdate() {
         # Run self-update helper container
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "INFO"  "           Bringing up self-update helper container..."
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "DEBUG" "             => $cmd_docker run -d --rm --name="$container_name"_DCU_SelfUpdateHelper --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --env DCU_TEST_MODE=false --env DCU_UPDATE_RULES='*[0.0.0-0,false] $container_name[1.1.1-1,true]' $image_name:$image_tag_new dcu --self-update"
-        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && { $cmd_docker run -d --rm --name="${container_name}_DCU_SelfUpdateHelper" --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --env DCU_TEST_MODE=false --env DCU_UPDATE_RULES='*[0.0.0-0,false] $container_name[1.1.1-1,true]' $image_name:$image_tag_new dcu --self-update > /dev/null; result=$?; } || result=$?
+        #[ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && { $cmd_docker run -d --rm --name="${container_name}_DCU_SelfUpdateHelper" --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --env DCU_TEST_MODE=false --env DCU_UPDATE_RULES='*[0.0.0-0,false] $container_name[1.1.1-1,true]' $image_name:$image_tag_new dcu --self-update > /dev/null; result=$?; } || result=$?
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && { $cmd_docker run -d --name="${container_name}_DCU_SelfUpdateHelper" --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --env DCU_TEST_MODE=false --env DCU_UPDATE_RULES='*[0.0.0-0,false] $container_name[1.1.1-1,true]' $image_name:$image_tag_new > /dev/null; result=$?; } || result=$?
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ $result -eq 0 ] && new_container_started_successfully=true  && Write-Log "DEBUG" "             => Self-update helper container started successfully"
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ $result -ne 0 ] && new_container_started_successfully=false && Write-Log "ERROR" "             => Failed to start self-update helper container: $result"
         [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && self_update_helper_container_started=true && self_update_helper_container_name="${container_name}_DCU_SelfUpdateHelper"
@@ -2031,9 +2032,9 @@ Perform-ImageUpdate() {
             fi
             this_errors_count=0
         fi
-    fi
 
-    Write-Log "INFO" "       Update processed"
+        Write-Log "INFO" "       Update processed"
+    fi
 }
 
 Prune-ContainerBackups() {
