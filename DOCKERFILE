@@ -33,6 +33,6 @@ WORKDIR /opt/dcu
 COPY ./LICENSE /opt/dcu/LICENSE
 COPY ./entrypoint.sh /opt/dcu/entrypoint.sh
 COPY ./dcu.sh /opt/dcu/dcu.sh
-RUN chmod ugo+x dcu_main.sh entrypoint.sh
+RUN chmod ugo+x dcu.sh entrypoint.sh
 
 ENTRYPOINT [ "/opt/dcu/entrypoint.sh" ]
