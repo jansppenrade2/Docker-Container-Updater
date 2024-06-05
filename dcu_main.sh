@@ -36,6 +36,8 @@ mail_report_removed_container_backups=""
 telegram_report_actions_taken=""
 telegram_report_available_updates=""
 telegram_report_removed_container_backups=""
+self_update_helper_container_name=""
+self_update_helper_container_started=false
 
 Acquire-Lock() {
     local pidFile_creation_time=""
@@ -1891,30 +1893,16 @@ Perform-ImageUpdate() {
     [ "$test_mode" == false ] && [ $result -eq 0 ] && image_pulled_successfully=true  && Write-Log "DEBUG" "             => Image successfully pulled"
     [ "$test_mode" == false ] && [ $result -ne 0 ] && image_pulled_successfully=false && Write-Log "ERROR" "             => Failed to pull image: $result"
 
-    if [ "$image_name" = "janjk/docker-container-updater" ]; then
-        ###########################################################
-        ## SELF-UPDATE INITIALIZATION
-        ###########################################################
-        
+    if [ "$image_name" == "janjk/docker-container-updater" ] && [ "$container_name" != "${container_name}_DCU_SelfUpdateHelper" ]; then
         # Run self-update helper container
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "INFO"  "           Bringing up self-update helper container..."
-        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "DEBUG" "             => $cmd_docker run -d --rm --name="$container_name"_SelfUpdateHelper --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --env DCU_CONTAINER_NAME=\"$container_name\" --env DCU_CONTAINER_NAME_BACKED_UP=\"$container_name_backed_up\" --env DCU_SELF_UPDATE_HELPER_COMMAND=\"$docker_run_cmd\" $image_name:$image_tag_new dcu --self-update"
-        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && { $cmd_docker run -d --rm --name="$container_name"_SelfUpdateHelper --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --env DCU_CONTAINER_NAME="$container_name" --env DCU_CONTAINER_NAME_BACKED_UP="$container_name_backed_up" --env DCU_SELF_UPDATE_HELPER_COMMAND="$docker_run_cmd" $image_name:$image_tag_new $image_name:$image_tag_new dcu --self-update > /dev/null; result=$?; } || result=$?
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "DEBUG" "             => $cmd_docker run -d --rm --name="$container_name"_DCU_SelfUpdateHelper --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --env DCU_TEST_MODE=false --env DCU_UPDATE_RULES='*[0.0.0-0,false] $container_name[1.1.1-1,true]' $image_name:$image_tag_new dcu --self-update"
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && { $cmd_docker run -d --rm --name="${container_name}_DCU_SelfUpdateHelper" --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --env DCU_TEST_MODE=false --env DCU_UPDATE_RULES='*[0.0.0-0,false] $container_name[1.1.1-1,true]' $image_name:$image_tag_new dcu --self-update > /dev/null; result=$?; } || result=$?
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ $result -eq 0 ] && new_container_started_successfully=true  && Write-Log "DEBUG" "             => Self-update helper container started successfully"
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ $result -ne 0 ] && new_container_started_successfully=false && Write-Log "ERROR" "             => Failed to start self-update helper container: $result"
-
-        # Await self-update
-        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "INFO"  "           Awaiting self-update..." && sleep $((container_update_validation_time + 2))
-        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "ERROR" "             => Self-update timed out"
-
-        # Remove self-update helper container
-        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "INFO"  "           Removing self-update helper container..."
-        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "DEBUG" "             => $cmd_docker rm -fv "$container_name"_SelfUpdateHelper"
-        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && { $cmd_docker rm -fv "$container_name"_SelfUpdateHelper > /dev/null; result=$?; } || result=$?
-        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && [ $result -eq 0 ] && new_container_started_successfully=true  && Write-Log "DEBUG" "             => Self-update helper container removed successfully"
-        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && [ $result -ne 0 ] && new_container_started_successfully=false && Write-Log "ERROR" "             => Failed to remove self-update helper container: $result"
+        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && self_update_helper_container_started=true && self_update_helper_container_name="${container_name}_DCU_SelfUpdateHelper"
     else
-        # Executing pre script
+        # Execute pre script
         if [ -s "$container_update_pre_script" ] && [ "$image_pulled_successfully" == true ]; then
             [ "$test_mode" == false ] && Write-Log "INFO" "           Executing pre script $container_update_pre_script..."
             [ "$test_mode" == true ]  && Write-Log "INFO" "           Would execute pre script $container_update_pre_script..."
@@ -1927,7 +1915,6 @@ Perform-ImageUpdate() {
         fi
 
         # Rename old container
-        datetime=$(date +%Y-%m-%d_%H-%M)
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true ] && Write-Log "INFO"  "           Renaming current docker container from $container_name to $container_name_backed_up..."
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true ] && { $cmd_docker rename "$container_name" "$container_name_backed_up" > /dev/null; result=$?; } || result=$?
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true ] && [ $result -eq 0 ] && container_renamed_successfully=true  && Write-Log "DEBUG" "             => Container successfully renamed"
@@ -1978,7 +1965,7 @@ Perform-ImageUpdate() {
             fi
         fi
 
-        # Executing post script
+        # Execute post script
         if [ -s "$container_update_post_script" ] && [ "$new_container_started_successfully" == true ]; then
             [ "$test_mode" == false ] && Write-Log "INFO" "           Executing post script $container_update_post_script..."
             [ "$test_mode" == true ]  && Write-Log "INFO" "           Would execute post script $container_update_post_script..."
@@ -1990,13 +1977,13 @@ Perform-ImageUpdate() {
                 fi
         fi
 
-        # Pausing new container if the old container also was in paused state
+        # Pause new container if the old container also was in paused state
         [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true ] && [ "$container_state_paused" == true ] && Write-Log "INFO" "           Pausing $container_name..."
         [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true ] && [ "$container_state_paused" == true ] && { $cmd_docker pause $container_name; result=$?; } || result=$?
         [ "$test_mode" == false ] && [ $result -eq 0 ] && [ "$new_container_started_successfully" == true ] && [ "$container_state_paused" == true ] && Write-Log "DEBUG" "             => Container paused successfully"
         [ "$test_mode" == false ] && [ $result -ne 0 ] && [ "$new_container_started_successfully" == true ] && [ "$container_state_paused" == true ] && Write-Log "ERROR" "             => Failed to pause container: $result"
         
-        # Collecting some information for the report
+        # Collect some information for the report
         if [ "$new_container_started_successfully" == true ]; then
             report_available=true
             [ "$test_mode" == false ] && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name ($image_name:$image_tag_old) has been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old")\\\\) has been performed\n"
@@ -2011,7 +1998,7 @@ Perform-ImageUpdate() {
             [ "$test_mode" == true ]  && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new would have been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") from $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old") to $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_new") would have been performed\n"
         fi
 
-        # Rolling back changes if update failed
+        # Roll back changes if update failed
         if [ "$test_mode" == false ] && [ "$new_container_started_successfully" == false ] && [ "$container_renamed_successfully" == true ]; then
             Write-Log "WARNING" "           Rolling back changes..."
             Write-Log "INFO"    "               Stopping new container ($container_name)..."
@@ -2942,8 +2929,18 @@ Main() {
         if [ "$telegram_notifications_enabled" == true ]; then
             Write-Log "INFO" "<print_line>"
             Write-Log "INFO" " | TELEGRAM NOTIFICATIONS"
-            Write-Log "INFO" "<print_line>"ˇ
+            Write-Log "INFO" "<print_line>"
             Telegram-SplitMessage "$(Telegram-GenerateMessage)"
+        fi
+
+        if [ "$self_update_helper_container_started" == true ]; then
+            Write-Log "INFO" "<print_line>"
+            Write-Log "INFO" " | SELF-UPDATE INITIATION"
+            Write-Log "INFO" "<print_line>"
+            Write-Log "INFO" "        Setting update status flag in \"$self_update_helper_container_name:/opt/dcu/.main_update_process_completed\"..."
+            { $cmd_docker exec $self_update_helper_container_name /bin/bash -c 'echo "true" > /opt/dcu/.main_update_process_completed' > /dev/null; result=$?; } || result=$?
+            [ $result -eq 0 ] && Write-Log "DEBUG" "          => Succeeded"
+            [ $result -ne 0 ] && Write-Log "ERROR" "          => Failed: $result"
         fi
         
         Write-Log "INFO" "<print_line>"
