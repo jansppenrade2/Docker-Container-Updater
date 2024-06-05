@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.05-e
+# 2024.06.05-f
 #
 # ## Changelog
 # 2024.06.05-1, janseppenrade2: Issue: Fixed a bug that prevented the addition of non-persistent mounts in the docker run command (introduced in the previous bugfix, version 2024.06.03-1). Added support for self-update. Renamed the script file from container_update.sh to dcu.sh to prepare for simpler and more consistent directories and commands.
@@ -947,14 +947,14 @@ Get-ContainerProperty() {
                 mount_source=$(echo "$mounts" | $cmd_jq -r ".[$i].Source" | $cmd_sed 's/ /\\ /g')
                 mount_type=$(echo "$mounts" | $cmd_jq -r ".[$i].Type")
 
-                if [ -z "$mount_driver" ]; then 
+                #if [ -z "$mount_driver" ]; then 
                     # Only add non-auto-generated / persistent / user-defined mounts
                     mounts_string+=" --mount "
                     [ -n $mount_type ]          && mounts_string+="type=$mount_type"
                     [ -n $mount_source ]        && mounts_string+=",source=$mount_source"
                     [ -n $mount_destination ]   && mounts_string+=",target=$mount_destination"
                     [ $mount_rw == "false" ]    && mounts_string+=",readonly"
-                fi
+                #fi
             done
         fi
 
