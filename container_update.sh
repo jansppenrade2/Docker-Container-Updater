@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.03-1
+# 2024.06.04-a
 #
 # ## Changelog
 # 2024.06.04-1, janseppenrade2: Issue: Fixed an issue that caused ading non-persitant mounts to docker run command (by previous bugfix in version 2024.06.03-1). Added support for self-update.
@@ -1891,7 +1891,7 @@ Perform-ImageUpdate() {
     [ "$test_mode" == false ] && [ $result -eq 0 ] && image_pulled_successfully=true  && Write-Log "DEBUG" "             => Image successfully pulled"
     [ "$test_mode" == false ] && [ $result -ne 0 ] && image_pulled_successfully=false && Write-Log "ERROR" "             => Failed to pull image: $result"
 
-    if [ "$image_name" -eq "janjk/docker-container-updater" ]; then
+    if [ "$image_name" = "janjk/docker-container-updater" ]; then
         ###########################################################
         ## SELF-UPDATE INITIALIZATION
         ###########################################################
