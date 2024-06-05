@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.04-j
+# 2024.06.04-k
 #
 # ## Changelog
 # 2024.06.04-1, janseppenrade2: Issue: Fixed an issue that caused ading non-persitant mounts to docker run command (by previous bugfix in version 2024.06.03-1). Added support for self-update.
@@ -1924,9 +1924,9 @@ Perform-ImageUpdate() {
         [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && rm -f "$self_update_script_file" 2>/dev/null || Write-Log "ERROR" "             => Failed to delete temporary self-update script file (\"$self_update_script_file\")"
 
         # Initiate self-update
-        #[ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "INFO"  "           Initiating self-update..."
-        #[ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "DEBUG" "             => $cmd_docker exec "$container_name"_SelfUpdateHelper dcu --run-self-update"
-        #[ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && $cmd_docker exec "$container_name"_SelfUpdateHelper dcu --run-self-update
+        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "INFO"  "           Initiating self-update..."
+        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "DEBUG" "             => $cmd_docker exec "$container_name"_SelfUpdateHelper ./dcu_self_update.sh"
+        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && $cmd_docker exec "$container_name"_SelfUpdateHelper ./dcu_self_update.sh
         [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "INFO"  "           Awaiting self-update..." && sleep $((container_update_validation_time + 2))
         [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "ERROR" "             => Self-update timed out"
 
