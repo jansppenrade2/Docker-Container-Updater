@@ -6,7 +6,7 @@ echo "Configuring postfix..."
 postconf -e "relayhost = $(echo $DCU_MAIL_RELAYHOST)"
 postfix start
 
-if [[ "$1" = "dcu" ] && [ -z "$2" ]] || [ -z "$1" ]; then
+if { [[ "$1" = "dcu" ]] && [ -z "$2" ]; } || [ -z "$1" ]; then
     echo "Starting crond in foreground..."
     crond -f
 elif [ "$1" = "dcu" ] && [ "$2" = "--self-update" ]; then
