@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.04-e
+# 2024.06.04-f
 #
 # ## Changelog
 # 2024.06.04-1, janseppenrade2: Issue: Fixed an issue that caused ading non-persitant mounts to docker run command (by previous bugfix in version 2024.06.03-1). Added support for self-update.
@@ -1900,10 +1900,10 @@ Perform-ImageUpdate() {
         local self_update_script_file="$(mktemp)"
 
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "INFO" "           Adding self-update instructions to \"$self_update_script_file\"..."
-        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo -e "$docker_run_cmd rename \"$container_name\" \"$container_name_backed_up\"" > "$self_update_script_file"  || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
-        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo -e "$docker_run_cmd stop \"$container_name\"" >> "$self_update_script_file"                                 || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
-        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo -e "$docker_run_cmd" >> "$self_update_script_file"                                                 || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
-        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo -e "$docker_run_cmd stop \""$container_name"_SelfUpdateHelper\"" >> "$self_update_script_file"              || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo "$docker_run_cmd rename \"$container_name\" \"$container_name_backed_up\"" > "$self_update_script_file"  || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo "$docker_run_cmd stop \"$container_name\"" >> "$self_update_script_file"                                 || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo "$docker_run_cmd" >> "$self_update_script_file"                                                          || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo "$docker_run_cmd stop \""$container_name"_SelfUpdateHelper\"" >> "$self_update_script_file"              || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
 
         # Run self-update helper container
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "INFO"  "           Bringing up self-update helper container..."
@@ -1919,8 +1919,8 @@ Perform-ImageUpdate() {
         [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && [ $result -ne 0 ] && Write-Log "ERROR" "             => Failed to copy over file: $result"
 
         # Remove temporary self-update script file
-        #[ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "INFO" "           Removing temporary self-update script file (\"$self_update_script_file\")..."
-        #[ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && rm -f "$self_update_script_file" 2>/dev/null || Write-Log "ERROR" "             => Failed to delete temporary self-update script file (\"$self_update_script_file\")"
+        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "INFO" "           Removing temporary self-update script file (\"$self_update_script_file\")..."
+        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && rm -f "$self_update_script_file" 2>/dev/null || Write-Log "ERROR" "             => Failed to delete temporary self-update script file (\"$self_update_script_file\")"
 
         # Initiate self-update
         #[ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "INFO"  "           Initiating self-update..."
