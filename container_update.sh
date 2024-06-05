@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.04-h
+# 2024.06.04-i
 #
 # ## Changelog
 # 2024.06.04-1, janseppenrade2: Issue: Fixed an issue that caused ading non-persitant mounts to docker run command (by previous bugfix in version 2024.06.03-1). Added support for self-update.
@@ -1900,8 +1900,8 @@ Perform-ImageUpdate() {
         local self_update_script_file="$(mktemp)"
 
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "INFO" "           Adding self-update instructions to \"$self_update_script_file\"..."
-        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo "$cmd_docker rename \"$container_name\" \"$container_name_backed_up\"" > "$self_update_script_file"  || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo "$cmd_docker stop \"$container_name\"" >> "$self_update_script_file"                                 || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo "$cmd_docker rename \"$container_name\" \"$container_name_backed_up\"" > "$self_update_script_file"  || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo "$docker_run_cmd" >> "$self_update_script_file"                                                      || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo "$cmd_docker stop \""$container_name"_SelfUpdateHelper\"" >> "$self_update_script_file"              || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && chmod +x "$self_update_script_file"                                                                       || Write-Log "ERROR" "             => Failed to change permissions of (\"$self_update_script_file\")"
