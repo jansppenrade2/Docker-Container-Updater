@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.04-c
+# 2024.06.04-d
 #
 # ## Changelog
 # 2024.06.04-1, janseppenrade2: Issue: Fixed an issue that caused ading non-persitant mounts to docker run command (by previous bugfix in version 2024.06.03-1). Added support for self-update.
@@ -1926,6 +1926,13 @@ Perform-ImageUpdate() {
         #[ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && $cmd_docker exec "$container_name"_SelfUpdateHelper dcu --run-self-update
         [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "INFO"  "           Awaiting self-update..." && sleep $((container_update_validation_time + 2))
         [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "ERROR" "             => Self-update timed out"
+
+        # Remove self-update helper container
+        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "INFO"  "           Removing self-update helper container..."
+        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "DEBUG" "             => $cmd_docker rm -fv "$container_name"_SelfUpdateHelper"
+        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && { $cmd_docker rm -fv "$container_name"_SelfUpdateHelper > /dev/null; result=$?; } || result=$?
+        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && [ $result -eq 0 ] && new_container_started_successfully=true  && Write-Log "DEBUG" "             => Self-update helper container removed successfully"
+        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && [ $result -ne 0 ] && new_container_started_successfully=false && Write-Log "ERROR" "             => Failed to remove self-update helper container: $result"
     else
         # Executing pre script
         if [ -s "$container_update_pre_script" ] && [ "$image_pulled_successfully" == true ]; then
