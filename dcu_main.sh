@@ -4,10 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.04-k
+# 2024.06.05-a
 #
 # ## Changelog
-# 2024.06.04-1, janseppenrade2: Issue: Fixed an issue that caused ading non-persitant mounts to docker run command (by previous bugfix in version 2024.06.03-1). Added support for self-update.
+# 2024.06.05-1, janseppenrade2: Issue: Fixed a bug that prevented the addition of non-persistent mounts in the docker run command (introduced in the previous bugfix, version 2024.06.03-1). Added support for self-update. Renamed some default folders and script names for consistency and brevity.
 # 2024.06.03-1, janseppenrade2: Issue: Bind Mounts not taken over to new container after update #16
 # 2024.05.31-1, janseppenrade2: Issue: Version Recognition in some cases not working #13. Issue: Blocking rule not shown in update report (Mail only) #14
 # 2024.05.30-1, janseppenrade2: Issue: Digests not compared correctly #11
@@ -23,7 +23,7 @@
 # 2024.05.17-1, janseppenrade2: Fixed a minor bug that prevented an email report from being generated when updates were found but no changes were made. (Those reports might be important for those who using this script just to monitor updates)
 # 2024.05.16-1, janseppenrade2: Completely redesigned for enhanced performance and a better overview and more reliability - Crafted with lots of love and a touch of magic
 
-configFile=${DCU_CONFIG_FILE:-"/usr/local/etc/container_update/container_update.ini"}
+configFile=${DCU_CONFIG_FILE:-"/usr/local/etc/dcu/dcu.ini"}
 pidFile="$(dirname "$(readlink -f "$0")")/`basename "$0"`.pid"
 start_time=$(date +%s)
 stats_execution_time=0
@@ -318,8 +318,8 @@ Validate-ConfigFile() {
         Write-To-ConfigFile "docker_hub_api_image_tags_page_size_limit=${DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT:-"100"}"
         Write-To-ConfigFile "docker_hub_api_image_tags_page_crawl_limit=${DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT:-"10"}"
         Write-To-ConfigFile "docker_hub_image_minimum_age=${DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE:-"21600"}"
-        Write-To-ConfigFile "pre_scripts_folder=${DCU_PRE_SCRIPTS_FOLDER:-"/usr/local/etc/container_update/pre-scripts"}"
-        Write-To-ConfigFile "post_scripts_folder=${DCU_POST_SCRIPTS_FOLDER:-"/usr/local/etc/container_update/post-scripts"}"
+        Write-To-ConfigFile "pre_scripts_folder=${DCU_PRE_SCRIPTS_FOLDER:-"/usr/local/etc/dcu/pre-scripts"}"
+        Write-To-ConfigFile "post_scripts_folder=${DCU_POST_SCRIPTS_FOLDER:-"/usr/local/etc/dcu/post-scripts"}"
         Write-To-ConfigFile ""
         Write-To-ConfigFile "[paths]"
         Write-To-ConfigFile "tput=$(Get-Path tput)"
@@ -1899,34 +1899,21 @@ Perform-ImageUpdate() {
         # Create temporary self-update script
         local self_update_script_file="$(mktemp)"
 
-        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "INFO" "           Adding self-update instructions to \"$self_update_script_file\"..."
-        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo "$cmd_docker stop \"$container_name\"" >> "$self_update_script_file"                                 || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
-        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo "$cmd_docker rename \"$container_name\" \"$container_name_backed_up\"" >> "$self_update_script_file" || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
-        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo "$docker_run_cmd" >> "$self_update_script_file"                                                      || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
-        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo "$cmd_docker stop \""$container_name"_SelfUpdateHelper\"" >> "$self_update_script_file"              || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
-        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && chmod +x "$self_update_script_file"                                                                       || Write-Log "ERROR" "             => Failed to change permissions of (\"$self_update_script_file\")"
+        #[ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "INFO" "           Adding self-update instructions to \"$self_update_script_file\"..."
+        #[ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo "$cmd_docker stop \"$container_name\"" >> "$self_update_script_file"                                 || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
+        #[ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo "$cmd_docker rename \"$container_name\" \"$container_name_backed_up\"" >> "$self_update_script_file" || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
+        #[ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo "$docker_run_cmd" >> "$self_update_script_file"                                                      || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
+        #[ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo "$cmd_docker stop \""$container_name"_SelfUpdateHelper\"" >> "$self_update_script_file"              || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
+        #[ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && chmod +x "$self_update_script_file"                                                                       || Write-Log "ERROR" "             => Failed to change permissions of (\"$self_update_script_file\")"
 
         # Run self-update helper container
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "INFO"  "           Bringing up self-update helper container..."
-        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "DEBUG" "             => $cmd_docker run -d --rm --name="$container_name"_SelfUpdateHelper --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --mount type=bind,source=/etc/localtime,target=/etc/localtime,readonly $image_name:$image_tag_new"
-        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && { $cmd_docker run -d --rm --name="$container_name"_SelfUpdateHelper --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --mount type=bind,source=/etc/localtime,target=/etc/localtime,readonly --env DCU_SELF_UPDATE_CONTAINER_NAME="$container_name" --env DCU_SELF_UPDATE_COMMAND="$docker_run_cmd" $image_name:$image_tag_new > /dev/null; result=$?; } || result=$?
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "DEBUG" "             => $cmd_docker run -d --rm --name="$container_name"_SelfUpdateHelper --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --mount type=bind,source=/etc/localtime,target=/etc/localtime,readonly $image_name:$image_tag_new dcu --self-update"
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && { $cmd_docker run -d --rm --name="$container_name"_SelfUpdateHelper --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --mount type=bind,source=/etc/localtime,target=/etc/localtime,readonly $image_name:$image_tag_new dcu --self-update > /dev/null; result=$?; } || result=$?
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ $result -eq 0 ] && new_container_started_successfully=true  && Write-Log "DEBUG" "             => Self-update helper container started successfully"
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ $result -ne 0 ] && new_container_started_successfully=false && Write-Log "ERROR" "             => Failed to start self-update helper container: $result"
 
-        # Copy over self-update script
-        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "INFO" "           Copying over self-update script file from \"$self_update_script_file\" to \"$container_name"_SelfUpdateHelper:/opt/docker_container_updater/dcu_self_update.sh\"
-        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && { $cmd_docker cp "$self_update_script_file" "$container_name"_SelfUpdateHelper:/opt/docker_container_updater/dcu_self_update.sh > /dev/null; result=$?; } || result=$?
-        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && [ $result -eq 0 ] && Write-Log "DEBUG" "             => File copied over successfully"
-        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && [ $result -ne 0 ] && Write-Log "ERROR" "             => Failed to copy over file: $result"
-
-        # Remove temporary self-update script file
-        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "INFO" "           Removing temporary self-update script file (\"$self_update_script_file\")..."
-        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && rm -f "$self_update_script_file" 2>/dev/null || Write-Log "ERROR" "             => Failed to delete temporary self-update script file (\"$self_update_script_file\")"
-
-        # Initiate self-update
-        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "INFO"  "           Initiating self-update..."
-        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "DEBUG" "             => $cmd_docker exec "$container_name"_SelfUpdateHelper ./dcu_self_update.sh"
-        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && $cmd_docker exec "$container_name"_SelfUpdateHelper ./dcu_self_update.sh
+        # Await self-update
         [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "INFO"  "           Awaiting self-update..." && sleep $((container_update_validation_time + 2))
         [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "ERROR" "             => Self-update timed out"
 

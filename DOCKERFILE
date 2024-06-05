@@ -29,10 +29,13 @@ apk add \
     zip \
 && rm -rf /var/cache/apk/* 
 
-WORKDIR /opt/docker_container_updater
-COPY ./LICENSE /opt/docker_container_updater/LICENSE
-COPY ./entrypoint.sh /opt/docker_container_updater/entrypoint.sh
-COPY ./container_update.sh /opt/docker_container_updater/container_update.sh
-RUN chmod ugo+x container_update.sh entrypoint.sh
+WORKDIR /opt/dcu
+COPY ./LICENSE /opt/dcu/LICENSE
+COPY ./entrypoint.sh /opt/dcu/entrypoint.sh
+COPY ./dcu_main.sh /opt/dcu/dcu_main.sh
+COPY ./dcu_self_update_helper.sh /opt/dcu/dcu_self_update_helper.sh
+RUN ln -s /usr/local/etc/dcu /usr/local/etc/container_update
+RUN ln -s /var/log/dcu.log /var/log/container_update.log
+RUN chmod ugo+x dcu_main.sh dcu_self_update_helper entrypoint.sh
 
-ENTRYPOINT [ "/opt/docker_container_updater/entrypoint.sh" ]
+ENTRYPOINT [ "/opt/dcu/entrypoint.sh" ]

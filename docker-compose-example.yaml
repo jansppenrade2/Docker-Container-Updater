@@ -11,9 +11,9 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /etc/localtime:/etc/localtime:ro
-      - ./pre-scripts:/opt/docker_container_updater/pre-scripts
-      - ./post-scripts:/opt/docker_container_updater/post-scripts
-      - ./logs:/opt/docker_container_updater/logs
+      - ./pre-scripts:/opt/dcu/pre-scripts
+      - ./post-scripts:/opt/dcu/post-scripts
+      - ./logs:/opt/dcu/logs
     environment:
       # DETAILED DESCRIPTION: https://github.com/jansppenrade2/Docker-Container-Updater?tab=readme-ov-file#configuration
       # COMMON
@@ -21,9 +21,9 @@ services:
       DCU_UPDATE_RULES: '*[0.1.1-1,true]'
       DCU_CRONTAB_EXECUTION_EXPRESSION: '30 2 * * *'
       # PATHS
-      DCU_CONFIG_FILE: /opt/docker_container_updater/container_update.ini
-      DCU_PRE_SCRIPTS_FOLDER: /opt/docker_container_updater/pre-scripts
-      DCU_POST_SCRIPTS_FOLDER: /opt/docker_container_updater/post-scripts
+      DCU_CONFIG_FILE: /opt/dcu/dcu.ini
+      DCU_PRE_SCRIPTS_FOLDER: /opt/dcu/pre-scripts
+      DCU_POST_SCRIPTS_FOLDER: /opt/dcu/post-scripts
       # CONTAINERS SETTINGS
       DCU_PRUNE_IMAGES: true
       DCU_PRUNE_CONTAINER_BACKUPS: true
@@ -35,7 +35,7 @@ services:
       DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT: 10
       DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE: 21600
       # LOGS
-      DCU_LOG_FILEPATH: /opt/docker_container_updater/logs/container_update.log
+      DCU_LOG_FILEPATH: /opt/dcu/logs/dcu.log
       DCU_LOG_LEVEL: INFO
       DCU_LOG_RETENTION: 7
       # NOTIFICATIONS
