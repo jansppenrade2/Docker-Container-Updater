@@ -7,6 +7,7 @@
 # 2024.06.03-1
 #
 # ## Changelog
+# 2024.06.04-1, janseppenrade2: Issue: Fixed an issue that caused ading non-persitant mounts to docker run command (by previous bugfix in version 2024.06.03-1). Added support for self-update.
 # 2024.06.03-1, janseppenrade2: Issue: Bind Mounts not taken over to new container after update #16
 # 2024.05.31-1, janseppenrade2: Issue: Version Recognition in some cases not working #13. Issue: Blocking rule not shown in update report (Mail only) #14
 # 2024.05.30-1, janseppenrade2: Issue: Digests not compared correctly #11
@@ -927,6 +928,7 @@ Get-ContainerProperty() {
         local mounts_count=$(echo "$mounts" | $cmd_jq '. | length')
         local mounts_string=""
         local mount_destination=""
+        local mount_driver=""
         local mount_mode=""
         local mount_propagation=""
         local mount_rw=""
@@ -936,16 +938,21 @@ Get-ContainerProperty() {
         if [ "$mounts_count" -gt 0 ] && [ -n "$mounts_count" ]; then
             for ((i = 0; i < mounts_count; i++)); do
                 mount_destination=$(echo "$mounts" | $cmd_jq -r ".[$i].Destination" | $cmd_sed 's/ /\\ /g')
+                mount_driver=$(echo "$mounts" | $cmd_jq -r ".[$i].Driver" | $cmd_sed 's/ /\\ /g')
                 mount_mode=$(echo "$mounts" | $cmd_jq -r ".[$i].Mode" | $cmd_sed 's/ /\\ /g')
                 mount_propagation=$(echo "$mounts" | $cmd_jq -r ".[$i].Propagation" | $cmd_sed 's/ /\\ /g')
                 mount_rw=$(echo "$mounts" | $cmd_jq -r ".[$i].RW" | $cmd_sed 's/ /\\ /g')
                 mount_source=$(echo "$mounts" | $cmd_jq -r ".[$i].Source" | $cmd_sed 's/ /\\ /g')
                 mount_type=$(echo "$mounts" | $cmd_jq -r ".[$i].Type")
-                mounts_string+=" --mount "
-                [ -n $mount_type ]          && mounts_string+="type=$mount_type"
-                [ -n $mount_source ]        && mounts_string+=",source=$mount_source"
-                [ -n $mount_destination ]   && mounts_string+=",target=$mount_destination"
-                [ $mount_rw == "false" ]    && mounts_string+=",readonly"
+
+                if [ -z $mount_driver ]; then 
+                    # Only add non-auto-generated / persistent / user-defined mounts
+                    mounts_string+=" --mount "
+                    [ -n $mount_type ]          && mounts_string+="type=$mount_type"
+                    [ -n $mount_source ]        && mounts_string+=",source=$mount_source"
+                    [ -n $mount_destination ]   && mounts_string+=",target=$mount_destination"
+                    [ $mount_rw == "false" ]    && mounts_string+=",readonly"
+                fi
             done
         fi
 
@@ -1884,135 +1891,172 @@ Perform-ImageUpdate() {
     [ "$test_mode" == false ] && [ $result -eq 0 ] && image_pulled_successfully=true  && Write-Log "DEBUG" "             => Image successfully pulled"
     [ "$test_mode" == false ] && [ $result -ne 0 ] && image_pulled_successfully=false && Write-Log "ERROR" "             => Failed to pull image: $result"
 
-    # Executing pre script
-    if [ -s "$container_update_pre_script" ] && [ "$image_pulled_successfully" == true ]; then
-        [ "$test_mode" == false ] && Write-Log "INFO" "           Executing pre script $container_update_pre_script..."
-        [ "$test_mode" == true ]  && Write-Log "INFO" "           Would execute pre script $container_update_pre_script..."
-            if [ "$test_mode" == false ]; then
-                chmod +x "$container_update_pre_script" 2>/dev/null
-                while IFS= read -r line; do
-                    Write-Log "INFO" "           | $container_update_pre_script: $line"
-                done < <("$container_update_pre_script")
-            fi
-    fi
+    if [ "$image_name" -eq "janjk/docker-container-updater" ]; then
+        ###########################################################
+        ## SELF-UPDATE INITIALIZATION
+        ###########################################################
 
-    # Rename old container
-    datetime=$(date +%Y-%m-%d_%H-%M)
-    [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true ] && Write-Log "INFO"  "           Renaming current docker container from $container_name to $container_name_backed_up..."
-    [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true ] && { $cmd_docker rename "$container_name" "$container_name_backed_up" > /dev/null; result=$?; } || result=$?
-    [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true ] && [ $result -eq 0 ] && container_renamed_successfully=true  && Write-Log "DEBUG" "             => Container successfully renamed"
-    [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true ] && [ $result -ne 0 ] && container_renamed_successfully=false && Write-Log "ERROR" "             => Failed to rename container: $result"
+        # Create temporary self-update script
+        local self_update_script_file="$(mktemp)"
 
-    # Disable old containers start up policy
-    [ "$test_mode" == false ] && [ "$container_renamed_successfully" == true  ] && Write-Log "INFO"  "           Disabling automatic startup for $container_name_backed_up..."
-    [ "$test_mode" == false ] && [ "$container_renamed_successfully" == true  ] && { $cmd_docker update "$container_name_backed_up" --restart no > /dev/null; result=$?; } || result=$?
-    [ "$test_mode" == false ] && [ "$container_renamed_successfully" == true  ] && [ $result -eq 0 ] && Write-Log "DEBUG" "             => Successfully updated startup policy"
-    [ "$test_mode" == false ] && [ "$container_renamed_successfully" == true  ] && [ $result -ne 0 ] && Write-Log "ERROR" "             => Failed to update startup policy: $result"
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "INFO" "           Adding self-update instructions to \"$self_update_script_file\"..."
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo -e "docker rename \"$container_name\" \"$container_name_backed_up\"" > "$self_update_script_file"  || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo -e "docker stop \"$container_name\"" >> "$self_update_script_file"                                 || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo -e "$docker_run_cmd" >> "$self_update_script_file"                                                 || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && echo -e "docker stop \""$container_name"_SelfUpdateHelper\"" >> "$self_update_script_file"              || Write-Log "ERROR" "             => Failed to add instructions to (\"$self_update_script_file\")"
 
-    # Stop old container
-    [ "$test_mode" == false ] && [ "$container_renamed_successfully" == true  ] && Write-Log "INFO"  "           Stopping $container_name_backed_up..."
-    [ "$test_mode" == false ] && [ "$container_renamed_successfully" == true  ] && { $cmd_docker stop "$container_name_backed_up" > /dev/null; result=$?; } || result=$?
-    [ "$test_mode" == false ] && [ "$container_renamed_successfully" == true  ] && [ $result -eq 0 ] && old_container_stopped_successfully=true  && Write-Log "DEBUG" "             => Successfully stopped container"
-    [ "$test_mode" == false ] && [ "$container_renamed_successfully" == true  ] && [ $result -ne 0 ] && old_container_stopped_successfully=false && Write-Log "ERROR" "             => Failed stop old container: $result"
+        # Run self-update helper container
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "INFO"  "           Bringing up self-update helper container..."
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "DEBUG" "             => $cmd_docker run --rm --name="$container_name"_SelfUpdateHelper --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --mount type=bind,source=/etc/localtime,target=/etc/localtime,readonly $image_name:$image_tag_new"
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && { $cmd_docker run --rm --name="$container_name"_SelfUpdateHelper --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --mount type=bind,source=/etc/localtime,target=/etc/localtime,readonly --env DCU_SELF_UPDATE_CONTAINER_NAME="$container_name" --env DCU_SELF_UPDATE_COMMAND="$docker_run_cmd" $image_name:$image_tag_new > /dev/null; result=$?; } || result=$?
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ $result -eq 0 ] && new_container_started_successfully=true  && Write-Log "DEBUG" "             => Self-update helper container started successfully"
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ $result -ne 0 ] && new_container_started_successfully=false && Write-Log "ERROR" "             => Failed to start self-update helper container: $result"
 
-    # Run new container
-    [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ "$container_renamed_successfully" == true  ] && [ "$old_container_stopped_successfully" == true  ] && Write-Log "INFO"  "           Executing docker run command..."
-    [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ "$container_renamed_successfully" == true  ] && [ "$old_container_stopped_successfully" == true  ] && Write-Log "DEBUG" "             => $docker_run_cmd"
-    [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ "$container_renamed_successfully" == true  ] && [ "$old_container_stopped_successfully" == true  ] && { eval "$docker_run_cmd" > /dev/null; result=$?; } || result=$?
-    [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ "$container_renamed_successfully" == true  ] && [ "$old_container_stopped_successfully" == true  ] && [ $result -eq 0 ] && new_container_started_successfully=true  && Write-Log "DEBUG" "             => New container started successfully"
-    [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ "$container_renamed_successfully" == true  ] && [ "$old_container_stopped_successfully" == true  ] && [ $result -ne 0 ] && new_container_started_successfully=false && Write-Log "ERROR" "             => Failed to start new container: $result"
-    [ "$test_mode" == true  ] && Write-Log "INFO"  "           Docker command that would be executed: $docker_run_cmd"
+        # Copy over self-update script
+        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "INFO" "           Copying over self-update script file from \"$container_name"_SelfUpdateHelper:$self_update_script_file\" to \"\"
+        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && $cmd_docker cp "$self_update_script_file" "$container_name"_SelfUpdateHelper:./self_update.sh
 
-    # Validate the state of the new container
-    [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "INFO"  "           Waiting for the duration of $container_update_validation_time seconds to validate the state of $container_name..."
-    [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && sleep $((container_update_validation_time + 2))
+        # Remove temporary self-update script file
+        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "INFO" "           Removing temporary self-update script file (\"$self_update_script_file\")..."
+        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && rm -f "$self_update_script_file" 2>/dev/null || Write-Log "ERROR" "             => Failed to delete temporary self-update script file (\"$self_update_script_file\")"
 
-    if [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ]; then
-        Write-Log "INFO" "           Validating state and uptime of $container_name..."
-        if $cmd_docker ps --format "{{.Names}}" | $cmd_grep -wq "$container_name"; then
-            local container_start_time=$(echo $($cmd_docker inspect --format '{{.State.StartedAt}}' $container_name) | $cmd_sed 's/T/ /;s/\..*Z//')
-            local container_start_seconds=$(date -d "$container_start_time" +%s)
-            local current_time=$(date -u "+%Y-%m-%d %H:%M:%S")
-            local current_time_seconds=$(date -d "$current_time" +%s)
-            local elapsed_time=$((current_time_seconds - container_start_seconds))
-            if [ "$elapsed_time" -gt "$container_update_validation_time" ]; then
-                Write-Log "DEBUG" "             => The container $container_name has been started since $elapsed_time seconds - This assumes everything worked well during the update process"
-                new_container_started_successfully=true
+        # Initiate self-update
+        #[ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "INFO"  "           Initiating self-update..."
+        #[ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "DEBUG" "             => $cmd_docker exec "$container_name"_SelfUpdateHelper dcu --run-self-update"
+        #[ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && $cmd_docker exec "$container_name"_SelfUpdateHelper dcu --run-self-update
+        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "INFO"  "           Awaiting self-update..." && sleep $((container_update_validation_time + 2))
+        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "ERROR" "             => Self-update timed out"
+    else
+        # Executing pre script
+        if [ -s "$container_update_pre_script" ] && [ "$image_pulled_successfully" == true ]; then
+            [ "$test_mode" == false ] && Write-Log "INFO" "           Executing pre script $container_update_pre_script..."
+            [ "$test_mode" == true ]  && Write-Log "INFO" "           Would execute pre script $container_update_pre_script..."
+                if [ "$test_mode" == false ]; then
+                    chmod +x "$container_update_pre_script" 2>/dev/null
+                    while IFS= read -r line; do
+                        Write-Log "INFO" "           | $container_update_pre_script: $line"
+                    done < <("$container_update_pre_script")
+                fi
+        fi
+
+        # Rename old container
+        datetime=$(date +%Y-%m-%d_%H-%M)
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true ] && Write-Log "INFO"  "           Renaming current docker container from $container_name to $container_name_backed_up..."
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true ] && { $cmd_docker rename "$container_name" "$container_name_backed_up" > /dev/null; result=$?; } || result=$?
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true ] && [ $result -eq 0 ] && container_renamed_successfully=true  && Write-Log "DEBUG" "             => Container successfully renamed"
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true ] && [ $result -ne 0 ] && container_renamed_successfully=false && Write-Log "ERROR" "             => Failed to rename container: $result"
+
+        # Disable old containers start up policy
+        [ "$test_mode" == false ] && [ "$container_renamed_successfully" == true  ] && Write-Log "INFO"  "           Disabling automatic startup for $container_name_backed_up..."
+        [ "$test_mode" == false ] && [ "$container_renamed_successfully" == true  ] && { $cmd_docker update "$container_name_backed_up" --restart no > /dev/null; result=$?; } || result=$?
+        [ "$test_mode" == false ] && [ "$container_renamed_successfully" == true  ] && [ $result -eq 0 ] && Write-Log "DEBUG" "             => Successfully updated startup policy"
+        [ "$test_mode" == false ] && [ "$container_renamed_successfully" == true  ] && [ $result -ne 0 ] && Write-Log "ERROR" "             => Failed to update startup policy: $result"
+
+        # Stop old container
+        [ "$test_mode" == false ] && [ "$container_renamed_successfully" == true  ] && Write-Log "INFO"  "           Stopping $container_name_backed_up..."
+        [ "$test_mode" == false ] && [ "$container_renamed_successfully" == true  ] && { $cmd_docker stop "$container_name_backed_up" > /dev/null; result=$?; } || result=$?
+        [ "$test_mode" == false ] && [ "$container_renamed_successfully" == true  ] && [ $result -eq 0 ] && old_container_stopped_successfully=true  && Write-Log "DEBUG" "             => Successfully stopped container"
+        [ "$test_mode" == false ] && [ "$container_renamed_successfully" == true  ] && [ $result -ne 0 ] && old_container_stopped_successfully=false && Write-Log "ERROR" "             => Failed stop old container: $result"
+
+        # Run new container
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ "$container_renamed_successfully" == true  ] && [ "$old_container_stopped_successfully" == true  ] && Write-Log "INFO"  "           Executing docker run command..."
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ "$container_renamed_successfully" == true  ] && [ "$old_container_stopped_successfully" == true  ] && Write-Log "DEBUG" "             => $docker_run_cmd"
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ "$container_renamed_successfully" == true  ] && [ "$old_container_stopped_successfully" == true  ] && { eval "$docker_run_cmd" > /dev/null; result=$?; } || result=$?
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ "$container_renamed_successfully" == true  ] && [ "$old_container_stopped_successfully" == true  ] && [ $result -eq 0 ] && new_container_started_successfully=true  && Write-Log "DEBUG" "             => New container started successfully"
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ "$container_renamed_successfully" == true  ] && [ "$old_container_stopped_successfully" == true  ] && [ $result -ne 0 ] && new_container_started_successfully=false && Write-Log "ERROR" "             => Failed to start new container: $result"
+        [ "$test_mode" == true  ] && Write-Log "INFO"  "           Docker command that would be executed: $docker_run_cmd"
+
+        # Validate the state of the new container
+        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && Write-Log "INFO"  "           Waiting for the duration of $container_update_validation_time seconds to validate the state of $container_name..."
+        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && sleep $((container_update_validation_time + 2))
+
+        if [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ]; then
+            Write-Log "INFO" "           Validating state and uptime of $container_name..."
+            if $cmd_docker ps --format "{{.Names}}" | $cmd_grep -wq "$container_name"; then
+                local container_start_time=$(echo $($cmd_docker inspect --format '{{.State.StartedAt}}' $container_name) | $cmd_sed 's/T/ /;s/\..*Z//')
+                local container_start_seconds=$(date -d "$container_start_time" +%s)
+                local current_time=$(date -u "+%Y-%m-%d %H:%M:%S")
+                local current_time_seconds=$(date -d "$current_time" +%s)
+                local elapsed_time=$((current_time_seconds - container_start_seconds))
+                if [ "$elapsed_time" -gt "$container_update_validation_time" ]; then
+                    Write-Log "DEBUG" "             => The container $container_name has been started since $elapsed_time seconds - This assumes everything worked well during the update process"
+                    new_container_started_successfully=true
+                else
+                    Write-Log "ERROR" "             => The container $container_name has been started since just $elapsed_time seconds - This assumes something went wrong during the update process"
+                    new_container_started_successfully=false
+                fi
             else
-                Write-Log "ERROR" "             => The container $container_name has been started since just $elapsed_time seconds - This assumes something went wrong during the update process"
+                Write-Log "ERROR" "             => The container $container_name does not exist or is not started at the moment - This assumes something went wrong during the update process"
                 new_container_started_successfully=false
             fi
-        else
-            Write-Log "ERROR" "             => The container $container_name does not exist or is not started at the moment - This assumes something went wrong during the update process"
-            new_container_started_successfully=false
         fi
-    fi
 
-    # Executing post script
-    if [ -s "$container_update_post_script" ] && [ "$new_container_started_successfully" == true ]; then
-        [ "$test_mode" == false ] && Write-Log "INFO" "           Executing post script $container_update_post_script..."
-        [ "$test_mode" == true ]  && Write-Log "INFO" "           Would execute post script $container_update_post_script..."
-            if [ "$test_mode" == false ]; then 
-                chmod +x "$container_update_post_script" 2>/dev/null
-                while IFS= read -r line; do
-                    Write-Log "INFO" "           | $container_update_post_script: $line"
-                done < <("$container_update_post_script")
+        # Executing post script
+        if [ -s "$container_update_post_script" ] && [ "$new_container_started_successfully" == true ]; then
+            [ "$test_mode" == false ] && Write-Log "INFO" "           Executing post script $container_update_post_script..."
+            [ "$test_mode" == true ]  && Write-Log "INFO" "           Would execute post script $container_update_post_script..."
+                if [ "$test_mode" == false ]; then 
+                    chmod +x "$container_update_post_script" 2>/dev/null
+                    while IFS= read -r line; do
+                        Write-Log "INFO" "           | $container_update_post_script: $line"
+                    done < <("$container_update_post_script")
+                fi
+        fi
+
+        # Pausing new container if the old container also was in paused state
+        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true ] && [ "$container_state_paused" == true ] && Write-Log "INFO" "           Pausing $container_name..."
+        [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true ] && [ "$container_state_paused" == true ] && { $cmd_docker pause $container_name; result=$?; } || result=$?
+        [ "$test_mode" == false ] && [ $result -eq 0 ] && [ "$new_container_started_successfully" == true ] && [ "$container_state_paused" == true ] && Write-Log "DEBUG" "             => Container paused successfully"
+        [ "$test_mode" == false ] && [ $result -ne 0 ] && [ "$new_container_started_successfully" == true ] && [ "$container_state_paused" == true ] && Write-Log "ERROR" "             => Failed to pause container: $result"
+        
+        # Collecting some information for the report
+        if [ "$new_container_started_successfully" == true ]; then
+            report_available=true
+            [ "$test_mode" == false ] && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name ($image_name:$image_tag_old) has been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old")\\\\) has been performed\n"
+            [ "$test_mode" == false ] && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new has been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") from $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old") to $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_new") has been performed\n"
+            [ "$test_mode" == true ]  && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name ($image_name:$image_tag_old) would have been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old")\\\\) would have been performed\n"
+            [ "$test_mode" == true ]  && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new would have been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") from $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old") to $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_new") would have been performed\n"
+        else
+            report_available=true
+            [ "$test_mode" == false ] && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F534; A $update_type update for $container_name ($image_name:$image_tag_old) has failed <i>(please refer to your logs)</li>" && telegram_report_actions_taken+="🔴 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old")\\\\) has failed \\\\(please refer to your logs\\\\)\n"
+            [ "$test_mode" == false ] && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F534; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new has failed <i>(please refer to your logs)</i></li>" && telegram_report_actions_taken+="🔴 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") from $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old") to $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_new") has failed \\\\(please refer to your logs\\\\)\n"
+            [ "$test_mode" == true ]  && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name ($image_name:$image_tag_old) would have been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old")\\\\) would have been performed\n"
+            [ "$test_mode" == true ]  && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new would have been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") from $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old") to $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_new") would have been performed\n"
+        fi
+
+        # Rolling back changes if update failed
+        if [ "$test_mode" == false ] && [ "$new_container_started_successfully" == false ] && [ "$container_renamed_successfully" == true ]; then
+            Write-Log "WARNING" "           Rolling back changes..."
+            Write-Log "INFO"    "               Stopping new container ($container_name)..."
+            { $cmd_docker stop $container_name > /dev/null; result=$?; } || result=$?
+            [ $result -eq 0 ] && Write-Log "DEBUG" "                 => Successfully stopped container"
+            [ $result -ne 0 ] && Write-Log "ERROR" "                 => Failed to stop container" && ((this_errors_count+=1))
+            Write-Log "INFO"    "               Removing new container ($container_name)..."
+            { $cmd_docker rm -fv $container_name > /dev/null; result=$?; } || result=$?
+            [ $result -eq 0 ] && Write-Log "DEBUG" "                 => Successfully removed container"
+            [ $result -ne 0 ] && Write-Log "ERROR" "                 => Failed to remove container" && ((this_errors_count+=1))
+            Write-Log "INFO"    "               Restoring start up policy for old container ($container_name_backed_up)..."
+            { $cmd_docker update $container_name_backed_up --restart $container_restartPolicy_name > /dev/null; result=$?; } || result=$?
+            [ $result -eq 0 ] && Write-Log "DEBUG" "                 => Successfully updated start up policy"
+            [ $result -ne 0 ] && Write-Log "ERROR" "                 => Failed to update startup policy" && ((this_errors_count+=1))
+            Write-Log "INFO"    "               Renaming old docker container from $container_name_backed_up to $container_name..."
+            { $cmd_docker rename $container_name_backed_up $container_name > /dev/null; result=$?; } || result=$?
+            [ $result -eq 0 ] && Write-Log "DEBUG" "                 => Successfully to rename container"
+            [ $result -ne 0 ] && Write-Log "ERROR" "                 => Failed to rename container" && ((this_errors_count+=1))
+            Write-Log "INFO"    "               Starting old container ($container_name)..."
+            { $cmd_docker start $container_name > /dev/null; result=$?; } || result=$?
+            [ $result -eq 0 ] && Write-Log "DEBUG" "                 => Successfully started container"
+            [ $result -ne 0 ] && Write-Log "ERROR" "                 => Failed to start container" && ((this_errors_count+=1))
+
+            if [ "$this_errors_count" -eq 0 ]; then
+                mail_report_actions_taken+="<ul><li>&#x1F7E2; The original container $container_name ($image_name:$image_tag_old) has been successfully restored</li></ul>"
+                telegram_report_actions_taken+="🟢 The original container $(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old")\\\\) has been successfully restored\n"
+            else
+                mail_report_actions_taken+="<ul><li>&#x1F7E1; A partly successful attempt was made to restore the original container $container_name ($image_name:$image_tag_old) <i>(please refer to your logs)</i></li></ul>"
+                telegram_report_actions_taken+="🟠 A partly successful attempt was made to restore the original container $(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old")\\\\) \\\\(please refer to your logs\\\\)\n"
             fi
-    fi
-
-    # Pausing new container if the old container also was in paused state
-    [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true ] && [ "$container_state_paused" == true ] && Write-Log "INFO" "           Pausing $container_name..."
-    [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true ] && [ "$container_state_paused" == true ] && { $cmd_docker pause $container_name; result=$?; } || result=$?
-    [ "$test_mode" == false ] && [ $result -eq 0 ] && [ "$new_container_started_successfully" == true ] && [ "$container_state_paused" == true ] && Write-Log "DEBUG" "             => Container paused successfully"
-    [ "$test_mode" == false ] && [ $result -ne 0 ] && [ "$new_container_started_successfully" == true ] && [ "$container_state_paused" == true ] && Write-Log "ERROR" "             => Failed to pause container: $result"
-    
-    # Collecting some information for the report
-    if [ "$new_container_started_successfully" == true ]; then
-        report_available=true
-        [ "$test_mode" == false ] && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name ($image_name:$image_tag_old) has been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old")\\\\) has been performed\n"
-        [ "$test_mode" == false ] && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new has been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") from $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old") to $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_new") has been performed\n"
-        [ "$test_mode" == true ]  && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name ($image_name:$image_tag_old) would have been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old")\\\\) would have been performed\n"
-        [ "$test_mode" == true ]  && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new would have been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") from $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old") to $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_new") would have been performed\n"
-    else
-        report_available=true
-        [ "$test_mode" == false ] && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F534; A $update_type update for $container_name ($image_name:$image_tag_old) has failed <i>(please refer to your logs)</li>" && telegram_report_actions_taken+="🔴 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old")\\\\) has failed \\\\(please refer to your logs\\\\)\n"
-        [ "$test_mode" == false ] && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F534; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new has failed <i>(please refer to your logs)</i></li>" && telegram_report_actions_taken+="🔴 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") from $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old") to $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_new") has failed \\\\(please refer to your logs\\\\)\n"
-        [ "$test_mode" == true ]  && [ "$update_type" == "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name ($image_name:$image_tag_old) would have been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old")\\\\) would have been performed\n"
-        [ "$test_mode" == true ]  && [ "$update_type" != "digest" ] && mail_report_actions_taken+="<li>&#x1F7E2; A $update_type update for $container_name from $image_name:$image_tag_old to $image_name:$image_tag_new would have been performed</li>" && telegram_report_actions_taken+="🟢 A $update_type update for $(Telegram-EscapeSpecialChars "$container_name") from $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old") to $(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_new") would have been performed\n"
-    fi
-
-    # Rolling back changes if update failed
-    if [ "$test_mode" == false ] && [ "$new_container_started_successfully" == false ] && [ "$container_renamed_successfully" == true ]; then
-        Write-Log "WARNING" "           Rolling back changes..."
-        Write-Log "INFO"    "               Stopping new container ($container_name)..."
-        { $cmd_docker stop $container_name > /dev/null; result=$?; } || result=$?
-        [ $result -eq 0 ] && Write-Log "DEBUG" "                 => Successfully stopped container"
-        [ $result -ne 0 ] && Write-Log "ERROR" "                 => Failed to stop container" && ((this_errors_count+=1))
-        Write-Log "INFO"    "               Removing new container ($container_name)..."
-        { $cmd_docker rm -fv $container_name > /dev/null; result=$?; } || result=$?
-        [ $result -eq 0 ] && Write-Log "DEBUG" "                 => Successfully removed container"
-        [ $result -ne 0 ] && Write-Log "ERROR" "                 => Failed to remove container" && ((this_errors_count+=1))
-        Write-Log "INFO"    "               Restoring start up policy for old container ($container_name_backed_up)..."
-        { $cmd_docker update $container_name_backed_up --restart $container_restartPolicy_name > /dev/null; result=$?; } || result=$?
-        [ $result -eq 0 ] && Write-Log "DEBUG" "                 => Successfully updated start up policy"
-        [ $result -ne 0 ] && Write-Log "ERROR" "                 => Failed to update startup policy" && ((this_errors_count+=1))
-        Write-Log "INFO"    "               Renaming old docker container from $container_name_backed_up to $container_name..."
-        { $cmd_docker rename $container_name_backed_up $container_name > /dev/null; result=$?; } || result=$?
-        [ $result -eq 0 ] && Write-Log "DEBUG" "                 => Successfully to rename container"
-        [ $result -ne 0 ] && Write-Log "ERROR" "                 => Failed to rename container" && ((this_errors_count+=1))
-        Write-Log "INFO"    "               Starting old container ($container_name)..."
-        { $cmd_docker start $container_name > /dev/null; result=$?; } || result=$?
-        [ $result -eq 0 ] && Write-Log "DEBUG" "                 => Successfully started container"
-        [ $result -ne 0 ] && Write-Log "ERROR" "                 => Failed to start container" && ((this_errors_count+=1))
-
-        if [ "$this_errors_count" -eq 0 ]; then
-            mail_report_actions_taken+="<ul><li>&#x1F7E2; The original container $container_name ($image_name:$image_tag_old) has been successfully restored</li></ul>"
-            telegram_report_actions_taken+="🟢 The original container $(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old")\\\\) has been successfully restored\n"
-        else
-            mail_report_actions_taken+="<ul><li>&#x1F7E1; A partly successful attempt was made to restore the original container $container_name ($image_name:$image_tag_old) <i>(please refer to your logs)</i></li></ul>"
-            telegram_report_actions_taken+="🟠 A partly successful attempt was made to restore the original container $(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$image_name"):$(Telegram-EscapeSpecialChars "$image_tag_old")\\\\) \\\\(please refer to your logs\\\\)\n"
+            this_errors_count=0
         fi
-        this_errors_count=0
     fi
 
     Write-Log "INFO" "       Update processed"
@@ -2705,195 +2749,191 @@ Main() {
             [ -n "$container_labels_unique" ] &&                                                docker_run_cmd+=" $container_labels_unique"
             [ -n "$container_image_name" ] &&                                                   docker_run_cmd+=" $container_image_name"
 
-            if ! echo "$container_labels" | grep -q "Docker-Container-Updater"; then
-                # Perform a digest update if available and update permission is granted by update rule definition
-                if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ "$image_update_available_digest" == true ]; then
-                    updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$container_image_tag")
-                    if [ "$updatePermit" == true ]; then
-                        if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
-                            if [ "$updatePerformed" == false ]; then
-                                [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$container_image_tag"
-                                #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
-                                Perform-ImageUpdate "digest" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag"
-                                updatePerformed=true
-                            else
-                                Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
-                                mail_report_available_updates+="<tr><td>$container_name</td><td>Digest</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$container_image_tag</td><td></td></tr>"
-                                telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$container_image_tag")\n"
-                                report_available=true
-                            fi
+            # Perform a digest update if available and update permission is granted by update rule definition
+            if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ "$image_update_available_digest" == true ]; then
+                updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$container_image_tag")
+                if [ "$updatePermit" == true ]; then
+                    if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                        if [ "$updatePerformed" == false ]; then
+                            [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$container_image_tag"
+                            #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
+                            Perform-ImageUpdate "digest" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag"
+                            updatePerformed=true
                         else
-                            Write-Log "INFO"  "       Insufficient Docker Hub image age"
-                            Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
-                            mail_report_available_updates+="<tr><td>$container_name</td><td>Digest</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$container_image_tag</td><td>$effective_update_rule</td></tr>"
+                            Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
+                            mail_report_available_updates+="<tr><td>$container_name</td><td>Digest</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$container_image_tag</td><td></td></tr>"
                             telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$container_image_tag")\n"
                             report_available=true
                         fi
                     else
-                        Write-Log "INFO" "       Update Rule Effectivity:                              Digest update for $container_name ($container_image_name:$container_image_tag) was prevented"
+                        Write-Log "INFO"  "       Insufficient Docker Hub image age"
+                        Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
                         mail_report_available_updates+="<tr><td>$container_name</td><td>Digest</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$container_image_tag</td><td>$effective_update_rule</td></tr>"
                         telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$container_image_tag")\n"
                         report_available=true
                     fi
+                else
+                    Write-Log "INFO" "       Update Rule Effectivity:                              Digest update for $container_name ($container_image_name:$container_image_tag) was prevented"
+                    mail_report_available_updates+="<tr><td>$container_name</td><td>Digest</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$container_image_tag</td><td>$effective_update_rule</td></tr>"
+                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$container_image_tag")\n"
+                    report_available=true
                 fi
+            fi
 
-                # Perform a build update if available and update permission is granted by update rule definition
-                if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_build_next" ] && [ -n "$image_update_available_build_latest" ]; then
-                    updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_build_next" "$image_update_available_build_latest")
-                    if [ "$updatePermit" == true ]; then
-                        if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
-                            if [ "$updatePerformed" == false ]; then
-                                [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_build_next"
-                                #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
-                                Perform-ImageUpdate "build" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_build_next"
-                                updatePerformed=true
-                                container_config=$(echo $($cmd_docker container inspect "$container_name") | tr -d '\n') #json
-                                container_image_tag=$(Get-ContainerProperty "$container_config" container_image_tag)
-                                image_update_available_build_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
-                                if [ -n "$image_update_available_build_next" ]; then
-                                    mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td></td></tr>"
-                                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_build_next")\n"
-                                    report_available=true
-                                fi
-                            else
-                                Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
-                                mail_report_available_updates+="<tr><td>$container_name</td><td>Build</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td></td></tr>"
+            # Perform a build update if available and update permission is granted by update rule definition
+            if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_build_next" ] && [ -n "$image_update_available_build_latest" ]; then
+                updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_build_next" "$image_update_available_build_latest")
+                if [ "$updatePermit" == true ]; then
+                    if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                        if [ "$updatePerformed" == false ]; then
+                            [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_build_next"
+                            #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
+                            Perform-ImageUpdate "build" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_build_next"
+                            updatePerformed=true
+                            container_config=$(echo $($cmd_docker container inspect "$container_name") | tr -d '\n') #json
+                            container_image_tag=$(Get-ContainerProperty "$container_config" container_image_tag)
+                            image_update_available_build_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
+                            if [ -n "$image_update_available_build_next" ]; then
+                                mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td></td></tr>"
                                 telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_build_next")\n"
                                 report_available=true
                             fi
                         else
-                            Write-Log "INFO"  "       Insufficient Docker Hub image age"
-                            Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
-                            mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td></td></tr>"
+                            Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
+                            mail_report_available_updates+="<tr><td>$container_name</td><td>Build</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td></td></tr>"
                             telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_build_next")\n"
                             report_available=true
                         fi
                     else
-                        Write-Log "INFO" "       Update Rule Effectivity:                              Build update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_build_next) was prevented"
-                        mail_report_available_updates+="<tr><td>$container_name</td><td>Build</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td>$effective_update_rule</td></tr>"
+                        Write-Log "INFO"  "       Insufficient Docker Hub image age"
+                        Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
+                        mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td></td></tr>"
                         telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_build_next")\n"
                         report_available=true
                     fi
+                else
+                    Write-Log "INFO" "       Update Rule Effectivity:                              Build update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_build_next) was prevented"
+                    mail_report_available_updates+="<tr><td>$container_name</td><td>Build</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_build_next</td><td>$effective_update_rule</td></tr>"
+                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_build_next")\n"
+                    report_available=true
                 fi
+            fi
 
-                # Perform a patch update if available and update permission is granted by update rule definition
-                if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_patch_next" ] && [ -n "$image_update_available_patch_latest" ]; then
-                    updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_patch_next" "$image_update_available_patch_latest")
-                    if [ "$updatePermit" == true ]; then
-                        if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
-                            if [ "$updatePerformed" == false ]; then
-                                [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_patch_next"
-                                #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
-                                Perform-ImageUpdate "patch" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_patch_next"
-                                updatePerformed=true
-                                container_config=$(echo $($cmd_docker container inspect "$container_name") | tr -d '\n') #json
-                                container_image_tag=$(Get-ContainerProperty "$container_config" container_image_tag)
-                                image_update_available_patch_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
-                                if [ -n "$image_update_available_patch_next" ]; then
-                                    mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td></td></tr>"
-                                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_patch_next")\n"
-                                    report_available=true
-                                fi
-                            else
-                                Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
+            # Perform a patch update if available and update permission is granted by update rule definition
+            if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_patch_next" ] && [ -n "$image_update_available_patch_latest" ]; then
+                updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_patch_next" "$image_update_available_patch_latest")
+                if [ "$updatePermit" == true ]; then
+                    if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                        if [ "$updatePerformed" == false ]; then
+                            [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_patch_next"
+                            #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
+                            Perform-ImageUpdate "patch" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_patch_next"
+                            updatePerformed=true
+                            container_config=$(echo $($cmd_docker container inspect "$container_name") | tr -d '\n') #json
+                            container_image_tag=$(Get-ContainerProperty "$container_config" container_image_tag)
+                            image_update_available_patch_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
+                            if [ -n "$image_update_available_patch_next" ]; then
                                 mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td></td></tr>"
                                 telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_patch_next")\n"
                                 report_available=true
                             fi
                         else
-                            Write-Log "INFO"  "       Insufficient Docker Hub image age"
-                            Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
+                            Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
                             mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td></td></tr>"
                             telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_patch_next")\n"
                             report_available=true
                         fi
                     else
-                        Write-Log "INFO" "       Update Rule Effectivity:                              Patch update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_patch_next) was prevented"
-                        mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td>$effective_update_rule</td></tr>"
+                        Write-Log "INFO"  "       Insufficient Docker Hub image age"
+                        Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
+                        mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td></td></tr>"
                         telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_patch_next")\n"
                         report_available=true
                     fi
+                else
+                    Write-Log "INFO" "       Update Rule Effectivity:                              Patch update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_patch_next) was prevented"
+                    mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_patch_next</td><td>$effective_update_rule</td></tr>"
+                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_patch_next")\n"
+                    report_available=true
                 fi
+            fi
 
-                # Perform a minor update if available and update permission is granted by update rule definition
-                if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_minor_next" ] && [ -n "$image_update_available_minor_latest" ]; then
-                    updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_minor_next" "$image_update_available_minor_latest")
-                    if [ "$updatePermit" == true ]; then
-                        if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
-                            if [ "$updatePerformed" == false ]; then
-                                [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_minor_next"
-                                #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
-                                Perform-ImageUpdate "minor" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_minor_next"
-                                updatePerformed=true
-                                container_config=$(echo $($cmd_docker container inspect "$container_name") | tr -d '\n') #json
-                                container_image_tag=$(Get-ContainerProperty "$container_config" container_image_tag)
-                                image_update_available_minor_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
-                                if [ -n "$image_update_available_minor_next" ]; then
-                                    mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td></td></tr>"
-                                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_minor_next")\n"
-                                    report_available=true
-                                fi
-                            else
-                                Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
-                                mail_report_available_updates+="<tr><td>$container_name</td><td>Minor</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td></td></tr>"
+            # Perform a minor update if available and update permission is granted by update rule definition
+            if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_minor_next" ] && [ -n "$image_update_available_minor_latest" ]; then
+                updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_minor_next" "$image_update_available_minor_latest")
+                if [ "$updatePermit" == true ]; then
+                    if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                        if [ "$updatePerformed" == false ]; then
+                            [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_minor_next"
+                            #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
+                            Perform-ImageUpdate "minor" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_minor_next"
+                            updatePerformed=true
+                            container_config=$(echo $($cmd_docker container inspect "$container_name") | tr -d '\n') #json
+                            container_image_tag=$(Get-ContainerProperty "$container_config" container_image_tag)
+                            image_update_available_minor_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
+                            if [ -n "$image_update_available_minor_next" ]; then
+                                mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td></td></tr>"
                                 telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_minor_next")\n"
                                 report_available=true
                             fi
                         else
-                            Write-Log "INFO"  "       Insufficient Docker Hub image age"
-                            Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
-                            mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td></td></tr>"
+                            Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
+                            mail_report_available_updates+="<tr><td>$container_name</td><td>Minor</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td></td></tr>"
                             telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_minor_next")\n"
                             report_available=true
                         fi
                     else
-                        Write-Log "INFO" "       Update Rule Effectivity:                              Minor update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_minor_next) was prevented"
-                        mail_report_available_updates+="<tr><td>$container_name</td><td>Minor</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td>$effective_update_rule</td></tr>"
+                        Write-Log "INFO"  "       Insufficient Docker Hub image age"
+                        Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
+                        mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td></td></tr>"
                         telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_minor_next")\n"
                         report_available=true
                     fi
+                else
+                    Write-Log "INFO" "       Update Rule Effectivity:                              Minor update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_minor_next) was prevented"
+                    mail_report_available_updates+="<tr><td>$container_name</td><td>Minor</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_minor_next</td><td>$effective_update_rule</td></tr>"
+                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_minor_next")\n"
+                    report_available=true
                 fi
+            fi
 
-                # Perform a major update if available and update permission is granted by update rule definition
-                if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_major_next" ] && [ -n "$image_update_available_major_latest" ]; then
-                    updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_major_next" "$image_update_available_major_latest")
-                    if [ "$updatePermit" == true ]; then
-                        if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
-                            if [ "$updatePerformed" == false ]; then
-                                [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_major_next"
-                                #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
-                                Perform-ImageUpdate "major" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_major_next"
-                                updatePerformed=true
-                                container_config=$(echo $($cmd_docker container inspect "$container_name") | tr -d '\n') #json
-                                container_image_tag=$(Get-ContainerProperty "$container_config" container_image_tag)
-                                image_update_available_major_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
-                                if [ -n "$image_update_available_major_next" ]; then
-                                    mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td></td></tr>"
-                                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_major_next")\n"
-                                    report_available=true
-                                fi
-                            else
-                                Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
-                                mail_report_available_updates+="<tr><td>$container_name</td><td>Major</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td></td></tr>"
+            # Perform a major update if available and update permission is granted by update rule definition
+            if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_major_next" ] && [ -n "$image_update_available_major_latest" ]; then
+                updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_major_next" "$image_update_available_major_latest")
+                if [ "$updatePermit" == true ]; then
+                    if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                        if [ "$updatePerformed" == false ]; then
+                            [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_major_next"
+                            #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
+                            Perform-ImageUpdate "major" "$container_name" "$container_state_paused" "$container_restartPolicy_name" "$container_image_name" "$docker_run_cmd" "$container_image_tag" "$image_update_available_major_next"
+                            updatePerformed=true
+                            container_config=$(echo $($cmd_docker container inspect "$container_name") | tr -d '\n') #json
+                            container_image_tag=$(Get-ContainerProperty "$container_config" container_image_tag)
+                            image_update_available_major_next=$(Get-AvailableUpdates "patch" "$image_updates_available_all" "$container_image_tag" "next")
+                            if [ -n "$image_update_available_major_next" ]; then
+                                mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td></td></tr>"
                                 telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_major_next")\n"
                                 report_available=true
                             fi
                         else
-                            Write-Log "INFO"  "       Insufficient Docker Hub image age"
-                            Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
-                            mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td></td></tr>"
+                            Write-Log "DEBUG" "       This update cannot be performed yet, because another update has been already performed previously"
+                            mail_report_available_updates+="<tr><td>$container_name</td><td>Major</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td></td></tr>"
                             telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_major_next")\n"
                             report_available=true
                         fi
                     else
-                        Write-Log "INFO" "       Update Rule Effectivity:                              Major update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_major_next) was prevented"
-                        mail_report_available_updates+="<tr><td>$container_name</td><td>Major</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td>$effective_update_rule</td></tr>"
+                        Write-Log "INFO"  "       Insufficient Docker Hub image age"
+                        Write-Log "DEBUG" "        => The age of the image available on Docker Hub is less than the configured minimum age of $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") seconds"
+                        mail_report_available_updates+="<tr><td>$container_name</td><td>Patch</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td></td></tr>"
                         telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_major_next")\n"
                         report_available=true
                     fi
+                else
+                    Write-Log "INFO" "       Update Rule Effectivity:                              Major update for $container_name ($container_image_name:$container_image_tag to $container_image_name:$image_update_available_major_next) was prevented"
+                    mail_report_available_updates+="<tr><td>$container_name</td><td>Major</td><td>$container_image_name:$container_image_tag</td><td>$container_image_name:$image_update_available_major_next</td><td>$effective_update_rule</td></tr>"
+                    telegram_report_available_updates+="$(Telegram-EscapeSpecialChars "$container_name") \\\\($(Telegram-EscapeSpecialChars "$container_image_name")\\\\): $(Telegram-EscapeSpecialChars "$image_update_available_major_next")\n"
+                    report_available=true
                 fi
-            else
-                Write-Log "INFO" "             Skipped self-update because it is not currently supported"
             fi
         done
 
