@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "$DCU_CRONTAB_EXECUTION_EXPRESSION /opt/dcu/dcu_main.sh" > /etc/crontabs/root
+echo "$DCU_CRONTAB_EXECUTION_EXPRESSION /opt/dcu/dcu.sh" > /etc/crontabs/root
 
 echo "Configuring postfix..."
 postconf -e "relayhost = $(echo $DCU_MAIL_RELAYHOST)"
@@ -23,6 +23,6 @@ elif [ "$1" = "dcu" ] && [ "$2" = "--self-update" ]; then
         sleep 10
     done
     echo "INFO   Proceeding with self-update process..."
-    echo "INFO       Executing \"/opt/dcu/dcu_main.sh\""
-    /opt/dcu/dcu_main.sh
+    echo "INFO       Executing \"/opt/dcu/dcu.sh\""
+    /opt/dcu/dcu.sh
 fi
