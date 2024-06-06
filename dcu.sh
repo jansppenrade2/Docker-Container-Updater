@@ -4,9 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.05-1
+# 2024.06.06-a
 #
 # ## Changelog
+# 2024.06.06-1, janseppenrade2: Issue: Fixed a bug that prevented the addition of non-persistent mounts in the docker run command (introduced in the previous bugfix, version 2024.06.03-1). Added support for self-update. Renamed the script file from container_update.sh to dcu.sh to prepare for simpler and more consistent directories and commands.
 # 2024.06.05-1, janseppenrade2: Issue: Fixed a bug that prevented the addition of non-persistent mounts in the docker run command (introduced in the previous bugfix, version 2024.06.03-1). Added support for self-update. Renamed the script file from container_update.sh to dcu.sh to prepare for simpler and more consistent directories and commands.
 # 2024.06.03-1, janseppenrade2: Issue: Bind Mounts not taken over to new container after update #16
 # 2024.05.31-1, janseppenrade2: Issue: Version Recognition in some cases not working #13. Issue: Blocking rule not shown in update report (Mail only) #14
@@ -2671,7 +2672,7 @@ Main() {
             Write-Log "DEBUG" "       Container TTY:                                        $container_Tty"
             Write-Log "DEBUG" "       Container Port Bindings:                              $container_PortBindings"
             Write-Log "DEBUG" "       Container Mounts:                                     $container_Mounts"
-            Write-Log "DEBUG" "       Container Environment Variables:                      $container_envs"
+            Write-Log "DEBUG" "       Container Environment Variables:                      ${container_envs}"
             Write-Log "DEBUG" "       Container Environment Variables (Unique):             $container_envs_unique"
             Write-Log "DEBUG" "       Container Temporary File Systems:                     $container_tmpfs"
             Write-Log "DEBUG" "       Container Command:                                    $container_cmd"
