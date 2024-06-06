@@ -2673,6 +2673,7 @@ Main() {
             # Write-Log "DEBUG" "       Container Port Bindings:                              $container_PortBindings"
             # Write-Log "DEBUG" "       Container Mounts:                                     $container_Mounts"
             Write-Log "DEBUG" "       Container Environment Variables:                      $container_envs"
+            echo "$container_envs"
             # Write-Log "DEBUG" "       Container Environment Variables (Unique):             $container_envs_unique"
             # Write-Log "DEBUG" "       Container Temporary File Systems:                     $container_tmpfs"
             # Write-Log "DEBUG" "       Container Command:                                    $container_cmd"
