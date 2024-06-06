@@ -4,10 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.06-g
+# 2024.06.06-h
 #
 # ## Changelog
-# 2024.06.06-1, janseppenrade2: Issue: Fixed a bug that prevented the addition of non-persistent mounts in the docker run command (introduced in the previous bugfix, version 2024.06.03-1). Added support for self-update. Renamed the script file from container_update.sh to dcu.sh to prepare for simpler and more consistent directories and commands.
+# 2024.06.06-1, janseppenrade2: Issue: Fixed a bug that caused interpreting of astersisks given in environment variables
 # 2024.06.05-1, janseppenrade2: Issue: Fixed a bug that prevented the addition of non-persistent mounts in the docker run command (introduced in the previous bugfix, version 2024.06.03-1). Added support for self-update. Renamed the script file from container_update.sh to dcu.sh to prepare for simpler and more consistent directories and commands.
 # 2024.06.03-1, janseppenrade2: Issue: Bind Mounts not taken over to new container after update #16
 # 2024.05.31-1, janseppenrade2: Issue: Version Recognition in some cases not working #13. Issue: Blocking rule not shown in update report (Mail only) #14
@@ -2563,7 +2563,7 @@ Main() {
             Write-Log "INFO" " | PROCESSING CONTAINER $container_id"
             Write-Log "INFO" "<print_line>"
             Write-Log "INFO" "    Requesting container configuration by executing \"$cmd_docker container inspect "$container_id"\"..."
-            container_config=$(echo $($cmd_docker container inspect "$container_id") | tr -d '\n') #json
+            container_config=$(echo "$($cmd_docker container inspect "$container_id")" | tr -d '\n') #json
             container_image_id=$(Get-ContainerProperty "$container_config" container_image_id)
             Write-Log "INFO" "    Requesting image details by executing \"$cmd_docker image inspect $container_image_id\"..."
             image_config=$(echo $($cmd_docker image inspect $container_image_id) | tr -d '\n') #json
