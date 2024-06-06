@@ -37,7 +37,7 @@ elif [ "$1" = "--run" ]; then
     echo "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO   Executing \"/opt/dcu/dcu.sh\"..."
     /opt/dcu/dcu.sh
 elif [ "$1" = "--self-update" ] || { [ "$1" = "dcu" ] && [ "$2" = "--self-update" ]; }; then
-    echo "INFO   Waiting for status update..."
+    echo "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO   Waiting for status update..."
     start_time=$(date +%s)
     while [[ ! -f "/opt/dcu/.main_update_process_completed" ]]; do
         now_time=$(date +%s)
