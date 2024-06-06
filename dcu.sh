@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.06-d
+# 2024.06.06-e
 #
 # ## Changelog
 # 2024.06.06-1, janseppenrade2: Issue: Fixed a bug that prevented the addition of non-persistent mounts in the docker run command (introduced in the previous bugfix, version 2024.06.03-1). Added support for self-update. Renamed the script file from container_update.sh to dcu.sh to prepare for simpler and more consistent directories and commands.
@@ -976,10 +976,10 @@ Get-ContainerProperty() {
                 env_value="${env#*=}"
                 #envs_sting+=" --env $env_name='$env_value'"
                 envs_sting+=" --env $env_name=\"$env_value\""
+                echo "HOOOOOOOOO, $env_name: $env_value"
             done
         fi
 
-        echo "HOOOOOOOOO: $envs_sting"
         echo "$(echo "$envs_sting" | $cmd_sed -e 's/^[[:space:]]*//' | $cmd_sed 's/^null$//')"
         return
     elif [ "$property" == "container_tmpfs" ]; then
