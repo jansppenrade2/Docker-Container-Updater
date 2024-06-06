@@ -2585,7 +2585,7 @@ Main() {
             container_Tty=$(Get-ContainerProperty "$container_config" container_Tty)
             container_PortBindings=$(Get-ContainerProperty "$container_config" container_PortBindings)
             container_Mounts=$(Get-ContainerProperty "$container_config" container_Mounts)
-            container_envs=$(Get-ContainerProperty "$container_config" container_envs)
+            container_envs="$(Get-ContainerProperty "$container_config" container_envs)"
             container_tmpfs=$(Get-ContainerProperty "$container_config" container_tmpfs)
             container_cmd=$(Get-ContainerProperty "$container_config" container_cmd)
             container_image_name=$(Get-ContainerProperty "$container_config" container_image_name)
