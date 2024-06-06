@@ -4,10 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.06-i
+# 2024.06.06-1
 #
 # ## Changelog
-# 2024.06.06-1, janseppenrade2: Issue: Fixed a bug that caused interpreting of astersisks given container and image configuration.
+# 2024.06.06-1, janseppenrade2: Issue: Fixed a bug that caused the accidently interpretation of asterisks in container and image configurations.
 # 2024.06.05-1, janseppenrade2: Issue: Fixed a bug that prevented the addition of non-persistent mounts in the docker run command (introduced in the previous bugfix, version 2024.06.03-1). Added support for self-update. Renamed the script file from container_update.sh to dcu.sh to prepare for simpler and more consistent directories and commands.
 # 2024.06.03-1, janseppenrade2: Issue: Bind Mounts not taken over to new container after update #16
 # 2024.05.31-1, janseppenrade2: Issue: Version Recognition in some cases not working #13. Issue: Blocking rule not shown in update report (Mail only) #14
