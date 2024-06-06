@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.06-c
+# 2024.06.06-d
 #
 # ## Changelog
 # 2024.06.06-1, janseppenrade2: Issue: Fixed a bug that prevented the addition of non-persistent mounts in the docker run command (introduced in the previous bugfix, version 2024.06.03-1). Added support for self-update. Renamed the script file from container_update.sh to dcu.sh to prepare for simpler and more consistent directories and commands.
@@ -2586,7 +2586,7 @@ Main() {
             container_Tty=$(Get-ContainerProperty "$container_config" container_Tty)
             container_PortBindings=$(Get-ContainerProperty "$container_config" container_PortBindings)
             container_Mounts=$(Get-ContainerProperty "$container_config" container_Mounts)
-            container_envs="$(Get-ContainerProperty "$container_config" container_envs)"
+            container_envs=$(Get-ContainerProperty "$container_config" container_envs)
             container_tmpfs=$(Get-ContainerProperty "$container_config" container_tmpfs)
             container_cmd=$(Get-ContainerProperty "$container_config" container_cmd)
             container_image_name=$(Get-ContainerProperty "$container_config" container_image_name)
@@ -2673,7 +2673,7 @@ Main() {
             # Write-Log "DEBUG" "       Container Port Bindings:                              $container_PortBindings"
             # Write-Log "DEBUG" "       Container Mounts:                                     $container_Mounts"
             # Write-Log "DEBUG" "       Container Environment Variables:                      $container_envs"
-            echo "$container_envs"
+            echo "${container_envs}"
             # Write-Log "DEBUG" "       Container Environment Variables (Unique):             $container_envs_unique"
             # Write-Log "DEBUG" "       Container Temporary File Systems:                     $container_tmpfs"
             # Write-Log "DEBUG" "       Container Command:                                    $container_cmd"
