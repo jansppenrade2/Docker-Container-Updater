@@ -4,10 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.06-h
+# 2024.06.06-i
 #
 # ## Changelog
-# 2024.06.06-1, janseppenrade2: Issue: Fixed a bug that caused interpreting of astersisks given in environment variables
+# 2024.06.06-1, janseppenrade2: Issue: Fixed a bug that caused interpreting of astersisks given container and image configuration.
 # 2024.06.05-1, janseppenrade2: Issue: Fixed a bug that prevented the addition of non-persistent mounts in the docker run command (introduced in the previous bugfix, version 2024.06.03-1). Added support for self-update. Renamed the script file from container_update.sh to dcu.sh to prepare for simpler and more consistent directories and commands.
 # 2024.06.03-1, janseppenrade2: Issue: Bind Mounts not taken over to new container after update #16
 # 2024.05.31-1, janseppenrade2: Issue: Version Recognition in some cases not working #13. Issue: Blocking rule not shown in update report (Mail only) #14
@@ -968,7 +968,6 @@ Get-ContainerProperty() {
         local env_name=""
         local env_value=""
         local envs_sting=""
-                echo "HOOOOOOOOO: $envs"
 
         if [ "$envs_count" -gt 0 ] && [ -n "$envs_count" ]; then
             for ((i = 0; i < envs_count; i++)); do
@@ -977,7 +976,6 @@ Get-ContainerProperty() {
                 env_value="${env#*=}"
                 #envs_sting+=" --env $env_name='$env_value'"
                 envs_sting+=" --env $env_name=\"$env_value\""
-                #echo "HOOOOOOOOO, $env_name: $env_value"
             done
         fi
 
@@ -2566,7 +2564,7 @@ Main() {
             container_config=$(echo "$($cmd_docker container inspect "$container_id")" | tr -d '\n') #json
             container_image_id=$(Get-ContainerProperty "$container_config" container_image_id)
             Write-Log "INFO" "    Requesting image details by executing \"$cmd_docker image inspect $container_image_id\"..."
-            image_config=$(echo $($cmd_docker image inspect $container_image_id) | tr -d '\n') #json
+            image_config=$(echo "$($cmd_docker image inspect $container_image_id)" | tr -d '\n') #json
             docker_run_command_creation_completed=false
             container_name=$(Get-ContainerProperty "$container_config" container_name)
             container_hostname=$(Get-ContainerProperty "$container_config" container_hostname)
@@ -2652,65 +2650,64 @@ Main() {
             Write-Log "INFO"  "    <print_line>"
             Write-Log "INFO"  "    | CONTAINER AND IMAGE DETAILS"
             Write-Log "INFO"  "    <print_line>"
-            # Write-Log "INFO"  "       Container Name:                                       $container_name"
-            # Write-Log "DEBUG" "       Container Hostname:                                   $container_hostname"
-            # Write-Log "DEBUG" "       Container Is Paused:                                  $container_state_paused"
-            # Write-Log "DEBUG" "       Container ID:                                         $container_id"
-            # Write-Log "DEBUG" "       Container Labels:                                     $container_labels"
-            # Write-Log "DEBUG" "       Container Labels (Unique):                            $container_labels_unique"
-            # Write-Log "DEBUG" "       Container Capabilities:                               $container_capabilities"
-            # Write-Log "DEBUG" "       Container Network Mode:                               $container_networkMode"
-            # Write-Log "DEBUG" "       Container Primary Network Name:                       $container_primaryNetwork_Name"
-            # Write-Log "DEBUG" "       Container Primary IPv4-Address:                       $container_primaryNetwork_IPv4Address"
-            # Write-Log "DEBUG" "       Container Primary IPv6-Address:                       $container_primaryNetwork_IPv6Address"
-            # Write-Log "DEBUG" "       Container Primary MAC-Address:                        $container_primaryNetwork_MacAddress"
-            # Write-Log "DEBUG" "       Container Network Mode IPv4-Address:                  $container_networkMode_IPv4Address"
-            # Write-Log "DEBUG" "       Container Network Mode IPv6-Address:                  $container_networkMode_IPv6Address"
-            # Write-Log "DEBUG" "       Container Network Mode MAC-Address:                   $container_networkMode_MacAddress"
-            # Write-Log "DEBUG" "       Container Restart Policy Name:                        $container_restartPolicy_name"
-            # Write-Log "DEBUG" "       Container Maximum Retry Count:                        $container_restartPolicy_MaximumRetryCount"
-            # Write-Log "DEBUG" "       Container Publish All Ports:                          $container_PublishAllPorts"
-            # Write-Log "DEBUG" "       Container Privileged:                                 $container_Privileged"
-            # Write-Log "DEBUG" "       Container TTY:                                        $container_Tty"
-            # Write-Log "DEBUG" "       Container Port Bindings:                              $container_PortBindings"
-            # Write-Log "DEBUG" "       Container Mounts:                                     $container_Mounts"
-            # Write-Log "DEBUG" "       Container Environment Variables:                      $container_envs"
-            echo "$container_envs"
-            # Write-Log "DEBUG" "       Container Environment Variables (Unique):             $container_envs_unique"
-            # Write-Log "DEBUG" "       Container Temporary File Systems:                     $container_tmpfs"
-            # Write-Log "DEBUG" "       Container Command:                                    $container_cmd"
-            # Write-Log "INFO"  "       Image Name:                                           $container_image_name"
-            # Write-Log "DEBUG" "       Image ID:                                             $container_image_id"
-            # Write-Log "DEBUG" "       Image Labels:                                         $image_labels"
-            # Write-Log "DEBUG" "       Image Environment Variables:                          $image_envs"
-            # Write-Log "DEBUG" "       Image Command:                                        $image_cmd"
-            # Write-Log "INFO"  "       Image Tag:                                            $container_image_tag"
-            # Write-Log "DEBUG" "       Image Tag Ver. (Major):                               $image_tag_version_major"
-            # Write-Log "DEBUG" "       Image Tag Ver. (Minor):                               $image_tag_version_minor"
-            # Write-Log "DEBUG" "       Image Tag Ver. (Patch):                               $image_tag_version_patch"
-            # Write-Log "DEBUG" "       Image Tag Ver. (Build):                               $image_tag_version_build"
-            # Write-Log "DEBUG" "       Image Repository Digests:                             $image_repoDigests"
-            # Write-Log "INFO"  "       Image URL:                                            $docker_hub_image_url"
-            #Write-Log "DEBUG" "       Container Details (json):                             $container_config"
-            #Write-Log "DEBUG" "       Image Details (json):                                 $image_config"
-            #[ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tags (json):                         $docker_hub_image_tags"
-            # [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Digest:                              $docker_hub_image_tag_digest"
-            # [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Last Updated:                        $docker_hub_image_tag_last_updated"
-            # [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Age:                                 $docker_hub_image_tag_age Seconds"
-            # [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tag Filter:                          $docker_hub_image_tag_names_filter"
-            # [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tag Names:                           $docker_hub_image_tag_names"
-            # [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "       Update Overview:"
-            # [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "             Effective Update Rule:                          $effective_update_rule"
-            # [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "             Listing (filtered & sorted):                    $image_updates_available_all"
-            # [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "             New Digest available:                           $image_update_available_digest"
-            # [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "             Next Build:                                     $image_update_available_build_next"
-            # [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "             Next Patch:                                     $image_update_available_patch_next"
-            # [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "             Next Minor:                                     $image_update_available_minor_next"
-            # [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "             Next Major:                                     $image_update_available_major_next"
-            # [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "             Latest Build:                                   $image_update_available_build_latest"
-            # [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "             Latest Patch:                                   $image_update_available_patch_latest"
-            # [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "             Latest Minor:                                   $image_update_available_minor_latest"
-            # [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "             Latest Major:                                   $image_update_available_major_latest"
+            Write-Log "INFO"  "       Container Name:                                       $container_name"
+            Write-Log "DEBUG" "       Container Hostname:                                   $container_hostname"
+            Write-Log "DEBUG" "       Container Is Paused:                                  $container_state_paused"
+            Write-Log "DEBUG" "       Container ID:                                         $container_id"
+            Write-Log "DEBUG" "       Container Labels:                                     $container_labels"
+            Write-Log "DEBUG" "       Container Labels (Unique):                            $container_labels_unique"
+            Write-Log "DEBUG" "       Container Capabilities:                               $container_capabilities"
+            Write-Log "DEBUG" "       Container Network Mode:                               $container_networkMode"
+            Write-Log "DEBUG" "       Container Primary Network Name:                       $container_primaryNetwork_Name"
+            Write-Log "DEBUG" "       Container Primary IPv4-Address:                       $container_primaryNetwork_IPv4Address"
+            Write-Log "DEBUG" "       Container Primary IPv6-Address:                       $container_primaryNetwork_IPv6Address"
+            Write-Log "DEBUG" "       Container Primary MAC-Address:                        $container_primaryNetwork_MacAddress"
+            Write-Log "DEBUG" "       Container Network Mode IPv4-Address:                  $container_networkMode_IPv4Address"
+            Write-Log "DEBUG" "       Container Network Mode IPv6-Address:                  $container_networkMode_IPv6Address"
+            Write-Log "DEBUG" "       Container Network Mode MAC-Address:                   $container_networkMode_MacAddress"
+            Write-Log "DEBUG" "       Container Restart Policy Name:                        $container_restartPolicy_name"
+            Write-Log "DEBUG" "       Container Maximum Retry Count:                        $container_restartPolicy_MaximumRetryCount"
+            Write-Log "DEBUG" "       Container Publish All Ports:                          $container_PublishAllPorts"
+            Write-Log "DEBUG" "       Container Privileged:                                 $container_Privileged"
+            Write-Log "DEBUG" "       Container TTY:                                        $container_Tty"
+            Write-Log "DEBUG" "       Container Port Bindings:                              $container_PortBindings"
+            Write-Log "DEBUG" "       Container Mounts:                                     $container_Mounts"
+            Write-Log "DEBUG" "       Container Environment Variables:                      $container_envs"
+            Write-Log "DEBUG" "       Container Environment Variables (Unique):             $container_envs_unique"
+            Write-Log "DEBUG" "       Container Temporary File Systems:                     $container_tmpfs"
+            Write-Log "DEBUG" "       Container Command:                                    $container_cmd"
+            Write-Log "INFO"  "       Image Name:                                           $container_image_name"
+            Write-Log "DEBUG" "       Image ID:                                             $container_image_id"
+            Write-Log "DEBUG" "       Image Labels:                                         $image_labels"
+            Write-Log "DEBUG" "       Image Environment Variables:                          $image_envs"
+            Write-Log "DEBUG" "       Image Command:                                        $image_cmd"
+            Write-Log "INFO"  "       Image Tag:                                            $container_image_tag"
+            Write-Log "DEBUG" "       Image Tag Ver. (Major):                               $image_tag_version_major"
+            Write-Log "DEBUG" "       Image Tag Ver. (Minor):                               $image_tag_version_minor"
+            Write-Log "DEBUG" "       Image Tag Ver. (Patch):                               $image_tag_version_patch"
+            Write-Log "DEBUG" "       Image Tag Ver. (Build):                               $image_tag_version_build"
+            Write-Log "DEBUG" "       Image Repository Digests:                             $image_repoDigests"
+            Write-Log "INFO"  "       Image URL:                                            $docker_hub_image_url"
+            Write-Log "DEBUG" "       Container Details (json):                             $container_config"
+            Write-Log "DEBUG" "       Image Details (json):                                 $image_config"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tags (json):                         $docker_hub_image_tags"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Digest:                              $docker_hub_image_tag_digest"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Last Updated:                        $docker_hub_image_tag_last_updated"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Age:                                 $docker_hub_image_tag_age Seconds"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tag Filter:                          $docker_hub_image_tag_names_filter"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tag Names:                           $docker_hub_image_tag_names"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "       Update Overview:"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "             Effective Update Rule:                          $effective_update_rule"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "             Listing (filtered & sorted):                    $image_updates_available_all"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "             New Digest available:                           $image_update_available_digest"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "             Next Build:                                     $image_update_available_build_next"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "             Next Patch:                                     $image_update_available_patch_next"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "             Next Minor:                                     $image_update_available_minor_next"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "             Next Major:                                     $image_update_available_major_next"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "             Latest Build:                                   $image_update_available_build_latest"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "             Latest Patch:                                   $image_update_available_patch_latest"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "             Latest Minor:                                   $image_update_available_minor_latest"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "             Latest Major:                                   $image_update_available_major_latest"
 
             # Create docker run command (without specifying the image tag for the moment)
                                                                                                 docker_run_cmd="$cmd_docker run -d"
