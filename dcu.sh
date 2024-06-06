@@ -4,9 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.05-1
+# 2024.06.06-1
 #
 # ## Changelog
+# 2024.06.06-1, janseppenrade2: Issue: Fixed a bug that caused the accidently interpretation of asterisks in container and image configurations.
 # 2024.06.05-1, janseppenrade2: Issue: Fixed a bug that prevented the addition of non-persistent mounts in the docker run command (introduced in the previous bugfix, version 2024.06.03-1). Added support for self-update. Renamed the script file from container_update.sh to dcu.sh to prepare for simpler and more consistent directories and commands.
 # 2024.06.03-1, janseppenrade2: Issue: Bind Mounts not taken over to new container after update #16
 # 2024.05.31-1, janseppenrade2: Issue: Version Recognition in some cases not working #13. Issue: Blocking rule not shown in update report (Mail only) #14
@@ -163,8 +164,8 @@ Write-INI() {
 }
 
 Write-Log () {
-    local level=$1
-    local message=$2
+    local level="$1"
+    local message="$2"
     local logLevel=$(Read-INI "$configFile" "log" "level" | tr '[:lower:]' '[:upper:]')
     local test_mode=$(Read-INI "$configFile" "general" "test_mode")
     local logFile=$(Read-INI "$configFile" "log" "filePath")
@@ -2560,10 +2561,10 @@ Main() {
             Write-Log "INFO" " | PROCESSING CONTAINER $container_id"
             Write-Log "INFO" "<print_line>"
             Write-Log "INFO" "    Requesting container configuration by executing \"$cmd_docker container inspect "$container_id"\"..."
-            container_config=$(echo $($cmd_docker container inspect "$container_id") | tr -d '\n') #json
+            container_config=$(echo "$($cmd_docker container inspect "$container_id")" | tr -d '\n') #json
             container_image_id=$(Get-ContainerProperty "$container_config" container_image_id)
             Write-Log "INFO" "    Requesting image details by executing \"$cmd_docker image inspect $container_image_id\"..."
-            image_config=$(echo $($cmd_docker image inspect $container_image_id) | tr -d '\n') #json
+            image_config=$(echo "$($cmd_docker image inspect $container_image_id)" | tr -d '\n') #json
             docker_run_command_creation_completed=false
             container_name=$(Get-ContainerProperty "$container_config" container_name)
             container_hostname=$(Get-ContainerProperty "$container_config" container_hostname)
@@ -2687,9 +2688,9 @@ Main() {
             Write-Log "DEBUG" "       Image Tag Ver. (Build):                               $image_tag_version_build"
             Write-Log "DEBUG" "       Image Repository Digests:                             $image_repoDigests"
             Write-Log "INFO"  "       Image URL:                                            $docker_hub_image_url"
-            #Write-Log "DEBUG" "       Container Details (json):                             $container_config"
-            #Write-Log "DEBUG" "       Image Details (json):                                 $image_config"
-            #[ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tags (json):                         $docker_hub_image_tags"
+            Write-Log "DEBUG" "       Container Details (json):                             $container_config"
+            Write-Log "DEBUG" "       Image Details (json):                                 $image_config"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tags (json):                         $docker_hub_image_tags"
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Digest:                              $docker_hub_image_tag_digest"
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Last Updated:                        $docker_hub_image_tag_last_updated"
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Age:                                 $docker_hub_image_tag_age Seconds"
