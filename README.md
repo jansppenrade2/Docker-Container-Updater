@@ -2,9 +2,9 @@
 
 For all the lazier and automation-loving nerds, constantly updating Docker containers can be a tedious chore. Enter the Docker Container Updater to save the day. It handles updates without relying on the "latest" tag or sticking to the current image tag, which might cause you to miss important updates. Instead, it plays by your rules!
 
-## ⚠️ Important Notice
+## ⚠️ Important Notice Concerning Update 2024.06.05-1
 
-Renamed the script file from `container_update.sh` to `dcu.sh` to prepare for simpler and more consistent directories and commands with version 2024.05.06-1.
+Renamed the script file from `container_update.sh` to `dcu.sh` to prepare for simpler and more consistent directories and commands with version `2024.06.05-1`.
 
 ## Features
 
