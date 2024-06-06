@@ -24,7 +24,7 @@ Here are three methods to get this tool up and running:
 
 ### 1. Method: Using the [Docker image](https://hub.docker.com/r/janjk/docker-container-updater)
 
-> This method allows you to run a simple and dedicated Docker container that already includes all the necessary tools required by `container_update.sh`.
+> This method allows you to run a simple and dedicated Docker container that already includes all the necessary tools required by `dcu.sh`.
 
 #### Using Docker CLI
 
@@ -72,12 +72,12 @@ To ensure data persistence, you should configure the following mounts:
    
 ### 2. Method: Run this script directly on your host
 
-1. On your Docker host, navigate to the directory where the script `container_update.sh` should be downloaded
-2. Download `container_update.sh` and make it executable _(this can be done manually or by using the following command):_
+1. On your Docker host, navigate to the directory where the script `dcu.sh` should be downloaded
+2. Download `dcu.sh` and make it executable _(this can be done manually or by using the following command):_
    ```bash
-   wget --header='Accept: application/vnd.github.v3.raw' -O container_update.sh https://api.github.com/repos/jansppenrade2/Docker-Container-Updater/contents/container_update.sh?ref=main && chmod +x ./container_update.sh
+   wget --header='Accept: application/vnd.github.v3.raw' -O dcu.sh https://api.github.com/repos/jansppenrade2/Docker-Container-Updater/contents/dcu.sh?ref=main && chmod +x ./dcu.sh
    ```
-3. Execute `./container_update.sh` with root privileges *(the first run will be in **test mode** and will also create the default configuration file)*
+3. Execute `./dcu.sh` with root privileges *(the first run will be in **test mode** and will also create the default configuration file)*
 4. Customize the default configuration file according to your specific requirements *(see [Configuration](#configuration))*
 5. Create a cron job for this script *(after testing 🫠)*
 
@@ -118,12 +118,12 @@ To ensure data persistence, you should configure the following mounts:
 
 If you want to manually execute the task, you can just run:
 ```
-docker exec -it Docker-Container-Updater ./container_update.sh
+docker exec -it Docker-Container-Updater ./dcu.sh
 ```
 
 ## Configuration
 
-The Docker Container Updater utilizes a configuration file, by default located in `/usr/local/etc/container_update/container_update.ini`. This file contains all the settings and parameters necessary for `container_update.sh` to run. You have the flexibility to tailor the configuration file to your specific needs when executing `container_update.sh` directly on your Docker host. Alternatively, when opting to utilize the [Docker image](https://hub.docker.com/r/janjk/docker-container-updater), you can simply add the corresponding environment variables to your `docker run` command.
+The Docker Container Updater utilizes a configuration file, by default located in `/usr/local/etc/container_update/container_update.ini`. This file contains all the settings and parameters necessary for `dcu.sh` to run. You have the flexibility to tailor the configuration file to your specific needs when executing `dcu.sh` directly on your Docker host. Alternatively, when opting to utilize the [Docker image](https://hub.docker.com/r/janjk/docker-container-updater), you can simply add the corresponding environment variables to your `docker run` command.
 
 | Config File Parameter                                  | Docker Environment Variable                      | Description                                                                                                                                           | Default Value                                                 | Possible Values                                           |
 |--------------------------------------------------------|--------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|-----------------------------------------------------------|
@@ -254,7 +254,7 @@ To give you more control, you can integrate your own pre- and post-scripts. Thes
 
 ##### General Information
 
-If you are running the `container_update.sh` script directly on your Docker host, you just need to ensure that `sendmail` is installed and configured on your Docker host.
+If you are running the `dcu.sh` script directly on your Docker host, you just need to ensure that `sendmail` is installed and configured on your Docker host.
 If you are using the [Docker image](https://hub.docker.com/r/janjk/docker-container-updater), you need to have a Mail Transfer Agent (MTA) (e.g., Postfix) installed, configured and reachable in your network, to which the Docker container can relay its emails. The IP address or the hostname of your MTA needs be specified in the environment variable `DCU_MAIL_RELAYHOST` when running the container.
 
 ##### Docker CLI
