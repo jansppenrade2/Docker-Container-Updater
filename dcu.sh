@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.06-a
+# 2024.06.06-b
 #
 # ## Changelog
 # 2024.06.06-1, janseppenrade2: Issue: Fixed a bug that prevented the addition of non-persistent mounts in the docker run command (introduced in the previous bugfix, version 2024.06.03-1). Added support for self-update. Renamed the script file from container_update.sh to dcu.sh to prepare for simpler and more consistent directories and commands.
@@ -2593,7 +2593,7 @@ Main() {
             container_image_tag=$(Get-ContainerProperty "$container_config" container_image_tag)
             image_repoDigests=$(Get-ImageProperty "$image_config" image_repoDigests)
             image_labels=$(Get-ImageProperty "$image_config" image_labels)
-            image_envs=$(Get-ImageProperty "$image_config" image_envs)
+            image_envs="$(Get-ImageProperty "$image_config" image_envs)"
             image_cmd=$(Get-ImageProperty "$image_config" image_cmd)
             image_tag_version_major=$(Extract-VersionPart "$container_image_tag" "major")
             image_tag_version_minor=$(Extract-VersionPart "$container_image_tag" "minor")
