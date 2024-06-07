@@ -1,5 +1,7 @@
 # Docker Container Updater
 
+> 🌱 This project is currently in its early stages, and any feedback on potential issues would be greatly appreciated.
+
 For all the lazier and automation-loving nerds, constantly updating Docker containers can be a tedious chore. Enter the Docker Container Updater to save the day. It handles updates without relying on the "latest" tag or sticking to the current image tag, which might cause you to miss important updates. Instead, it plays by your rules!
 
 ### ⚠️ Important Notice Concerning Update 2024.06.05-1
@@ -18,7 +20,7 @@ Renamed the script file from `container_update.sh` to `dcu.sh` to prepare for si
 
 ## Getting Started
 
-> ⚠️ The default configuration has **test mode enabled**. Safety first 😉! After you've run your first test, checked for errors, and reviewed the generated Docker run commands, you can disable test mode in your configuration *(see [Configuration](#configuration))*. This project is currently in its early stages, and any feedback on potential issues would be greatly appreciated.
+> ⚠️ The default configuration has **test mode enabled**. Safety first 😉! After you've run your first test, checked for errors, and reviewed the generated Docker run commands, you can disable test mode in your configuration *(see [Configuration](#configuration))*.
 
 ### Choose your method
 Here are two methods to get this tool up and running:
