@@ -44,6 +44,6 @@ COPY ./LICENSE /opt/dcu/LICENSE
 COPY ./entrypoint.sh /opt/dcu/entrypoint.sh
 COPY ./dcu.sh /opt/dcu/dcu.sh
 RUN chmod ugo+x dcu.sh entrypoint.sh
-RUN ln -s /opt/dcu/entrypoint.sh /bin/dcu
+RUN ln -s /opt/dcu/dcu.sh /bin/dcu
 
 ENTRYPOINT [ "/opt/dcu/entrypoint.sh" ]
