@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.07-c
+# 2024.06.07-1
 #
 # ## Changelog
 # 2024.06.07-1, janseppenrade2: Added command line arguments
@@ -175,7 +175,7 @@ Write-Log () {
     local test_mode=$(Read-INI "$configFile" "general" "test_mode")
     local logFile=$(Read-INI "$configFile" "log" "filePath")
     local cmd_tput=$(Read-INI "$configFile" "paths" "tput")
-    local cmd_sed=$(Read-INI "$configFile" "paths" "sed" || echo "sed")
+    local cmd_sed=$(Read-INI "$configFile" "paths" "sed")
     local logFileFolder=$(dirname "$logFile")
 
     if [ -z "$logLevel" ] && test -f "$configFile"; then
