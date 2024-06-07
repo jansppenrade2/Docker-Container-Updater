@@ -8,7 +8,7 @@ fi
 
 # Postfix configuration
 if [[ "$(postconf -h relayhost)" != "$DCU_MAIL_RELAYHOST" ]]; then
-    echo "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO   Configuring postfix relayhost to "$DCU_MAIL_RELAYHOST"..."
+    echo "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO   Configuring postfix relayhost to \"$DCU_MAIL_RELAYHOST\"..."
     postconf -e "relayhost = $DCU_MAIL_RELAYHOST"
     
     if pgrep "postfix" > /dev/null; then
@@ -17,7 +17,7 @@ if [[ "$(postconf -h relayhost)" != "$DCU_MAIL_RELAYHOST" ]]; then
         postfix start
     fi
 else
-    echo "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO   Postfix relayhost is already configured to $DCU_MAIL_RELAYHOST"
+    echo "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO   Postfix relayhost is already configured to \"$DCU_MAIL_RELAYHOST\""
 fi
 
 if ! pgrep "postfix" > /dev/null; then
@@ -29,14 +29,7 @@ fi
 if [ -z "$1" ]; then
     echo "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO   Starting crond in foreground..."
     crond -f
-elif [ "$1" = "--run" ]; then
-    if [ "$2" = "--force" ] || [ "$2" = "-f" ]; then
-        echo "INFO   Removing PID file \"/opt/dcu/dcu.sh.pid\"..."
-        rm -f /opt/dcu/dcu.sh.pid 2>/dev/null
-    fi
-    echo "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO   Executing \"/opt/dcu/dcu.sh\"..."
-    /opt/dcu/dcu.sh
-elif [ "$1" = "--self-update" ] || { [ "$1" = "dcu" ] && [ "$2" = "--self-update" ]; }; then
+elif [ "$1" = "dcu" ] && [ "$2" = "--self-update" ]; then
     echo "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO   Waiting for status update..."
     start_time=$(date +%s)
     while [[ ! -f "/opt/dcu/.main_update_process_completed" ]]; do

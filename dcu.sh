@@ -4,9 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.06-1
+# 2024.06.06-a
 #
 # ## Changelog
+# 2024.06.06-2, janseppenrade2: Added command line arguments
 # 2024.06.06-1, janseppenrade2: Issue: Fixed a bug that caused the accidently interpretation of asterisks in container and image configurations.
 # 2024.06.05-1, janseppenrade2: Issue: Fixed a bug that prevented the addition of non-persistent mounts in the docker run command (introduced in the previous bugfix, version 2024.06.03-1). Added support for self-update. Renamed the script file from container_update.sh to dcu.sh to prepare for simpler and more consistent directories and commands.
 # 2024.06.03-1, janseppenrade2: Issue: Bind Mounts not taken over to new container after update #16
@@ -26,6 +27,7 @@
 
 configFile=${DCU_CONFIG_FILE:-"/usr/local/etc/container_update/container_update.ini"}
 pidFile="$(dirname "$(readlink -f "$0")")/`basename "$0"`.pid"
+test_mode=""
 start_time=$(date +%s)
 stats_execution_time=0
 stats_errors_count=0
@@ -45,7 +47,7 @@ Acquire-Lock() {
     local pidFile_age=""
     local current_time=""
     local script_timeout=10800 # 3 hours
-    local test_mode=$(Read-INI "$configFile" "general" "test_mode")
+    local test_mode=$test_mode
 
     [ "$test_mode" == false ] && sleep $((RANDOM % 5))
     if test -f "$pidFile"; then
@@ -53,16 +55,16 @@ Acquire-Lock() {
         current_time=$(date +%s)
         pidFile_age=$((current_time - pidFile_creation_time))
         if (( pidFile_age > $script_timeout )); then
-            echo "The PID file is older than $script_timeout seconds. Forcing lock acquiration..."
+            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO        The PID file is older than $script_timeout seconds. Forcing lock acquisition..."
             rm -f "$pidFile" || { Write-Log "ERROR" "Failed to remove \"$pidFile\""; End-Script 1; }
         else
             remaining=$((script_timeout - pidFile_age))
-            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] WARNING The PID file was created less than $script_timeout seconds ago"
-            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO    Able to force acquisition in $remaining seconds"
+            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] WARNING     The PID file was created less than $script_timeout seconds ago"
+            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO        Able to force acquisition in $remaining seconds"
             exit 0
         fi
     fi
-    echo $$ > "$pidFile" || { echo "[$(date +%Y/%m/%d\ %H:%M:%S)] ERROR   Failed to create \"$pidFile\""; exit 1; }
+    echo $$ > "$pidFile" || { echo "[$(date +%Y/%m/%d\ %H:%M:%S)] ERROR       Failed to create \"$pidFile\""; exit 1; }
     start_time=$(date +%s)
 }
 
@@ -72,19 +74,22 @@ End-Script() {
     if [ -z "$exitcode" ]; then
         exitcode=0
     fi
+    Write-Log "INFO"  "<print_line>"
+    Write-Log "INFO"  " | TEARDOWN"
+    Write-Log "INFO"  "<print_line>"
 
     Prune-Log $(Read-INI "$configFile" "log" "retention")
 
-    Write-Log "INFO" "Removing PID file (\"$pidFile\")"
-    rm -f "$pidFile" 2>/dev/null || Write-Log "ERROR" "Failed to remove PID file (\"$pidFile\")"
+    Write-Log "INFO" "    Removing PID file (\"$pidFile\")"
+    rm -f "$pidFile" 2>/dev/null || Write-Log "ERROR" "      => Failed to remove PID file (\"$pidFile\")"
 
     local end_time=$(date +%s)
     stats_execution_time=$((end_time - start_time))
 
     if [ $exitcode -gt 0 ]; then
-        Write-Log "ERROR" "Exiting with code $exitcode after an execution time of $stats_execution_time second(s) with $stats_warnings_count warning(s) and $stats_errors_count error(s)"
+        Write-Log "ERROR" "    Exiting with code $exitcode after an execution time of $stats_execution_time second(s) with $stats_warnings_count warning(s) and $stats_errors_count error(s)"
     else
-        Write-Log "INFO" "Script execution has been ended properly after $stats_execution_time second(s) with $stats_warnings_count warning(s) and $stats_errors_count error(s)"
+        Write-Log "INFO" "    Script execution has been ended properly after $stats_execution_time second(s) with $stats_warnings_count warning(s) and $stats_errors_count error(s)"
     fi
 
     exit $exitcode
@@ -244,7 +249,7 @@ Prune-Log() {
         local difference=$(( (current_time - timestamp_seconds) / 86400 ))
         
         if [ "$difference" -gt "$retention" ]; then
-            Write-Log "INFO" "Pruning log file (Keeping entries of the last $retention day(s))..."
+            Write-Log "INFO" "    Pruning log file (Keeping entries of the last $retention day(s))..."
             while IFS= read -r line || [ -n "$line" ]; do
                 timestamp=$(echo "$line" | $cmd_awk -F'[][]' '{print $2}')
                 timestamp_seconds=$(date -d "$timestamp" +%s)
@@ -254,9 +259,9 @@ Prune-Log() {
                 fi
             done < "$logFile"
             mv -f "$logFile.truncated" "$logFile"
-            Write-Log "INFO" "Pruning log file has been completed"
+            Write-Log "INFO" "    Pruning log file has been completed"
         else
-            Write-Log "DEBUG" "Pruning log file skipped"
+            Write-Log "DEBUG" "    Pruning log file skipped"
         fi
     fi
 }
@@ -289,12 +294,12 @@ Get-Path() {
 
 Validate-ConfigFile() {
     Write-Log-Failed-To-Add-Some-Value() {
-        Write-Log "ERROR" "Failed to add value to \"$configFile\""
+        Write-Log "ERROR" "    Failed to add value to \"$configFile\""
         End-Script 1
     }
     Write-To-ConfigFile() {
         local text_to_write=$1
-        # local error_funtion
+        # local error_function
         echo "$text_to_write" >> $configFile 2>/dev/null || Write-Log-Failed-To-Add-Some-Value
     }
     local configFileFolder=$(dirname "$configFile")
@@ -302,12 +307,12 @@ Validate-ConfigFile() {
     local rule_default_exists=false
 
     if ! test -f "$configFile"; then
-        Write-Log "INFO" "No configuration file found in \"$configFile\""
-        Write-Log "INFO" "Generating new configuration file..."
+        Write-Log "INFO" "    No configuration file found in \"$configFile\""
+        Write-Log "INFO" "    Generating new configuration file..."
 
-        mkdir -p $configFileFolder 2>/dev/null || { Write-Log "ERROR" "Failed to create \"$configFileFolder\""; End-Script 1; }
-        touch $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to create \"$configFile\""; End-Script 1; }
-        chmod ugo+rw $configFile 2>/dev/null || { Write-Log "ERROR" "Failed to modify permissons on \"$configFile\""; End-Script 1; }
+        mkdir -p $configFileFolder 2>/dev/null || { Write-Log "ERROR" "    Failed to create \"$configFileFolder\""; End-Script 1; }
+        touch $configFile 2>/dev/null || { Write-Log "ERROR" "    Failed to create \"$configFile\""; End-Script 1; }
+        chmod ugo+rw $configFile 2>/dev/null || { Write-Log "ERROR" "    Failed to modify permissions on \"$configFile\""; End-Script 1; }
 
         Write-To-ConfigFile "[general]"
         Write-To-ConfigFile "test_mode=${DCU_TEST_MODE:-"true"}"
@@ -357,7 +362,7 @@ Validate-ConfigFile() {
         Write-To-ConfigFile "retry_interval=${DCU_TELEGRAM_RETRY_INTERVAL:-"10"}"
         Write-To-ConfigFile "retry_limit=${DCU_TELEGRAM_RETRY_LIMIT:-"2"}"
     else
-        Write-Log "INFO" "Existing configuration file found in \"$configFile\""
+        Write-Log "INFO" "    Existing configuration file found in \"$configFile\""
 
         # Update configuration file (add new attributes)
         if [ -z "$(Read-INI "$configFile" "general" "docker_hub_image_minimum_age")" ]; then
@@ -373,54 +378,54 @@ Validate-ConfigFile() {
         fi
     fi
 
-    Write-Log "INFO" "Validating configuration file..."
+    Write-Log "INFO" "    Validating configuration file..."
     if [ $(Read-INI "$configFile" "general" "test_mode") != true ] && [ $(Read-INI "$configFile" "general" "test_mode") != false ]; then
-        Write-Log "ERROR" "    => Invalid value for \"[general] test_mode\" (Expected: \"true\" or \"false\")"
+        Write-Log "ERROR" "      => Invalid value for \"[general] test_mode\" (Expected: \"true\" or \"false\")"
         validationError=true
     fi
     if [ $(Read-INI "$configFile" "general" "prune_images") != true ] && [ $(Read-INI "$configFile" "general" "prune_images") != false ]; then
-        Write-Log "ERROR" "    => Invalid value for \"[general] prune_images\" (Expected: \"true\" or \"false\")"
+        Write-Log "ERROR" "      => Invalid value for \"[general] prune_images\" (Expected: \"true\" or \"false\")"
         validationError=true
     fi
     if [ $(Read-INI "$configFile" "general" "prune_container_backups") != true ] && [[ $(Read-INI "$configFile" "general" "prune_container_backups") != false ]]; then
-        Write-Log "ERROR" "    => Invalid value for \"[general] prune_container_backups\" (Expected: \"true\" or \"false\")"
+        Write-Log "ERROR" "      => Invalid value for \"[general] prune_container_backups\" (Expected: \"true\" or \"false\")"
         validationError=true
     fi
     if ! [[ $(Read-INI "$configFile" "general" "container_backups_retention") =~ ^[0-9]+$ ]]; then
-        Write-Log "ERROR" "    => Invalid value for \"[general] container_backups_retention\" (Expected: Type of \"integer\")"
+        Write-Log "ERROR" "      => Invalid value for \"[general] container_backups_retention\" (Expected: Type of \"integer\")"
         validationError=true
     fi
     if ! [[ $(Read-INI "$configFile" "general" "container_backups_keep_last") =~ ^[0-9]+$ ]]; then
-        Write-Log "ERROR" "    => Invalid value for \"[general] container_backups_keep_last\" (Expected: Type of \"integer\")"
+        Write-Log "ERROR" "      => Invalid value for \"[general] container_backups_keep_last\" (Expected: Type of \"integer\")"
         validationError=true
     fi
     if ! [[ $(Read-INI "$configFile" "general" "container_update_validation_time") =~ ^[0-9]+$ ]]; then
-        Write-Log "ERROR" "    => Invalid value for \"[general] container_update_validation_time\" (Expected: Type of \"integer\")"
+        Write-Log "ERROR" "      => Invalid value for \"[general] container_update_validation_time\" (Expected: Type of \"integer\")"
         validationError=true
     fi
     if ! [[ $(Read-INI "$configFile" "general" "pre_scripts_folder") =~ ^/.* ]]; then
-        Write-Log "ERROR" "    => Invalid value for \"[general] pre_scripts_folder\" (Expected: Type of \"path\")"
+        Write-Log "ERROR" "      => Invalid value for \"[general] pre_scripts_folder\" (Expected: Type of \"path\")"
     fi
     if ! [[ $(Read-INI "$configFile" "general" "post_scripts_folder") =~ ^/.* ]]; then
-        Write-Log "ERROR" "    => Invalid value for \"[general] post_scripts_folder\" (Expected: Type of \"path\")"
+        Write-Log "ERROR" "      => Invalid value for \"[general] post_scripts_folder\" (Expected: Type of \"path\")"
     fi
 
     IFS=' ' read -ra update_rules <<< "$(Read-INI "$configFile" "general" "update_rules")"
     if [ ${#update_rules[@]} -eq 0 ]; then
-        Write-Log "ERROR" "    => Invalid value for \"[general] update_rules\" (Expected: At least one rule)"
+        Write-Log "ERROR" "      => Invalid value for \"[general] update_rules\" (Expected: At least one rule)"
         validationError=true
     else
         local rule_regex='^(\*|[a-zA-Z_][a-zA-Z0-9_-]*)\[([0-9]+(&\(([Mmpb][><=][0-9]+[&|]?)+\))?[.]){2}([0-9]+(&\(([Mmpb][><=][0-9]+[&|]?)+\))?[-]){1}([0-9]+(&\(([Mmpb][><=][0-9]+[&|]?)+\))?[,]){1}(true|false)\]$'
         for update_rule in "${update_rules[@]}"; do
             if ! [[ "$update_rule" =~ $rule_regex ]]; then
-                Write-Log "ERROR" "    => Invalid value in \"[general] update_rules\": Syntax validation error for the rule \"$update_rule\""
+                Write-Log "ERROR" "      => Invalid value in \"[general] update_rules\": Syntax validation error for the rule \"$update_rule\""
                 validationError=true
             else
-                Write-Log "DEBUG" "    => \"[general] update_rules\": The rule \"$update_rule\" matches the regex pattern for the rule syntax validation"
+                Write-Log "DEBUG" "      => \"[general] update_rules\": The rule \"$update_rule\" matches the regex pattern for the rule syntax validation"
             fi
 
             if [[ "${update_rule:0:1}" == "*" ]]; then
-                Write-Log "DEBUG" "    => \"[general] update_rules\": Found default rule \"$update_rule\""
+                Write-Log "DEBUG" "      => \"[general] update_rules\": Found default rule \"$update_rule\""
                 rule_default_exists=true
             fi
         done
@@ -428,158 +433,158 @@ Validate-ConfigFile() {
 
     local url_regex='^(https?|ftp|file)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]\.[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]$'
     if ! [[ "$(Read-INI "$configFile" "general" "docker_hub_api_url")" =~ $url_regex ]]; then
-        Write-Log "ERROR" "    => Invalid value for \"[general] docker_hub_api_url\": \"$(Read-INI "$configFile" "general" "docker_hub_api_url")\" (Expected: Type of \"URL\")"
+        Write-Log "ERROR" "      => Invalid value for \"[general] docker_hub_api_url\": \"$(Read-INI "$configFile" "general" "docker_hub_api_url")\" (Expected: Type of \"URL\")"
         validationError=true
     fi
     if ! [[ $(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_size_limit") =~ ^[0-9]+$ ]]; then
-        Write-Log "ERROR" "    => Invalid value for \"[general] docker_hub_api_image_tags_page_size_limit\" (Expected: Type of \"integer\")"
+        Write-Log "ERROR" "      => Invalid value for \"[general] docker_hub_api_image_tags_page_size_limit\" (Expected: Type of \"integer\")"
         validationError=true
     elif (( $(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_size_limit") <= 0 || $(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_size_limit") > 100 )); then
-        Write-Log "ERROR" "    => Invalid value for \"[general] docker_hub_api_image_tags_page_size_limit\" (Min.: 1, Max.: 100, Current: $(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_size_limit"))"
+        Write-Log "ERROR" "      => Invalid value for \"[general] docker_hub_api_image_tags_page_size_limit\" (Min.: 1, Max.: 100, Current: $(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_size_limit"))"
         validationError=true
     fi
     if ! [[ $(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_crawl_limit") =~ ^[0-9]+$ ]]; then
-        Write-Log "ERROR" "    => Invalid value for \"[general] docker_hub_api_image_tags_page_crawl_limit\" (Expected: Type of \"integer\")"
+        Write-Log "ERROR" "      => Invalid value for \"[general] docker_hub_api_image_tags_page_crawl_limit\" (Expected: Type of \"integer\")"
         validationError=true
     elif (( $(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_crawl_limit") <= 0 )); then
-        Write-Log "ERROR" "    => Invalid value for \"[general] docker_hub_api_image_tags_page_crawl_limit\" (Min.: 1, Current: $(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_crawl_limit"))"
+        Write-Log "ERROR" "      => Invalid value for \"[general] docker_hub_api_image_tags_page_crawl_limit\" (Min.: 1, Current: $(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_crawl_limit"))"
         validationError=true
     fi
     if ! [[ $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") =~ ^[0-9]+$ ]]; then
-        Write-Log "ERROR" "    => Invalid value for \"[general] docker_hub_image_minimum_age\" (Expected: Type of \"integer\")"
+        Write-Log "ERROR" "      => Invalid value for \"[general] docker_hub_image_minimum_age\" (Expected: Type of \"integer\")"
         validationError=true
     elif (( $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") <= 0 )); then
-        Write-Log "ERROR" "    => Invalid value for \"[general] docker_hub_image_minimum_age\" (Min.: 1, Current: $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age"))"
+        Write-Log "ERROR" "      => Invalid value for \"[general] docker_hub_image_minimum_age\" (Min.: 1, Current: $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age"))"
         validationError=true
     fi
 
     if ! [[ $(Read-INI "$configFile" "paths" "tput") =~ ^/.* ]]; then
         Write-INI "$configFile" "paths" "tput" "$(Get-Path tput)"
         if ! [[ $(Read-INI "$configFile" "paths" "tput") =~ ^/.* ]]; then
-            Write-Log "WARNING" "    => Invalid value for \"[paths] tput\" (Expected: Type of \"path\")"
+            Write-Log "WARNING" "      => Invalid value for \"[paths] tput\" (Expected: Type of \"path\")"
         fi
     fi
     if ! [[ $(Read-INI "$configFile" "paths" "gawk") =~ ^/.* ]]; then
         Write-INI "$configFile" "paths" "gawk" "$(Get-Path gawk)"
         if ! [[ $(Read-INI "$configFile" "paths" "gawk") =~ ^/.* ]]; then
-            Write-Log "WARNING" "    => Invalid value for \"[paths] gawk\" (Expected: Type of \"path\")"
+            Write-Log "WARNING" "      => Invalid value for \"[paths] gawk\" (Expected: Type of \"path\")"
         fi
     fi
     if ! [[ $(Read-INI "$configFile" "paths" "cut") =~ ^/.* ]]; then
         Write-INI "$configFile" "paths" "cut" "$(Get-Path cut)"
         if ! [[ $(Read-INI "$configFile" "paths" "cut") =~ ^/.* ]]; then
-            Write-Log "WARNING" "    => Invalid value for \"[paths] cut\" (Expected: Type of \"path\")"
+            Write-Log "WARNING" "      => Invalid value for \"[paths] cut\" (Expected: Type of \"path\")"
         fi
     fi
     if ! [[ $(Read-INI "$configFile" "paths" "curl") =~ ^/.* ]]; then
         Write-INI "$configFile" "paths" "curl" "$(Get-Path curl)"
         if ! [[ $(Read-INI "$configFile" "paths" "curl") =~ ^/.* ]]; then
-            Write-Log "WARNING" "    => Invalid value for \"[paths] curl\" (Expected: Type of \"path\")"
+            Write-Log "WARNING" "      => Invalid value for \"[paths] curl\" (Expected: Type of \"path\")"
         fi
     fi
     if ! [[ $(Read-INI "$configFile" "paths" "date") =~ ^/.* ]]; then
         Write-INI "$configFile" "paths" "date" "$(Get-Path date)"
         if ! [[ $(Read-INI "$configFile" "paths" "date") =~ ^/.* ]]; then
-            Write-Log "WARNING" "    => Invalid value for \"[paths] date\" (Expected: Type of \"path\")"
+            Write-Log "WARNING" "      => Invalid value for \"[paths] date\" (Expected: Type of \"path\")"
         fi
     fi
     if ! [[ $(Read-INI "$configFile" "paths" "docker") =~ ^/.* ]]; then
         Write-INI "$configFile" "paths" "docker" "$(Get-Path docker)"
         if ! [[ $(Read-INI "$configFile" "paths" "docker") =~ ^/.* ]]; then
-            Write-Log "WARNING" "    => Invalid value for \"[paths] docker\" (Expected: Type of \"path\")"
+            Write-Log "WARNING" "      => Invalid value for \"[paths] docker\" (Expected: Type of \"path\")"
         fi
     fi
     if ! [[ $(Read-INI "$configFile" "paths" "grep") =~ ^/.* ]]; then
         Write-INI "$configFile" "paths" "grep" "$(Get-Path grep)"
         if ! [[ $(Read-INI "$configFile" "paths" "grep") =~ ^/.* ]]; then
-            Write-Log "WARNING" "    => Invalid value for \"[paths] grep\" (Expected: Type of \"path\")"
+            Write-Log "WARNING" "      => Invalid value for \"[paths] grep\" (Expected: Type of \"path\")"
         fi
     fi
     if ! [[ $(Read-INI "$configFile" "paths" "jq") =~ ^/.* ]]; then
         Write-INI "$configFile" "paths" "jq" "$(Get-Path jq)"
         if ! [[ $(Read-INI "$configFile" "paths" "jq") =~ ^/.* ]]; then
-            Write-Log "WARNING" "    => Invalid value for \"[paths] jq\" (Expected: Type of \"path\")"
+            Write-Log "WARNING" "      => Invalid value for \"[paths] jq\" (Expected: Type of \"path\")"
         fi
     fi
     if ! [[ $(Read-INI "$configFile" "paths" "sed") =~ ^/.* ]]; then
         Write-INI "$configFile" "paths" "sed" "$(Get-Path sed)"
         if ! [[ $(Read-INI "$configFile" "paths" "sed") =~ ^/.* ]]; then
-            Write-Log "WARNING" "    => Invalid value for \"[paths] sed\" (Expected: Type of \"path\")"
+            Write-Log "WARNING" "      => Invalid value for \"[paths] sed\" (Expected: Type of \"path\")"
         fi
     fi
     if ! [[ $(Read-INI "$configFile" "paths" "wget") =~ ^/.* ]]; then
         Write-INI "$configFile" "paths" "wget" "$(Get-Path wget)"
         if ! [[ $(Read-INI "$configFile" "paths" "wget") =~ ^/.* ]]; then
-            Write-Log "WARNING" "    => Invalid value for \"[paths] wget\" (Expected: Type of \"path\")"
+            Write-Log "WARNING" "      => Invalid value for \"[paths] wget\" (Expected: Type of \"path\")"
         fi
     fi
     if ! [[ $(Read-INI "$configFile" "paths" "sort") =~ ^/.* ]]; then
         Write-INI "$configFile" "paths" "sort" "$(Get-Path sort)"
         if ! [[ $(Read-INI "$configFile" "paths" "sort") =~ ^/.* ]]; then
-            Write-Log "WARNING" "    => Invalid value for \"[paths] sort\" (Expected: Type of \"path\")"
+            Write-Log "WARNING" "      => Invalid value for \"[paths] sort\" (Expected: Type of \"path\")"
         fi
     fi
     if [ "$(Read-INI "$configFile" "mail" "notifications_enabled")" == "true" ] && ! [[ $(Read-INI "$configFile" "paths" "sendmail") =~ ^/.* ]]; then
         Write-INI "$configFile" "paths" "sendmail" "$(Get-Path sendmail)"
         if [ "$(Read-INI "$configFile" "mail" "notifications_enabled")" == "true" ] && ! [[ $(Read-INI "$configFile" "paths" "sendmail") =~ ^/.* ]]; then
-            Write-Log "WARNING" "    => Invalid value for \"[paths] sendmail\" (Expected: Type of \"path\")"
+            Write-Log "WARNING" "      => Invalid value for \"[paths] sendmail\" (Expected: Type of \"path\")"
         fi
     fi
 
     if ! [[ $(Read-INI "$configFile" "log" "filePath") =~ ^/.* ]]; then
-        Write-Log "ERROR" "    => Invalid value for \"[log] filePath\" (Expected: Type of \"path\")"
+        Write-Log "ERROR" "      => Invalid value for \"[log] filePath\" (Expected: Type of \"path\")"
         validationError=true
     fi
     if [ $(Read-INI "$configFile" "log" "level") != "DEBUG" ] && [ $(Read-INI "$configFile" "log" "level") != "INFO" ] && [ $(Read-INI "$configFile" "log" "level") != "WARNING" ] && [ $(Read-INI "$configFile" "log" "level") != "ERROR" ]; then
-        Write-Log "ERROR" "    => Invalid value for \"[log] level\" (Expected: \"DEBUG\", \"INFO\", \"WARNING\", or \"ERROR\")"
+        Write-Log "ERROR" "      => Invalid value for \"[log] level\" (Expected: \"DEBUG\", \"INFO\", \"WARNING\", or \"ERROR\")"
         validationError=true
     fi
     if ! [[ $(Read-INI "$configFile" "log" "retention") =~ ^[0-9]+$ ]]; then
-        Write-Log "ERROR" "    => Invalid value for \"[log] retention\" (Expected: Type of \"integer\")"
+        Write-Log "ERROR" "      => Invalid value for \"[log] retention\" (Expected: Type of \"integer\")"
         validationError=true
     fi
 
     if [ "$(Read-INI "$configFile" "mail" "notifications_enabled")" != "true" ] && [ "$(Read-INI "$configFile" "mail" "notifications_enabled")" != "false" ]; then
-        Write-Log "ERROR" "    => Invalid value for \"[mail] notifications_enabled\" (Expected: \"true\" or \"false\")"
+        Write-Log "ERROR" "      => Invalid value for \"[mail] notifications_enabled\" (Expected: \"true\" or \"false\")"
         validationError=true
     fi
     if [ "$(Read-INI "$configFile" "mail" "notifications_enabled")" == "true" ] && [ "$(Read-INI "$configFile" "mail" "mode")" != "sendmail" ]; then
-        Write-Log "ERROR" "    => Invalid value for \"[mail] mode\" (Expected: \"sendmail\")"
+        Write-Log "ERROR" "      => Invalid value for \"[mail] mode\" (Expected: \"sendmail\")"
         validationError=true
     fi
     if [[ "$(Read-INI "$configFile" "mail" "notifications_enabled")" == "true" && ! $(Read-INI "$configFile" "mail" "from") =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
-        Write-Log "WARNING" "    => Invalid value for \"[mail] from\" (Expected: Type of \"email\")"
+        Write-Log "WARNING" "      => Invalid value for \"[mail] from\" (Expected: Type of \"email\")"
     fi
     if [[ "$(Read-INI "$configFile" "mail" "notifications_enabled")" == "true" && ! $(Read-INI "$configFile" "mail" "recipients") =~ ^([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})([[:space:]]*[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})*$ ]]; then
-        Write-Log "WARNING" "    => Invalid value for \"[mail] recipients\" (Expected: One or multiple E-Mail addresses seperated by spaces)"
+        Write-Log "WARNING" "      => Invalid value for \"[mail] recipients\" (Expected: One or multiple E-Mail addresses seperated by spaces)"
     fi
     if [[ "$(Read-INI "$configFile" "mail" "notifications_enabled")" == "true" && -z $(Read-INI "$configFile" "mail" "subject") ]]; then
-        Write-Log "WARNING" "    => Empty value for \"[mail] subject\""
+        Write-Log "WARNING" "      => Empty value for \"[mail] subject\""
     fi
 
     if [ "$(Read-INI "$configFile" "telegram" "notifications_enabled")" != "true" ] && [ "$(Read-INI "$configFile" "telegram" "notifications_enabled")" != "false" ]; then
-        Write-Log "ERROR" "    => Invalid value for \"[telegram] notifications_enabled\" (Expected: \"true\" or \"false\")"
+        Write-Log "ERROR" "      => Invalid value for \"[telegram] notifications_enabled\" (Expected: \"true\" or \"false\")"
         validationError=true
     fi
     if [ "$(Read-INI "$configFile" "telegram" "notifications_enabled")" == "true" ] && [ -z "$(Read-INI "$configFile" "telegram" "bot_token")" ]; then
-        Write-Log "ERROR" "    => Empty value for \"[telegram] bot_token\""
+        Write-Log "ERROR" "      => Empty value for \"[telegram] bot_token\""
         validationError=true
     fi
     if [ "$(Read-INI "$configFile" "telegram" "notifications_enabled")" == "true" ] && [ -z "$(Read-INI "$configFile" "telegram" "chat_id")" ]; then
-        Write-Log "WARNING" "    => Empty value for \"[telegram] chat_id\""
+        Write-Log "WARNING" "      => Empty value for \"[telegram] chat_id\""
         validationError=true
     fi
     if [[ "$(Read-INI "$configFile" "telegram" "notifications_enabled")" == "true" && ! $(Read-INI "$configFile" "telegram" "retry_interval") =~ ^[0-9]+$ ]]; then
-        Write-Log "WARNING" "    => Invalid value for \"[telegram] retry_interval\" (Expected: Type of \"integer\")"
+        Write-Log "WARNING" "      => Invalid value for \"[telegram] retry_interval\" (Expected: Type of \"integer\")"
         validationError=true
     fi
     if [[ "$(Read-INI "$configFile" "telegram" "notifications_enabled")" == "true" && ! $(Read-INI "$configFile" "telegram" "retry_limit") =~ ^[0-9]+$ ]]; then
-        Write-Log "WARNING" "    => Invalid value for \"[telegram] retry_limit\" (Expected: Type of \"integer\")"
+        Write-Log "WARNING" "      => Invalid value for \"[telegram] retry_limit\" (Expected: Type of \"integer\")"
         validationError=true
     fi
 
     if [ $rule_default_exists == false ]; then
-        Write-Log "ERROR" "    => Invalid value in \"[general] update_rules\": The default rule is mandatory"
+        Write-Log "ERROR" "      => Invalid value in \"[general] update_rules\": The default rule is mandatory"
         validationError=true
     fi
 
@@ -593,11 +598,11 @@ Test-Prerequisites() {
     local command=""
     local validationError=false
     
-    Write-Log "INFO" "Checking your system and testing prerequisites..."
+    Write-Log "INFO" "    Checking your system and testing prerequisites..."
 
     command="bash"
     versionInstalled=$("$command" --version | head -n 1)
-    Write-Log "DEBUG" "    => Your \"$command\" is available in version \"$versionInstalled\""
+    Write-Log "DEBUG" "      => Your \"$command\" is available in version \"$versionInstalled\""
 
     # QNAP specific \
         if [[ "$versionInstalled" =~ "QNAP" ]]; then
@@ -619,8 +624,8 @@ Test-Prerequisites() {
                 read -p "                                  Would you like this script to automatically install the mandatory components every time it runs via entware-ng repository? (yes/no) [Default: no]: " response
 
                 if [ -z "$response" ] || [ "$response" != "yes" ] && [ "$response" != "y" ]; then
-                    Write-Log "INFO" "You chose not to install components automatically"
-                    Write-Log "INFO" "You can change this behavior in your configuration file \"$configFile\""
+                    Write-Log "INFO" "    You chose not to install components automatically"
+                    Write-Log "INFO" "    You can change this behavior in your configuration file \"$configFile\""
                     Write-INI "$configFile" "qnap_systems" "mandatory_packages_install" "manual"
                 else
                     Write-INI "$configFile" "qnap_systems" "mandatory_packages_install" "auto"
@@ -629,7 +634,7 @@ Test-Prerequisites() {
         fi  
 
         if [ "$(Read-INI "$configFile" "qnap_systems" "mandatory_packages_install")" == "auto" ]; then
-            Write-Log "INFO" "       Installing additional packages via entware-ng..."
+            Write-Log "INFO" "         Installing additional packages via entware-ng..."
             wget -O - http://pkg.entware.net/binaries/x86-64/installer/entware_install.sh 2>/dev/null | /bin/sh >/dev/null 2>&1
             /opt/bin/opkg update >/dev/null 2>&1
             /opt/bin/opkg install coreutils-sort >/dev/null 2>&1
@@ -646,165 +651,165 @@ Test-Prerequisites() {
     command="tput"
     if [ -n "$(Read-INI "$configFile" "paths" "$command")" ]; then
         if ! [ -x "$(Read-INI "$configFile" "paths" "$command")" ]; then
-            Write-Log "ERROR" "    => Could not find \"$command\""
+            Write-Log "ERROR" "      => Could not find \"$command\""
             validationError=true
         else
             versionInstalled=$("$(Read-INI "$configFile" "paths" "$command")" -V 2>/dev/null | head -n 1)
-            Write-Log "DEBUG" "    => Found \"$command\" installed in version \"$versionInstalled\""
+            Write-Log "DEBUG" "      => Found \"$command\" installed in version \"$versionInstalled\""
         fi
     else
-        Write-Log "WARNING" "    => It seems there is no version of \"$command\" installed on your system"
+        Write-Log "WARNING" "      => It seems there is no version of \"$command\" installed on your system"
     fi
 
     command="gawk"
     if [ -n "$(Read-INI "$configFile" "paths" "$command")" ]; then
         if ! [ -x "$(Read-INI "$configFile" "paths" "$command")" ]; then
-            Write-Log "ERROR" "    => Could not find \"$command\""
+            Write-Log "ERROR" "      => Could not find \"$command\""
             validationError=true
         else
             versionInstalled=$("$(Read-INI "$configFile" "paths" "$command")" --version 2>/dev/null | head -n 1)
-            Write-Log "DEBUG" "    => Found \"$command\" installed in version \"$versionInstalled\""
+            Write-Log "DEBUG" "      => Found \"$command\" installed in version \"$versionInstalled\""
         fi
     else
-        Write-Log "ERROR" "    => It seems there is no version of \"$command\" installed on your system"
+        Write-Log "ERROR" "      => It seems there is no version of \"$command\" installed on your system"
         validationError=true
     fi
 
     command="cut"
     if [ -n "$(Read-INI "$configFile" "paths" "$command")" ]; then
         if ! [ -x "$(Read-INI "$configFile" "paths" "$command")" ]; then
-            Write-Log "ERROR" "    => Could not find \"$command\""
+            Write-Log "ERROR" "      => Could not find \"$command\""
             validationError=true
         else
             versionInstalled=$("$(Read-INI "$configFile" "paths" "$command")" --version 2>/dev/null | head -n 1)
-            Write-Log "DEBUG" "    => Found \"$command\" installed in version \"$versionInstalled\""
+            Write-Log "DEBUG" "      => Found \"$command\" installed in version \"$versionInstalled\""
         fi
     else
-        Write-Log "ERROR" "    => It seems there is no version of \"$command\" installed on your system"
+        Write-Log "ERROR" "      => It seems there is no version of \"$command\" installed on your system"
         validationError=true
     fi
 
     command="curl"
     if [ -n "$(Read-INI "$configFile" "paths" "$command")" ]; then
         if ! [ -x "$(Read-INI "$configFile" "paths" "$command")" ]; then
-            Write-Log "ERROR" "    => Could not find \"$command\""
+            Write-Log "ERROR" "      => Could not find \"$command\""
             validationError=true
         else
             versionInstalled=$("$(Read-INI "$configFile" "paths" "$command")" --version 2>/dev/null | head -n 1)
-            Write-Log "DEBUG" "    => Found \"$command\" installed in version \"$versionInstalled\""
+            Write-Log "DEBUG" "      => Found \"$command\" installed in version \"$versionInstalled\""
         fi
     else
-        Write-Log "ERROR" "    => It seems there is no version of \"$command\" installed on your system"
+        Write-Log "ERROR" "      => It seems there is no version of \"$command\" installed on your system"
         validationError=true
     fi
 
     command="date"
     if [ -n "$(Read-INI "$configFile" "paths" "$command")" ]; then
         if ! [ -x "$(Read-INI "$configFile" "paths" "$command")" ]; then
-            Write-Log "ERROR" "    => Could not find \"$command\""
+            Write-Log "ERROR" "      => Could not find \"$command\""
             validationError=true
         else
             versionInstalled=$("$(Read-INI "$configFile" "paths" "$command")" --version 2>/dev/null | head -n 1)
-            Write-Log "DEBUG" "    => Found \"$command\" installed in version \"$versionInstalled\""
+            Write-Log "DEBUG" "      => Found \"$command\" installed in version \"$versionInstalled\""
         fi
     else
-        Write-Log "ERROR" "    => It seems there is no version of \"$command\" installed on your system"
+        Write-Log "ERROR" "      => It seems there is no version of \"$command\" installed on your system"
         validationError=true
     fi
 
     command="docker"
     if [ -n "$(Read-INI "$configFile" "paths" "$command")" ]; then
         if ! [ -x "$(Read-INI "$configFile" "paths" "$command")" ]; then
-            Write-Log "ERROR" "    => Could not find \"$command\""
+            Write-Log "ERROR" "      => Could not find \"$command\""
             validationError=true
         else
             versionInstalled=$("$(Read-INI "$configFile" "paths" "$command")" --version 2>/dev/null)
-            Write-Log "DEBUG" "    => Found \"$command\" installed in version \"$versionInstalled\""
+            Write-Log "DEBUG" "      => Found \"$command\" installed in version \"$versionInstalled\""
         fi
     else
-        Write-Log "ERROR" "    => It seems there is no version of \"$command\" installed on your system"
+        Write-Log "ERROR" "      => It seems there is no version of \"$command\" installed on your system"
         validationError=true
     fi
 
     command="grep"
     if [ -n "$(Read-INI "$configFile" "paths" "$command")" ]; then
         if ! [ -x "$(Read-INI "$configFile" "paths" "$command")" ]; then
-            Write-Log "ERROR" "    => Could not find \"$command\""
+            Write-Log "ERROR" "      => Could not find \"$command\""
             validationError=true
         else
             versionInstalled=$("$(Read-INI "$configFile" "paths" "$command")" --version 2>/dev/null | head -n 1)
-            Write-Log "DEBUG" "    => Found \"$command\" installed in version \"$versionInstalled\""
+            Write-Log "DEBUG" "      => Found \"$command\" installed in version \"$versionInstalled\""
         fi
     else
-        Write-Log "ERROR" "    => It seems there is no version of \"$command\" installed on your system"
+        Write-Log "ERROR" "      => It seems there is no version of \"$command\" installed on your system"
         validationError=true
     fi
 
     command="jq"
     if [ -n "$(Read-INI "$configFile" "paths" "$command")" ]; then
         if ! [ -x "$(Read-INI "$configFile" "paths" "$command")" ]; then
-            Write-Log "ERROR" "    => Could not find \"$command\""
+            Write-Log "ERROR" "      => Could not find \"$command\""
             validationError=true
         else
             versionInstalled=$("$(Read-INI "$configFile" "paths" "$command")" --version 2>/dev/null)
-            Write-Log "DEBUG" "    => Found \"$command\" installed in version \"$versionInstalled\""
+            Write-Log "DEBUG" "      => Found \"$command\" installed in version \"$versionInstalled\""
         fi
     else
-        Write-Log "ERROR" "    => It seems there is no version of \"$command\" installed on your system"
+        Write-Log "ERROR" "      => It seems there is no version of \"$command\" installed on your system"
         validationError=true
     fi
 
     command="sed"
     if [ -n "$(Read-INI "$configFile" "paths" "$command")" ]; then
         if ! [ -x "$(Read-INI "$configFile" "paths" "$command")" ]; then
-            Write-Log "ERROR" "    => Could not find \"$command\""
+            Write-Log "ERROR" "      => Could not find \"$command\""
             validationError=true
         else
             versionInstalled=$("$(Read-INI "$configFile" "paths" "$command")" --version 2>/dev/null | head -n 1)
-            Write-Log "DEBUG" "    => Found \"$command\" installed in version \"$versionInstalled\""
+            Write-Log "DEBUG" "      => Found \"$command\" installed in version \"$versionInstalled\""
         fi
     else
-        Write-Log "ERROR" "    => It seems there is no version of \"$command\" installed on your system"
+        Write-Log "ERROR" "      => It seems there is no version of \"$command\" installed on your system"
         validationError=true
     fi
 
     command="wget"
     if [ -n "$(Read-INI "$configFile" "paths" "$command")" ]; then
         if ! [ -x "$(Read-INI "$configFile" "paths" "$command")" ]; then
-            Write-Log "ERROR" "    => Could not find \"$command\""
+            Write-Log "ERROR" "      => Could not find \"$command\""
             validationError=true
         else
             versionInstalled=$("$(Read-INI "$configFile" "paths" "$command")" --version 2>/dev/null | head -n 1)
-            Write-Log "DEBUG" "    => Found \"$command\" installed in version \"$versionInstalled\""
+            Write-Log "DEBUG" "      => Found \"$command\" installed in version \"$versionInstalled\""
         fi
     else
-        Write-Log "ERROR" "    => It seems there is no version of \"$command\" installed on your system"
+        Write-Log "ERROR" "      => It seems there is no version of \"$command\" installed on your system"
         validationError=true
     fi
 
     command="sort"
     if [ -n "$(Read-INI "$configFile" "paths" "$command")" ]; then
         if ! [ -x "$(Read-INI "$configFile" "paths" "$command")" ]; then
-            Write-Log "ERROR" "    => Could not find \"$command\""
+            Write-Log "ERROR" "      => Could not find \"$command\""
             validationError=true
         else
             versionInstalled=$("$(Read-INI "$configFile" "paths" "$command")" --version 2>/dev/null | head -n 1)
-            Write-Log "DEBUG" "    => Found \"$command\" installed in version \"$versionInstalled\""
+            Write-Log "DEBUG" "      => Found \"$command\" installed in version \"$versionInstalled\""
         fi
     else
-        Write-Log "ERROR" "    => It seems there is no version of \"$command\" installed on your system"
+        Write-Log "ERROR" "      => It seems there is no version of \"$command\" installed on your system"
         validationError=true
     fi
 
     command="sendmail"
     if [ -n "$(Read-INI "$configFile" "paths" "$command")" ]; then
         if ! [ -x "$(Read-INI "$configFile" "paths" "$command")" ]; then
-            Write-Log "WARNING" "    => Could not find \"$command\""
+            Write-Log "WARNING" "      => Could not find \"$command\""
         else
-            Write-Log "DEBUG" "    => Found \"$command\""
+            Write-Log "DEBUG" "      => Found \"$command\""
         fi
     elif [ "$(Read-INI "$configFile" "mail" "notifications_enabled")" == "true" ]; then
-        Write-Log "WARNING" "    => It seems there is no version of \"$command\" installed on your system"
+        Write-Log "WARNING" "      => It seems there is no version of \"$command\" installed on your system"
     fi
 
     if [ $validationError == true ]; then
@@ -1845,7 +1850,7 @@ Perform-ImageUpdate() {
     local docker_run_cmd="$6"
     local image_tag_old="$7"
     local image_tag_new="$8"
-    local test_mode=$(Read-INI "$configFile" "general" "test_mode")
+    local test_mode=$test_mode
     local cmd_docker=$(Read-INI "$configFile" "paths" "docker")
     local cmd_sed=$(Read-INI "$configFile" "paths" "sed")
     local cmd_grep=$(Read-INI "$configFile" "paths" "grep")
@@ -2095,7 +2100,7 @@ Prune-DockerImages() {
     local cmd_docker=$(Read-INI "$configFile" "paths" "docker")
 
     if [ "$prune_images" == true ]; then
-        Write-Log "INFO" "        Pruning docker images..."
+        Write-Log "INFO" "    Pruning docker images..."
         { $cmd_docker image prune -af > /dev/null; result=$?; } || result=$?
         [ $result -eq 0 ] && Write-Log "DEBUG" "      => Successfully pruned images"
         [ $result -ne 0 ] && Write-Log "ERROR" "      => Failed to prune images: $result"
@@ -2148,7 +2153,7 @@ Telegram-GetMessageLength() {
 }
 
 Telegram-GenerateMessage() {
-    local test_mode=$(Read-INI "$configFile" "general" "test_mode")
+    local test_mode=$test_mode
     local cmd_cut=$(Read-INI "$configFile" "paths" "cut")
     local cmd_docker=$(Read-INI "$configFile" "paths" "docker")
     local hostname=$(Telegram-EscapeSpecialChars "$(hostname)")
@@ -2229,7 +2234,7 @@ Telegram-SplitMessage() {
 }
 
 Send-MailNotification() {
-    local test_mode=$(Read-INI "$configFile" "general" "test_mode")
+    local test_mode=$test_mode
     local logFile=$(Read-INI "$configFile" "log" "filePath")
     local mail_mode=$(Read-INI "$configFile" "mail" "mode")
     local mail_from=$(Read-INI "$configFile" "mail" "from")
@@ -2416,14 +2421,15 @@ Send-TelegramNotification() {
 }
 
 Main() {
-    Acquire-Lock
-    Validate-ConfigFile
-    Test-Prerequisites
+    Write-Log "INFO"  "<print_line>"
+    Write-Log "INFO"  " | GENERAL INFORMATION"
+    Write-Log "INFO"  "<print_line>"
+    Write-Log "INFO" "    Version:      $(Get-ScriptVersion)"
+    [[ "$test_mode" == true  ]] && Write-Log "INFO" "    Test Mode:    Enabled"
+    [[ "$test_mode" == false ]] && Write-Log "INFO" "    Test Mode:    Disabled"
+    Write-Log "INFO" "    Log Level:    $(Read-INI "$configFile" "log" "level")"
 
-    Write-Log "INFO" "Script Version: $(Get-ScriptVersion)"
-    Write-Log "INFO" "Retrieving a list of currently running or paused docker containers and it's properties..."
-
-    local test_mode=$(Read-INI "$configFile" "general" "test_mode")
+    local test_mode=$test_mode
     local mail_notifications_enabled=$(Read-INI "$configFile" "mail" "notifications_enabled")
     local telegram_notifications_enabled=$(Read-INI "$configFile" "telegram" "notifications_enabled")
     local cmd_sed=$(Read-INI "$configFile" "paths" "sed")
@@ -2942,10 +2948,10 @@ Main() {
             Write-Log "INFO" "<print_line>"
             Write-Log "INFO" " | SELF-UPDATE INITIATION"
             Write-Log "INFO" "<print_line>"
-            Write-Log "INFO" "        Setting update status flag in \"$self_update_helper_container_name:/opt/dcu/.main_update_process_completed\"..."
+            Write-Log "INFO" "    Setting update status flag in \"$self_update_helper_container_name:/opt/dcu/.main_update_process_completed\"..."
             { $cmd_docker exec $self_update_helper_container_name /bin/bash -c 'echo "true" > /opt/dcu/.main_update_process_completed' > /dev/null; result=$?; } || result=$?
-            [ $result -eq 0 ] && Write-Log "DEBUG" "          => Succeeded"
-            [ $result -ne 0 ] && Write-Log "ERROR" "          => Failed: $result"
+            [ $result -eq 0 ] && Write-Log "DEBUG" "      => Succeeded"
+            [ $result -ne 0 ] && Write-Log "ERROR" "      => Failed: $result"
         fi
         
         Write-Log "INFO" "<print_line>"
@@ -2956,8 +2962,60 @@ Main() {
     else
         Write-Log "ERROR" "No containers found"
     fi
+}
 
+Parse-Arguments() {
+    local test_mode_enforced=false
+
+    Write-Log "INFO"  "<print_line>"
+    Write-Log "INFO"  " | INITIALIZING"
+    Write-Log "INFO"  "<print_line>"
+
+    while [[ "$#" -gt 0 ]]; do
+        case $1 in
+            --help|\/help|-\?|\/\?) echo "help!"; exit 0 ;;
+            --dry-run|\/dry-run|-dr|\/dr)
+                if [[ "$2" == "--force" ]] || [[ "$2" == "-f" ]] || [[ "$2" == "/force" ]] || [[ "$2" == "/f" ]]; then
+                    Write-Log "INFO" "    Removing PID file (\"$pidFile\")"
+                    rm -f "$pidFile" 2>/dev/null || Write-Log "ERROR" "      Failed to remove PID file (\"$pidFile\")"
+                elif [ -n "$2" ]; then
+                    Write-Log "ERROR" "    Argument parsing error: Unknown option for argument \"$1\" was passed (\"$2\")"
+                    End-Script 1
+                fi
+                Acquire-Lock
+                Validate-ConfigFile
+                Test-Prerequisites
+                test_mode="true"
+                Main
+                End-Script
+
+                ;;
+            --run|\/run|-r|\/r)
+                if [[ "$2" == "--force" ]] || [[ "$2" == "-f" ]] || [[ "$2" == "/force" ]] || [[ "$2" == "/f" ]]; then
+                    Write-Log "INFO" "    Removing PID file (\"$pidFile\")"
+                    rm -f "$pidFile" 2>/dev/null || Write-Log "ERROR" "      Failed to remove PID file (\"$pidFile\")"
+                elif [ -n "$2" ]; then
+                    Write-Log "ERROR" "    Argument parsing error: Unknown option for argument \"$1\" was passed (\"$2\")"
+                    End-Script 1
+                fi
+
+                ;;
+            --force|\/force|-f|\/f)
+                Write-Log "INFO" "    Removing PID file (\"$pidFile\")"
+                rm -f "$pidFile" 2>/dev/null || Write-Log "ERROR" "      Failed to remove PID file (\"$pidFile\")"
+
+                ;;
+            *) Write-Log "ERROR" "    Argument parsing error: Unknown parameter passed: \"$1\""; End-Script 1 ;;
+        esac
+        shift
+    done
+
+    Acquire-Lock
+    Validate-ConfigFile
+    Test-Prerequisites
+    test_mode=$(Read-INI "$configFile" "general" "test_mode")
+    Main
     End-Script
 }
 
-Main
+Parse-Arguments "$@"
