@@ -122,7 +122,7 @@ To ensure data persistence, you should configure the following mounts:
 
 If you want to manually execute the task, you can just run:
 ```
-docker exec -it Docker-Container-Updater ./dcu.sh
+docker exec -it Docker-Container-Updater dcu --run
 ```
 
 ## Configuration
