@@ -175,7 +175,7 @@ Write-Log () {
     local test_mode=$(Read-INI "$configFile" "general" "test_mode")
     local logFile=$(Read-INI "$configFile" "log" "filePath")
     local cmd_tput=$(Read-INI "$configFile" "paths" "tput")
-    local cmd_sed=$(Read-INI "$configFile" "paths" "sed")
+    local cmd_sed=${$(Read-INI "$configFile" "paths" "sed"):-"sed"}
     local logFileFolder=$(dirname "$logFile")
 
     if [ -z "$logLevel" ] && test -f "$configFile"; then

@@ -12,8 +12,9 @@ if [[ "$(postconf -h relayhost)" != "$DCU_MAIL_RELAYHOST" ]]; then
     postconf -e "relayhost = $DCU_MAIL_RELAYHOST"
     
     if pgrep "postfix" > /dev/null; then
-        echo "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO   Restarting postfix..."
+        echo -n "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO   "
         postfix stop
+        echo -n "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO   "
         postfix start
     fi
 else
@@ -21,7 +22,7 @@ else
 fi
 
 if ! pgrep "postfix" > /dev/null; then
-    echo "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO   Starting postfix..."
+    echo -n "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO   "
     postfix start
 fi
 
