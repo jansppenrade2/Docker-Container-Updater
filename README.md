@@ -2,7 +2,7 @@
 
 For all the lazier and automation-loving nerds, constantly updating Docker containers can be a tedious chore. Enter the Docker Container Updater to save the day. It handles updates without relying on the "latest" tag or sticking to the current image tag, which might cause you to miss important updates. Instead, it plays by your rules!
 
-## ⚠️ Important Notice Concerning Update 2024.06.05-1
+### ⚠️ Important Notice Concerning Update 2024.06.05-1
 
 Renamed the script file from `container_update.sh` to `dcu.sh` to prepare for simpler and more consistent directories and commands with version `2024.06.05-1`.
 
@@ -18,21 +18,23 @@ Renamed the script file from `container_update.sh` to `dcu.sh` to prepare for si
 
 ## Getting Started
 
-### Choose your method
-Here are three methods to get this tool up and running:
-1. [Method: Using the Docker image](#1-method-using-the-docker-image)
-   - [Docker CLI](#using-docker-cli)
-   - [Docker Compose](#using-docker-compose)
-2. [Method: Directly on your Docker host as a normal Bash script executed by root](#2-method-run-this-script-directly-on-your-host)
-3. [Method: Cloning this repository and building your own image](#3-method-build-your-own-docker-image)
+> ⚠️ The default configuration has **test mode enabled**. Safety first 😉! After you've run your first test, checked for errors, and reviewed the generated Docker run commands, you can disable test mode in your configuration *(see [Configuration](#configuration))*. This project is currently in its early stages, and any feedback on potential issues would be greatly appreciated.
 
-### 1. Method: Using the [Docker image](https://hub.docker.com/r/janjk/docker-container-updater)
+### Choose your method
+Here are two methods to get this tool up and running:
+
+* [Method 1: Using the Docker image](#method-1-using-the-docker-image) (recommended)
+* [Method 2: Directly on your Docker host as a normal Bash script executed by root](#method-2-run-this-script-directly-on-your-host)
+
+### Method 1: Using the [Docker image](https://hub.docker.com/r/janjk/docker-container-updater)
 
 > This method allows you to run a simple and dedicated Docker container that already includes all the necessary tools required by `dcu.sh`.
 
 #### Using Docker CLI
 
 ##### Example Command
+
+Use the following command to run `Docker Container Updater` with basic configuration and test mode explicitly enabled:
 
 ```bash
 docker run  -d \
@@ -44,11 +46,23 @@ docker run  -d \
             --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
             --mount type=bind,source=/etc/localtime,target=/etc/localtime,readonly \
             --env DCU_TEST_MODE=true \
-            --env DCU_UPDATE_RULES='*[0.1.1-1,true]' \
+            --env DCU_CRONTAB_EXECUTION_EXPRESSION='30 2 * * *' \
             janjk/docker-container-updater:latest
 ```
 
-> ⚠️ The default configuration has **test mode enabled** *(even if you not specify the variable `DCU_TEST_MODE`)*. Safety first 😉! After you've run your first test, checked for errors, and reviewed the generated Docker run commands, you can disable test mode in your configuration file *(see [Configuration](#configuration))*.
+> ##### ℹ️ Explanation
+> The bind mount of `/var/run/docker.sock` is necessary to provide full access to the Docker environment on the host. This socket file enables the container to communicate with your Docker daemon, allowing it to manage Docker containers, images, and other resources. Without this bind mount, `Docker Container Updater` would be isolated from the host's Docker environment and unable to perform tasks like creating, starting, stopping, removing containers, pulling new images etc.
+> <br>
+> <br>
+> The `--privileged` flag is needed to grant the Docker container elevated permissions on the host system. This flag provides the container with extended capabilities, allowing it to perform tasks that require higher levels of access to the host’s resources and hardware. Specifically, it:
+> 
+> 1. **Gives the container access to all resources** on the host, similar to the root user.
+> 2. **Allows the container to modify kernel parameters** using sysctl or sysfs.
+> 3. **Grants the container additional capabilities** that are typically restricted for security reasons.
+> 
+> Using the `--privileged` flag is essential for certain operations that involve deep integration with the host system, such as managing network configurations, mounting filesystems, or interacting with hardware devices directly.
+> 
+>`Docker Container Updater` relies on these extended permissions to perform its intended tasks effectively.
 
 ##### Data Persistence
 
@@ -60,21 +74,17 @@ To ensure data persistence, you should configure the following mounts:
 --mount type=bind,source=<YOUR_LOCAL_LOGS_PATH>,target=/var/log \
 ```
 
-##### Notifications
+##### Run Your First Test
 
-> ℹ️ To enable notifications, please refer to [Notifications](#notifications-1)
+After successfully starting `Docker Container Updater`, a cron job inside the container will automatically manage the update mechanism for your Docker containers based on the cron expression defined in `DCU_CRONTAB_EXECUTION_EXPRESSION`.
 
-#### Using Docker Compose
+To manually execute the update process, run:
 
-1. Download the `docker-compose-example.yaml`
-2. Rename `docker-compose-example.yaml` to `docker-compose.yaml`
-   ```bash
-   mv ./docker-compose-example.yaml ./docker-compose.yaml
-   ```
-3. Customize your `docker-compose.yaml` according to your needs
-4. run  `docker-compose up -d`
+```
+docker exec -it Docker-Container-Updater dcu --run
+```
    
-### 2. Method: Run this script directly on your host
+### Method 2: Run this script directly on your host
 
 1. On your Docker host, navigate to the directory where the script `dcu.sh` should be downloaded
 2. Download `dcu.sh` and make it executable _(this can be done manually or by using the following command):_
@@ -84,46 +94,6 @@ To ensure data persistence, you should configure the following mounts:
 3. Execute `./dcu.sh` with root privileges *(the first run will be in **test mode** and will also create the default configuration file)*
 4. Customize the default configuration file according to your specific requirements *(see [Configuration](#configuration))*
 5. Create a cron job for this script *(after testing 🫠)*
-
-### 3. Method: Build your own Docker image
-
-1. Clone this repository and navigate to it's folder
-   ```bash
-   git clone https://github.com/jansppenrade2/Docker-Container-Updater.git
-   cd Docker-Container-Updater/
-   ```
-2. Build the container
-   ```bash
-   docker build -t docker_container_updater:latest -f ./DOCKERFILE .
-   ```
-   Or behind a corporate proxy:
-   ```bash
-   docker build -t docker_container_updater:latest \
-   --build-arg http_proxy=http://172.17.0.1:3128 \ 
-   --build-arg https_proxy=http://172.17.0.1:3128 \ 
-   -f ./DOCKERFILE .
-   ```
-3. Rename `docker-compose-example.yaml` to `docker-compose.yaml`
-   ```bash
-   mv ./docker-compose-example.yaml ./docker-compose.yaml
-   ```
-5. Customize your `docker-compose.yaml`
-6. Start the setup with the command `docker compose up -d`
-7. Update the setup with
-   ```bash
-   docker compose down
-   docker compose pull
-   docker compose up -d
-   ```
-
-### How it works
-
-ℹ️ After successfully starting the `Docker Container Updater`, a cron job inside the container will automatically manage the update mechanism for your Docker containers based on the cron expression defined in `DCU_CRONTAB_EXECUTION_EXPRESSION`.
-
-If you want to manually execute the task, you can just run:
-```
-docker exec -it Docker-Container-Updater dcu --run
-```
 
 ## Configuration
 
@@ -174,8 +144,64 @@ The Docker Container Updater utilizes a configuration file, by default located i
 |                                                        | DCU_REPORT_REAL_IP                               | Specify the IP address of your Docker host to override it in the reports. Otherwise, you will see the container's IP address instead                  |                                                               | Any string                                                |
 |                                                        | DCU_REPORT_REAL_DOCKER_VERSION                   | Specify the Docker version used by your Docker host to override it in the reports. Otherwise, you will see the container's Docker version instead     |                                                               | Any string                                                |
 
+### Configure Notifications
 
-### Update Rules
+#### E-Mail Notifications
+
+##### General Information
+
+If you are running the `dcu.sh` script directly on your Docker host, you just need to ensure that `sendmail` is installed and configured on your Docker host.
+If you are using the [Docker image](https://hub.docker.com/r/janjk/docker-container-updater), you need to have a Mail Transfer Agent (MTA) (e.g., Postfix) installed, configured and reachable in your network, to which the Docker container can relay its emails. The IP address or the hostname of your MTA needs be specified in the environment variable `DCU_MAIL_RELAYHOST` when running the container.
+
+##### Docker CLI
+```
+--env DCU_REPORT_REAL_HOSTNAME="$(hostname)" \
+--env DCU_REPORT_REAL_IP="$(hostname -I | awk '{print $1}')" \
+--env DCU_REPORT_REAL_DOCKER_VERSION="$(docker --version | awk '{print $3}' | tr -d ',')" \
+--env DCU_MAIL_NOTIFICATIONS_ENABLED=true \
+--env DCU_MAIL_FROM='<some@mail.address>' \
+--env DCU_MAIL_RECIPIENTS='<some@mail.address>' \
+--env DCU_MAIL_SUBJECT="🐳 Docker Container Update Report from $(hostname)" \
+--env DCU_MAIL_RELAYHOST='[<IP address or hostname>]:<Port>' \
+```
+
+##### Configuration File
+```
+[mail]
+notifications_enabled=true
+mode=sendmail
+from=<some@mail.address>
+recipients=<some@mail.address>
+subject=🐳 Docker Container Update Report from MyDockerHostName
+```
+
+#### Telegram Notificationss
+
+##### General Information
+
+To receive Telegram notifications, you first need to obtain a Chat ID and a Bot Token.
+
+##### Docker CLI
+```
+--env DCU_REPORT_REAL_HOSTNAME="$(hostname)" \
+--env DCU_REPORT_REAL_IP="$(hostname -I | awk '{print $1}')" \
+--env DCU_REPORT_REAL_DOCKER_VERSION="$(docker --version | awk '{print $3}' | tr -d ',')" \
+--env DCU_TELEGRAM_NOTIFICATIONS_ENABLED=true \
+--env DCU_TELEGRAM_BOT_TOKEN='<your_bot_token>' \
+--env DCU_TELEGRAM_CHAT_ID='<your_chat_id' \
+```
+
+##### Configuration File
+```
+[telegram]
+notifications_enabled=true
+retry_limit=2
+retry_interval=10
+chat_id=<your_bot_token>
+bot_token=<your_chat_id
+```
+
+### Configure Update Rules
 
 The `update_rules` parameter, or `DCU_UPDATE_RULES` environment variable allows you to define the update behavior for your containers. The default rule is `*[0.1.1-1,true]`, which means:
 
@@ -251,61 +277,6 @@ To give you more control, you can integrate your own pre- and post-scripts. Thes
 > To gain full access to the directories of individual Docker containers, you may need to mount additional directories into `Docker Container Updater`. There are various approaches to this, which vary depending on the system your architecture/design. Decide for yourself what works best for you.
 
 ---
-
-### Notifications
-
-#### 1. E-Mail Notifications
-
-##### General Information
-
-If you are running the `dcu.sh` script directly on your Docker host, you just need to ensure that `sendmail` is installed and configured on your Docker host.
-If you are using the [Docker image](https://hub.docker.com/r/janjk/docker-container-updater), you need to have a Mail Transfer Agent (MTA) (e.g., Postfix) installed, configured and reachable in your network, to which the Docker container can relay its emails. The IP address or the hostname of your MTA needs be specified in the environment variable `DCU_MAIL_RELAYHOST` when running the container.
-
-##### Docker CLI
-```
---env DCU_REPORT_REAL_HOSTNAME="$(hostname)" \
---env DCU_REPORT_REAL_IP="$(hostname -I | awk '{print $1}')" \
---env DCU_REPORT_REAL_DOCKER_VERSION="$(docker --version | awk '{print $3}' | tr -d ',')" \
---env DCU_MAIL_NOTIFICATIONS_ENABLED=true \
---env DCU_MAIL_FROM='<some@mail.address>' \
---env DCU_MAIL_RECIPIENTS='<some@mail.address>' \
---env DCU_MAIL_SUBJECT="🐳 Docker Container Update Report from $(hostname)" \
---env DCU_MAIL_RELAYHOST='[<IP address or hostname>]:<Port>' \
-```
-
-##### Docker Compose
-```
-environment:
-      DCU_MAIL_NOTIFICATIONS_ENABLED: true
-      DCU_MAIL_FROM: '<some@mail.address>'
-      DCU_MAIL_RECIPIENTS: '<some@mail.address>'
-      DCU_MAIL_SUBJECT: 'Docker Container Update Report from $(hostname)'
-      DCU_MAIL_RELAYHOST: '[<IP address or hostname>]:<Port>'
-```
-
-#### 2. Telegram Notificationss
-
-##### General Information
-
-To receive Telegram notifications, you first need to obtain a Chat ID and a Bot Token.
-
-##### Docker CLI
-```
---env DCU_REPORT_REAL_HOSTNAME="$(hostname)" \
---env DCU_REPORT_REAL_IP="$(hostname -I | awk '{print $1}')" \
---env DCU_REPORT_REAL_DOCKER_VERSION="$(docker --version | awk '{print $3}' | tr -d ',')" \
---env DCU_TELEGRAM_NOTIFICATIONS_ENABLED=true \
---env DCU_TELEGRAM_BOT_TOKEN='<your_bot_token>' \
---env DCU_TELEGRAM_CHAT_ID='<your_chat_id' \
-```
-
-##### Docker Compose
-```
-environment:
-      DCU_TELEGRAM_NOTIFICATIONS_ENABLED: true
-      DCU_TELEGRAM_BOT_TOKEN: '<your_bot_token>'
-      DCU_TELEGRAM_CHAT_ID: '<your_chat_id>'
-```
 
 ## Having Trouble?
 If you encounter any issues while executing this script, please provide the following information:
