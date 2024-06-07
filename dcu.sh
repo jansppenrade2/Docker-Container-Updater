@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.07-a
+# 2024.06.07-b
 #
 # ## Changelog
 # 2024.06.07-1, janseppenrade2: Added command line arguments
@@ -2973,7 +2973,15 @@ Parse-Arguments() {
 
     while [[ "$#" -gt 0 ]]; do
         case $1 in
-            --help|\/help|-\?|\/\?) echo "help!"; exit 0 ;;
+            --help|\/help|-\?|\/\?)
+                echo "Usage: dcu [options]"
+                echo "Options:"
+                echo "  --help       -?         Display this help"
+                echo "  --dry-run    -dr        Run DCU in dry-run mode (this temporarily enforces test mode to be enabled)"
+                echo "  --run        -r         Execute the script (considering the current configuration for test mode)"
+                echo "  --force      -f         Force lock acquisition"
+                End-Script 0
+                ;;
             --dry-run|\/dry-run|-dr|\/dr)
                 if [[ "$2" == "--force" ]] || [[ "$2" == "-f" ]] || [[ "$2" == "/force" ]] || [[ "$2" == "/f" ]]; then
                     Write-Log "INFO" "    Removing PID file (\"$pidFile\")"
@@ -2988,7 +2996,6 @@ Parse-Arguments() {
                 test_mode="true"
                 Main
                 End-Script
-
                 ;;
             --run|\/run|-r|\/r)
                 if [[ "$2" == "--force" ]] || [[ "$2" == "-f" ]] || [[ "$2" == "/force" ]] || [[ "$2" == "/f" ]]; then
@@ -2998,12 +3005,10 @@ Parse-Arguments() {
                     Write-Log "ERROR" "    Argument parsing error: Unknown option for argument \"$1\" was passed (\"$2\")"
                     End-Script 1
                 fi
-
                 ;;
             --force|\/force|-f|\/f)
                 Write-Log "INFO" "    Removing PID file (\"$pidFile\")"
                 rm -f "$pidFile" 2>/dev/null || Write-Log "ERROR" "      Failed to remove PID file (\"$pidFile\")"
-
                 ;;
             *) Write-Log "ERROR" "    Argument parsing error: Unknown parameter passed: \"$1\""; End-Script 1 ;;
         esac
