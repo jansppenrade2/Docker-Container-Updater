@@ -98,7 +98,7 @@ To manually execute the update process, run:
 docker exec -it Docker-Container-Updater dcu --run
 ```
 
-If you have already disabled test mode in your configuration, you can enforce using test mode for this one time execution by running the following command:
+If you have already disabled test mode in your configuration, you can enforce using test mode for this one time execution by running the following command *(> v2024.07.07-1)*:
 
 ```
 docker exec -it Docker-Container-Updater dcu --dry-run
