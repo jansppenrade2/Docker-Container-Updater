@@ -97,6 +97,12 @@ To manually execute the update process, run:
 ```
 docker exec -it Docker-Container-Updater dcu --run
 ```
+
+In case you disabled already the test mode in your configuration, you can also run:
+
+```
+docker exec -it Docker-Container-Updater dcu --dry-run
+```
    
 ### Method 2: Run this script directly on your host
 
