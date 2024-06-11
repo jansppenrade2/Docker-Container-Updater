@@ -4,9 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.07-1
+# 2024.06.10-1
 #
 # ## Changelog
+# 2024.06.10-1, janseppenrade2: Issue: Fixed a bug that occurred when a mount contained a backslash
 # 2024.06.07-1, janseppenrade2: Added command line arguments
 # 2024.06.06-1, janseppenrade2: Issue: Fixed a bug that caused the accidently interpretation of asterisks in container and image configurations.
 # 2024.06.05-1, janseppenrade2: Issue: Fixed a bug that prevented the addition of non-persistent mounts in the docker run command (introduced in the previous bugfix, version 2024.06.03-1). Added support for self-update. Renamed the script file from container_update.sh to dcu.sh to prepare for simpler and more consistent directories and commands.
@@ -956,10 +957,10 @@ Get-ContainerProperty() {
                 if [ -z "$mount_driver" ] || [ "$mount_driver" == "null" ] || [ "$mount_driver" == "" ]; then 
                     # Only add non-auto-generated / persistent / user-defined mounts
                     mounts_string+=" --mount "
-                    [ -n $mount_type ]          && mounts_string+="type=$mount_type"
-                    [ -n $mount_source ]        && mounts_string+=",source=$mount_source"
-                    [ -n $mount_destination ]   && mounts_string+=",target=$mount_destination"
-                    [ $mount_rw == "false" ]    && mounts_string+=",readonly"
+                    [ -n "$mount_type" ]        && mounts_string+="type=$mount_type"
+                    [ -n "$mount_source" ]      && mounts_string+=",source=$mount_source"
+                    [ -n "$mount_destination" ] && mounts_string+=",target=$mount_destination"
+                    [ "$mount_rw" == "false" ]  && mounts_string+=",readonly"
                 fi
             done
         fi
