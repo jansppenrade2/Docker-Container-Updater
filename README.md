@@ -260,7 +260,7 @@ mycontainer[1&(p>1).1.1-1,true]
 > This rule allows major updates for the container `mycontainer` if at least one patch version greater than 1 has been released for this major version.
 
 ```
-mycontainer[0.1(b>2).1-1,true]
+mycontainer[0.1&(b>2).1-1,true]
 ```
 
 > This rule allows minor updates for the container `mycontainer` if the build version is greater than 2.
