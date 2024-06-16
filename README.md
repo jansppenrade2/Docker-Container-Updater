@@ -308,11 +308,11 @@ Options:
   --version    -v         Display the current version
   --debug                 Set log level to debug mode
 
-Usage: dcu [--dry-run|--run] --filter --help
+Usage: dcu [--dry-run|--run] [ -filter [options|--help] ]
 Options:
   --filter                Filter processed containers by the following conditions:
-                          name=My_Container_Name
-                          id=My_Container_ID
+                            name=My_Container_Name
+                            id=My_Container_ID
 ```
 
 ---
