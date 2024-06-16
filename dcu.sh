@@ -4,10 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.15-b
+# 2024.06.16-c
 #
 # ## Changelog
-# 2024.06.15-1, janseppenrade2: Issue: Caught an error that caused the script to enter an infinite loop if the executing user lacked the necessary permissions to create the log file. Added some more command line parameters. Optimized self-update.
+# 2024.06.16-1, janseppenrade2: Issue: Caught an error that caused the script to enter an infinite loop if the executing user lacked the necessary permissions to create the log file. Added some more command line parameters. Optimized self-update.
 # 2024.06.10-1, janseppenrade2: Issue: Fixed a bug that occurred when a mount contained a backslash
 # 2024.06.07-1, janseppenrade2: Added command line arguments
 # 2024.06.06-1, janseppenrade2: Issue: Fixed a bug that caused the accidentally interpretation of asterisks in container and image configurations.
@@ -2966,6 +2966,8 @@ Main() {
 }
 
 Parse-Arguments() {
+    local arguments_passed=false && [[ $# -gt 0 ]] && arguments_passed=true
+
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --help|\/help|-\?|\/\?)
@@ -2992,10 +2994,36 @@ Parse-Arguments() {
             --dry-run|\/dry-run|-dr|\/dr)
                 param_dry_run=true
                 test_mode=true
+
+                if [[ "$2" == "--help" ]] || [[ "$2" == "/help" ]] || [[ "$2" == "-?" ]] || [[ "$2" == "/?" ]]; then
+                    echo ""
+                    echo "Options:"
+                    echo "  --debug                 Set log level to debug mode"
+                    echo "  --filter                Filter processed containers by the following conditions:"
+                    echo "                            name=My_Container_Name"
+                    echo "                            id=My_Container_ID"
+                    echo "  --force                 Force lock acquisition"
+                    echo ""
+                    return 0
+                fi
+                
                 shift
                 ;;
             --run|\/run|-r|\/r)
                 param_run=true
+
+                if [[ "$2" == "--help" ]] || [[ "$2" == "/help" ]] || [[ "$2" == "-?" ]] || [[ "$2" == "/?" ]]; then
+                    echo ""
+                    echo "Options:"
+                    echo "  --debug                 Set log level to debug mode"
+                    echo "  --filter                Filter processed containers by the following conditions:"
+                    echo "                            name=My_Container_Name"
+                    echo "                            id=My_Container_ID"
+                    echo "  --force                 Force lock acquisition"
+                    echo ""
+                    return 0
+                fi
+
                 shift
                 ;;
             --force|\/force|-f|\/f)
@@ -3009,9 +3037,9 @@ Parse-Arguments() {
                 elif [[ "$2" == "--help" ]] || [[ "$2" == "/help" ]] || [[ "$2" == "-?" ]] || [[ "$2" == "/?" ]]; then
                     echo ""
                     echo "Options:"
-                    echo "  --filter filter         Filter processed containers by the following conditions:"
-                    echo "                          name=My_Container_Name"
-                    echo "                          id=My_Container_ID"
+                    echo "  --filter                Filter processed containers by the following conditions:"
+                    echo "                            name=My_Container_Name"
+                    echo "                            id=My_Container_ID"
                     echo ""
                     return 0
                 else
@@ -3026,7 +3054,7 @@ Parse-Arguments() {
         esac
     done
 
-    if [ $param_dry_run ] || [ $param_run ]; then
+    if [ $param_dry_run ] || [ $param_run ] || [ $arguments_passed == false ]; then
         Write-Log "INFO"  "<print_line>"
         Write-Log "INFO"  " | INITIALIZING"
         Write-Log "INFO"  "<print_line>"

@@ -296,6 +296,25 @@ To give you more control, you can integrate your own pre- and post-scripts. Thes
 > 
 > To gain full access to the directories of individual Docker containers, you may need to mount additional directories into `Docker Container Updater`. There are various approaches to this, which vary depending on the system your architecture/design. Decide for yourself what works best for you.
 
+## Command Line Parameters
+
+```
+Usage: dcu [ [--dry-run|--run] [--filter name|id=VALUE] [--force] ] [--help] [--version]
+Options:
+  --dry-run    -dr        Run DCU in dry-run mode (this temporarily enforces test mode to be enabled)
+  --force      -f         Force lock acquisition
+  --help       -?         Display this help
+  --run        -r         Run DCU (considering the current configuration for test mode)
+  --version    -v         Display the current version
+  --debug                 Set log level to debug mode
+
+Usage: dcu [--dry-run|--run] --filter --help
+Options:
+  --filter                Filter processed containers by the following conditions:
+                          name=My_Container_Name
+                          id=My_Container_ID
+```
+
 ---
 
 ## Having Trouble?
