@@ -4,10 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.16-c
+# 2024.06.17-1
 #
 # ## Changelog
-# 2024.06.16-1, janseppenrade2: Issue: Caught an error that caused the script to enter an infinite loop if the executing user lacked the necessary permissions to create the log file. Added some more command line parameters. Optimized self-update.
+# 2024.06.17-1, janseppenrade2: Issue: Caught an error that caused the script to enter an infinite loop if the executing user lacked the necessary permissions to create the log file. Added some more command line parameters. Optimized self-update.
 # 2024.06.10-1, janseppenrade2: Issue: Fixed a bug that occurred when a mount contained a backslash
 # 2024.06.07-1, janseppenrade2: Added command line arguments
 # 2024.06.06-1, janseppenrade2: Issue: Fixed a bug that caused the accidentally interpretation of asterisks in container and image configurations.
