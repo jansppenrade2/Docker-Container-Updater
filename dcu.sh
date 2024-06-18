@@ -4,12 +4,13 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.10-1
+# 2024.06.17-1
 #
 # ## Changelog
+# 2024.06.17-1, janseppenrade2: Issue: Caught an error that caused the script to enter an infinite loop if the executing user lacked the necessary permissions to create the log file. Added some more command line parameters. Optimized self-update.
 # 2024.06.10-1, janseppenrade2: Issue: Fixed a bug that occurred when a mount contained a backslash
 # 2024.06.07-1, janseppenrade2: Added command line arguments
-# 2024.06.06-1, janseppenrade2: Issue: Fixed a bug that caused the accidently interpretation of asterisks in container and image configurations.
+# 2024.06.06-1, janseppenrade2: Issue: Fixed a bug that caused the accidentally interpretation of asterisks in container and image configurations.
 # 2024.06.05-1, janseppenrade2: Issue: Fixed a bug that prevented the addition of non-persistent mounts in the docker run command (introduced in the previous bugfix, version 2024.06.03-1). Added support for self-update. Renamed the script file from container_update.sh to dcu.sh to prepare for simpler and more consistent directories and commands.
 # 2024.06.03-1, janseppenrade2: Issue: Bind Mounts not taken over to new container after update #16
 # 2024.05.31-1, janseppenrade2: Issue: Version Recognition in some cases not working #13. Issue: Blocking rule not shown in update report (Mail only) #14
@@ -29,6 +30,7 @@
 configFile=${DCU_CONFIG_FILE:-"/usr/local/etc/container_update/container_update.ini"}
 pidFile="$(dirname "$(readlink -f "$0")")/`basename "$0"`.pid"
 test_mode=""
+logLevel=""
 start_time=$(date +%s)
 stats_execution_time=0
 stats_errors_count=0
@@ -103,7 +105,7 @@ Read-INI() {
     local in_section=false
 
     if ! grep -q "^\[$section\]" "$filePath" 2>/dev/null; then
-        return
+        return 1
     fi
     
     while IFS= read -r line; do
@@ -120,6 +122,8 @@ Read-INI() {
             fi
         fi
     done < "$filePath"
+
+    return 1
 }
 
 Write-INI() {
@@ -172,11 +176,10 @@ Write-INI() {
 Write-Log () {
     local level="$1"
     local message="$2"
-    local logLevel=$(Read-INI "$configFile" "log" "level" | tr '[:lower:]' '[:upper:]')
-    local test_mode=$(Read-INI "$configFile" "general" "test_mode")
+    local logLevel="$logLevel" && [ -z $logLevel ] && logLevel=$(Read-INI "$configFile" "log" "level" | tr '[:lower:]' '[:upper:]')
     local logFile=$(Read-INI "$configFile" "log" "filePath")
-    local cmd_tput=$(Read-INI "$configFile" "paths" "tput")
-    local cmd_sed=$(Read-INI "$configFile" "paths" "sed")
+    local cmd_tput=$(Read-INI "$configFile" "paths" "tput") && [ -z $cmd_tput ]  && cmd_tput="tput"
+    local cmd_sed=$(Read-INI "$configFile" "paths" "sed") && [ -z $cmd_sed ]  && cmd_sed="sed"
     local logFileFolder=$(dirname "$logFile")
 
     if [ -z "$logLevel" ] && test -f "$configFile"; then
@@ -191,7 +194,7 @@ Write-Log () {
 
     if [ -n "$logFileFolder" ] && [ -n "$logFile" ]; then
         mkdir -p $logFileFolder 2>/dev/null || End-Script 1
-        touch $logFile 2>/dev/null || End-Script 1
+        touch "$logFile" 2>/dev/null || { echo "[$(date +%Y/%m/%d\ %H:%M:%S)] ERROR   Unable to create log file (\"$logFile\")" >&2; exit 1; }
     fi
 
     if [ "$logLevel" != "DEBUG" ] && [ "$logLevel" != "INFO" ] && [ "$logLevel" != "WARNING" ] && [ "$logLevel" != "ERROR" ]; then
@@ -820,9 +823,9 @@ Test-Prerequisites() {
 }
 
 Get-ScriptVersion() {
-    local cmd_cut=$(Read-INI "$configFile" "paths" "cut")
-    local cmd_sed=$(Read-INI "$configFile" "paths" "sed")
-    local cmd_grep=$(Read-INI "$configFile" "paths" "grep")
+    local cmd_cut=$(echo "$(Read-INI "$configFile" "paths" "cut")" || echo "cut")
+    local cmd_sed=$(echo "$(Read-INI "$configFile" "paths" "sed")" || echo "sed")
+    local cmd_grep=$(echo "$(Read-INI "$configFile" "paths" "grep")" || echo "grep")
     local version_line=$(head -n 10 "$0" | $cmd_grep -n "# ## Version" | $cmd_cut -d: -f1)
     local next_line=0
 
@@ -1851,7 +1854,7 @@ Perform-ImageUpdate() {
     local docker_run_cmd="$6"
     local image_tag_old="$7"
     local image_tag_new="$8"
-    local test_mode=$test_mode
+    local test_mode="$test_mode"
     local cmd_docker=$(Read-INI "$configFile" "paths" "docker")
     local cmd_sed=$(Read-INI "$configFile" "paths" "sed")
     local cmd_grep=$(Read-INI "$configFile" "paths" "grep")
@@ -1906,8 +1909,8 @@ Perform-ImageUpdate() {
         
         # Run self-update helper container
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "INFO"  "           Bringing up self-update helper container..."
-        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "DEBUG" "             => $cmd_docker run -d --rm --name="$container_name"_DCU_SelfUpdateHelper --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --env DCU_TEST_MODE=false --env DCU_UPDATE_RULES='*[0.0.0-0,false] $container_name[1.1.1-1,true]' --env DCU_MAIL_NOTIFICATIONS_ENABLED=\"$DCU_MAIL_NOTIFICATIONS_ENABLED\" --env DCU_MAIL_NOTIFICATION_MODE=\"$DCU_MAIL_NOTIFICATION_MODE\" --env DCU_MAIL_FROM=\"$DCU_MAIL_FROM\" --env DCU_MAIL_RECIPIENTS=\"$DCU_MAIL_RECIPIENTS\" --env DCU_MAIL_SUBJECT=\"$DCU_MAIL_SUBJECT\" --env DCU_MAIL_RELAYHOST=\"$DCU_MAIL_RELAYHOST\" --env DCU_TELEGRAM_NOTIFICATIONS_ENABLED=\"$DCU_TELEGRAM_NOTIFICATIONS_ENABLED\" --env DCU_TELEGRAM_RETRY_LIMIT=\"$DCU_TELEGRAM_RETRY_LIMIT\" --env DCU_TELEGRAM_RETRY_INTERVAL=\"$DCU_TELEGRAM_RETRY_INTERVAL\" --env DCU_TELEGRAM_CHAT_ID=\"$DCU_TELEGRAM_CHAT_ID\" --env DCU_TELEGRAM_BOT_TOKEN=\"$DCU_TELEGRAM_BOT_TOKEN\" --env DCU_REPORT_REAL_HOSTNAME=\"$DCU_REPORT_REAL_HOSTNAME\" --env DCU_REPORT_REAL_IP=\"$DCU_REPORT_REAL_IP\" --env DCU_REPORT_REAL_DOCKER_VERSION=\"$DCU_REPORT_REAL_DOCKER_VERSION\" --env DCU_DOCKER_HUB_API_URL=\"$DCU_DOCKER_HUB_API_URL\" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT=\"$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT\" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT=\"$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT\" --env DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE=\"$DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE\" --env DCU_CONTAINER_UPDATE_VALIDATION_TIME=\"$DCU_CONTAINER_UPDATE_VALIDATION_TIME\" --env DCU_LOG_LEVEL=\"DEBUG\" $image_name:$image_tag_new dcu --self-update"
-        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && { $cmd_docker run -d --rm --name="${container_name}_DCU_SelfUpdateHelper" --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --env DCU_TEST_MODE=false --env DCU_UPDATE_RULES='*[0.0.0-0,false] '$container_name'[1.1.1-1,true]' --env DCU_MAIL_NOTIFICATIONS_ENABLED="$DCU_MAIL_NOTIFICATIONS_ENABLED" --env DCU_MAIL_NOTIFICATION_MODE="$DCU_MAIL_NOTIFICATION_MODE" --env DCU_MAIL_FROM="$DCU_MAIL_FROM" --env DCU_MAIL_RECIPIENTS="$DCU_MAIL_RECIPIENTS" --env DCU_MAIL_SUBJECT="$DCU_MAIL_SUBJECT" --env DCU_MAIL_RELAYHOST="$DCU_MAIL_RELAYHOST" --env DCU_TELEGRAM_NOTIFICATIONS_ENABLED="$DCU_TELEGRAM_NOTIFICATIONS_ENABLED" --env DCU_TELEGRAM_RETRY_LIMIT="$DCU_TELEGRAM_RETRY_LIMIT" --env DCU_TELEGRAM_RETRY_INTERVAL="$DCU_TELEGRAM_RETRY_INTERVAL" --env DCU_TELEGRAM_CHAT_ID="$DCU_TELEGRAM_CHAT_ID" --env DCU_TELEGRAM_BOT_TOKEN="$DCU_TELEGRAM_BOT_TOKEN" --env DCU_REPORT_REAL_HOSTNAME="$DCU_REPORT_REAL_HOSTNAME" --env DCU_REPORT_REAL_IP="$DCU_REPORT_REAL_IP" --env DCU_REPORT_REAL_DOCKER_VERSION="$DCU_REPORT_REAL_DOCKER_VERSION" --env DCU_DOCKER_HUB_API_URL="$DCU_DOCKER_HUB_API_URL" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT="$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT="$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT" --env DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE="$DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE" --env DCU_CONTAINER_UPDATE_VALIDATION_TIME="$DCU_CONTAINER_UPDATE_VALIDATION_TIME" --env DCU_LOG_LEVEL="DEBUG" $image_name:$image_tag_new dcu --self-update > /dev/null; result=$?; } || result=$?
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "DEBUG" "             => $cmd_docker run -d --rm --name="$container_name"_DCU_SelfUpdateHelper --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --env DCU_TEST_MODE=false --env DCU_UPDATE_RULES='*[0.0.0-0,false] $container_name[1.1.1-1,true]' --env DCU_MAIL_NOTIFICATIONS_ENABLED=\"$DCU_MAIL_NOTIFICATIONS_ENABLED\" --env DCU_MAIL_NOTIFICATION_MODE=\"$DCU_MAIL_NOTIFICATION_MODE\" --env DCU_MAIL_FROM=\"$DCU_MAIL_FROM\" --env DCU_MAIL_RECIPIENTS=\"$DCU_MAIL_RECIPIENTS\" --env DCU_MAIL_SUBJECT=\"$DCU_MAIL_SUBJECT\" --env DCU_MAIL_RELAYHOST=\"$DCU_MAIL_RELAYHOST\" --env DCU_TELEGRAM_NOTIFICATIONS_ENABLED=\"$DCU_TELEGRAM_NOTIFICATIONS_ENABLED\" --env DCU_TELEGRAM_RETRY_LIMIT=\"$DCU_TELEGRAM_RETRY_LIMIT\" --env DCU_TELEGRAM_RETRY_INTERVAL=\"$DCU_TELEGRAM_RETRY_INTERVAL\" --env DCU_TELEGRAM_CHAT_ID=\"$DCU_TELEGRAM_CHAT_ID\" --env DCU_TELEGRAM_BOT_TOKEN=\"$DCU_TELEGRAM_BOT_TOKEN\" --env DCU_REPORT_REAL_HOSTNAME=\"$DCU_REPORT_REAL_HOSTNAME\" --env DCU_REPORT_REAL_IP=\"$DCU_REPORT_REAL_IP\" --env DCU_REPORT_REAL_DOCKER_VERSION=\"$DCU_REPORT_REAL_DOCKER_VERSION\" --env DCU_DOCKER_HUB_API_URL=\"$DCU_DOCKER_HUB_API_URL\" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT=\"$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT\" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT=\"$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT\" --env DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE=\"$DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE\" --env DCU_CONTAINER_UPDATE_VALIDATION_TIME=\"$DCU_CONTAINER_UPDATE_VALIDATION_TIME\" --env DCU_LOG_LEVEL=\"DEBUG\" $image_name:$image_tag_new dcu --self-update --filter name=$container_name"
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && { $cmd_docker run -d --rm --name="${container_name}_DCU_SelfUpdateHelper" --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --env DCU_TEST_MODE=false --env DCU_UPDATE_RULES='*[0.0.0-0,false] '$container_name'[1.1.1-1,true]' --env DCU_MAIL_NOTIFICATIONS_ENABLED="$DCU_MAIL_NOTIFICATIONS_ENABLED" --env DCU_MAIL_NOTIFICATION_MODE="$DCU_MAIL_NOTIFICATION_MODE" --env DCU_MAIL_FROM="$DCU_MAIL_FROM" --env DCU_MAIL_RECIPIENTS="$DCU_MAIL_RECIPIENTS" --env DCU_MAIL_SUBJECT="$DCU_MAIL_SUBJECT" --env DCU_MAIL_RELAYHOST="$DCU_MAIL_RELAYHOST" --env DCU_TELEGRAM_NOTIFICATIONS_ENABLED="$DCU_TELEGRAM_NOTIFICATIONS_ENABLED" --env DCU_TELEGRAM_RETRY_LIMIT="$DCU_TELEGRAM_RETRY_LIMIT" --env DCU_TELEGRAM_RETRY_INTERVAL="$DCU_TELEGRAM_RETRY_INTERVAL" --env DCU_TELEGRAM_CHAT_ID="$DCU_TELEGRAM_CHAT_ID" --env DCU_TELEGRAM_BOT_TOKEN="$DCU_TELEGRAM_BOT_TOKEN" --env DCU_REPORT_REAL_HOSTNAME="$DCU_REPORT_REAL_HOSTNAME" --env DCU_REPORT_REAL_IP="$DCU_REPORT_REAL_IP" --env DCU_REPORT_REAL_DOCKER_VERSION="$DCU_REPORT_REAL_DOCKER_VERSION" --env DCU_DOCKER_HUB_API_URL="$DCU_DOCKER_HUB_API_URL" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT="$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT="$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT" --env DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE="$DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE" --env DCU_CONTAINER_UPDATE_VALIDATION_TIME="$DCU_CONTAINER_UPDATE_VALIDATION_TIME" --env DCU_LOG_LEVEL="DEBUG" $image_name:$image_tag_new dcu --self-update --filter name=$container_name > /dev/null; result=$?; } || result=$?
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ $result -eq 0 ] && new_container_started_successfully=true  && Write-Log "DEBUG" "             => Self-update helper container started successfully"
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ $result -ne 0 ] && new_container_started_successfully=false && Write-Log "ERROR" "             => Failed to start self-update helper container: $result"
         [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && self_update_helper_container_started=true && self_update_helper_container_name="${container_name}_DCU_SelfUpdateHelper"
@@ -2428,7 +2431,7 @@ Main() {
     Write-Log "INFO" "    Version:      $(Get-ScriptVersion)"
     [[ "$test_mode" == true  ]] && Write-Log "INFO" "    Test Mode:    Enabled"
     [[ "$test_mode" == false ]] && Write-Log "INFO" "    Test Mode:    Disabled"
-    Write-Log "INFO" "    Log Level:    $(Read-INI "$configFile" "log" "level")"
+    Write-Log "INFO" "    Log Level:    $logLevel"
 
     local test_mode=$test_mode
     local mail_notifications_enabled=$(Read-INI "$configFile" "mail" "notifications_enabled")
@@ -2437,7 +2440,7 @@ Main() {
     local cmd_jq=$(Read-INI "$configFile" "paths" "jq")
     local cmd_docker=$(Read-INI "$configFile" "paths" "docker")
     local cmd_date=$(Read-INI "$configFile" "paths" "date")
-    local container_ids=($($cmd_docker ps -q))
+    local container_ids=($($cmd_docker ps -q $1))
     local container_id=""
     local container_config=""
     local container_name=""
@@ -2954,82 +2957,120 @@ Main() {
             [ $result -eq 0 ] && Write-Log "DEBUG" "      => Succeeded"
             [ $result -ne 0 ] && Write-Log "ERROR" "      => Failed: $result"
         fi
-        
-        Write-Log "INFO" "<print_line>"
-
-        if [ "$test_mode" == true ]; then
-            Write-Log "INFO" "Test mode is enabled in \"$configFile\". No changes have been made to your system."
-        fi
     else
-        Write-Log "ERROR" "No containers found"
+        Write-Log "INFO"  "<print_line>"
+        Write-Log "INFO"  " | PROCESSING CONTAINERS"
+        Write-Log "INFO"  "<print_line>"
+        Write-Log "ERROR" "    No containers found by running command \"$cmd_docker ps -q $1\""
     fi
 }
 
 Parse-Arguments() {
-    local test_mode_enforced=false
+    local arguments_passed=false && [[ $# -gt 0 ]] && arguments_passed=true
 
-    while [[ "$#" -gt 0 ]]; do
-        case $1 in
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
             --help|\/help|-\?|\/\?)
-                echo "Usage: dcu [options]"
+                echo ""
+                echo "Usage: dcu [ [--dry-run|--run] [--filter name|id=VALUE] [--force] ] [--help] [--version]"
                 echo "Options:"
-                echo "  --help       -?         Display this help"
                 echo "  --dry-run    -dr        Run DCU in dry-run mode (this temporarily enforces test mode to be enabled)"
-                echo "  --run        -r         Run DCU (considering the current configuration for test mode)"
                 echo "  --force      -f         Force lock acquisition"
-                exit 0
+                echo "  --help       -?         Display this help"
+                echo "  --run        -r         Run DCU (considering the current configuration for test mode)"
+                echo "  --version    -v         Display the current version"
+                echo "  --debug                 Set log level to debug mode"
+                echo ""
+                return 0
+                ;;
+            --version|\/version|-v|\/v)
+                echo "$(Get-ScriptVersion)"
+                return 0
+                ;;
+            --debug)
+                logLevel="DEBUG"
+                shift
                 ;;
             --dry-run|\/dry-run|-dr|\/dr)
-                Write-Log "INFO"  "<print_line>"
-                Write-Log "INFO"  " | INITIALIZING"
-                Write-Log "INFO"  "<print_line>"
+                param_dry_run=true
+                test_mode=true
 
-                if [[ "$2" == "--force" ]] || [[ "$2" == "-f" ]] || [[ "$2" == "/force" ]] || [[ "$2" == "/f" ]]; then
-                    Write-Log "INFO" "    Removing PID file (\"$pidFile\")"
-                    rm -f "$pidFile" 2>/dev/null || Write-Log "ERROR" "      Failed to remove PID file (\"$pidFile\")"
-                elif [ -n "$2" ]; then
-                    Write-Log "ERROR" "    Argument parsing error: Unknown option for argument \"$1\" was passed (\"$2\")"
-                    End-Script 1
+                if [[ "$2" == "--help" ]] || [[ "$2" == "/help" ]] || [[ "$2" == "-?" ]] || [[ "$2" == "/?" ]]; then
+                    echo ""
+                    echo "Options:"
+                    echo "  --debug                 Set log level to debug mode"
+                    echo "  --filter                Filter processed containers by the following conditions:"
+                    echo "                            name=My_Container_Name"
+                    echo "                            id=My_Container_ID"
+                    echo "  --force                 Force lock acquisition"
+                    echo ""
+                    return 0
                 fi
-
-                Acquire-Lock
-                Validate-ConfigFile
-                Test-Prerequisites
-                test_mode="true"
-                Main
-                End-Script
+                
+                shift
                 ;;
             --run|\/run|-r|\/r)
-                Write-Log "INFO"  "<print_line>"
-                Write-Log "INFO"  " | INITIALIZING"
-                Write-Log "INFO"  "<print_line>"
+                param_run=true
 
-                if [[ "$2" == "--force" ]] || [[ "$2" == "-f" ]] || [[ "$2" == "/force" ]] || [[ "$2" == "/f" ]]; then
-                    Write-Log "INFO" "    Removing PID file (\"$pidFile\")"
-                    rm -f "$pidFile" 2>/dev/null || Write-Log "ERROR" "      Failed to remove PID file (\"$pidFile\")"
-                elif [ -n "$2" ]; then
-                    Write-Log "ERROR" "    Argument parsing error: Unknown option for argument \"$1\" was passed (\"$2\")"
-                    End-Script 1
+                if [[ "$2" == "--help" ]] || [[ "$2" == "/help" ]] || [[ "$2" == "-?" ]] || [[ "$2" == "/?" ]]; then
+                    echo ""
+                    echo "Options:"
+                    echo "  --debug                 Set log level to debug mode"
+                    echo "  --filter                Filter processed containers by the following conditions:"
+                    echo "                            name=My_Container_Name"
+                    echo "                            id=My_Container_ID"
+                    echo "  --force                 Force lock acquisition"
+                    echo ""
+                    return 0
                 fi
+
+                shift
                 ;;
             --force|\/force|-f|\/f)
-                Write-Log "INFO"  "<print_line>"
-                Write-Log "INFO"  " | INITIALIZING"
-                Write-Log "INFO"  "<print_line>"
-                Write-Log "INFO" "    Removing PID file (\"$pidFile\")"
-
-                rm -f "$pidFile" 2>/dev/null || Write-Log "ERROR" "      Failed to remove PID file (\"$pidFile\")"
+                param_force=true
+                shift
                 ;;
-            *) echo "Argument parsing error: Unknown parameter passed: \"$1\""; exit 1 ;;
+            --filter)
+                if [[ "$2" =~ ^(name|id)=[a-zA-Z0-9_-]+$ ]]; then
+                    docker_ps_filter="--filter $2"
+                    shift 2
+                elif [[ "$2" == "--help" ]] || [[ "$2" == "/help" ]] || [[ "$2" == "-?" ]] || [[ "$2" == "/?" ]]; then
+                    echo ""
+                    echo "Options:"
+                    echo "  --filter                Filter processed containers by the following conditions:"
+                    echo "                            name=My_Container_Name"
+                    echo "                            id=My_Container_ID"
+                    echo ""
+                    return 0
+                else
+                    echo "[$(date +%Y/%m/%d\ %H:%M:%S)] ERROR   Argument parsing error: Invalid filter. Use --filter name|id=VALUE"
+                    return 1
+                fi
+                ;;
+            *)
+                echo "[$(date +%Y/%m/%d\ %H:%M:%S)] ERROR   Argument parsing error: Unknown parameter passed: \"$1\""
+                return 1
+                ;;
         esac
-        shift
     done
+
+    if [ $param_dry_run ] || [ $param_run ] || [ $arguments_passed == false ]; then
+        Write-Log "INFO"  "<print_line>"
+        Write-Log "INFO"  " | INITIALIZING"
+        Write-Log "INFO"  "<print_line>"
+    fi
+
+    if [ $param_force ]; then
+        Write-Log "INFO" "    Removing PID file (\"$pidFile\")"
+        rm -f "$pidFile" 2>/dev/null || Write-Log "ERROR" "      Failed to remove PID file (\"$pidFile\")"
+    fi
 
     Acquire-Lock
     Validate-ConfigFile
     Test-Prerequisites
-    test_mode=$(Read-INI "$configFile" "general" "test_mode")
-    Main
+    [ -z $test_mode ] && test_mode=$(Read-INI "$configFile" "general" "test_mode")
+    [ -z $logLevel ]  && logLevel=$(Read-INI "$configFile" "log" "level" | tr '[:lower:]' '[:upper:]')
+    Main "$docker_ps_filter"
     End-Script
 }
 

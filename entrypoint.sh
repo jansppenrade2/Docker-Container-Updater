@@ -44,6 +44,6 @@ elif [ "$1" = "dcu" ] && [ "$2" = "--self-update" ]; then
         sleep 10
     done
     echo "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO   Proceeding with self-update process..."
-    echo "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO       Executing \"/opt/dcu/dcu.sh\"..."
-    /opt/dcu/dcu.sh
+    echo "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO       Executing \"/opt/dcu/dcu.sh --run $3 $4\"..."
+    /opt/dcu/dcu.sh --run $3 $4
 fi
