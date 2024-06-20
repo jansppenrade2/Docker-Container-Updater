@@ -29,6 +29,7 @@ fi
 # Command line interpreting
 if [ -z "$1" ]; then
     echo "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO   Starting crond in foreground..."
+    echo -n "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO   "
     crond -f
 elif [ "$1" = "dcu" ] && [ "$2" = "--self-update" ]; then
     echo "[$(date +%Y/%m/%d\ %H:%M:%S)] INFO   Waiting for status update..."
