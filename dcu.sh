@@ -4,9 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.17-1
+# 2024.06.21-1
 #
 # ## Changelog
+# 2024.06.21-1, janseppenrade2: Issue: Fixed an issue occurring when the retrieved list of image tags was too large.
 # 2024.06.17-1, janseppenrade2: Issue: Caught an error that caused the script to enter an infinite loop if the executing user lacked the necessary permissions to create the log file. Added some more command line parameters. Optimized self-update.
 # 2024.06.10-1, janseppenrade2: Issue: Fixed a bug that occurred when a mount contained a backslash
 # 2024.06.07-1, janseppenrade2: Added command line arguments
@@ -1604,6 +1605,9 @@ Get-DockerHubImageTags() {
     local url=""
     local image_tags=""
     local cmd_wget=$(Read-INI "$configFile" "paths" "wget")
+    local image_tags_file="$(mktemp)"
+
+    trap "rm -f $image_tags_file" EXIT
 
     for ((page=1; page<=$docker_hub_api_image_tags_page_crawl_limit; page++)); do
         url="$(Get-DockerHubImageURL "$container_image_name")/tags?page_size=${docker_hub_api_image_tags_page_size_limit}&page=${page}"
@@ -1611,12 +1615,11 @@ Get-DockerHubImageTags() {
         if [[ -z $response ]]; then
             break
         else
-            image_tags+="$response"
+            echo "$response" >> "$image_tags_file"
         fi
     done
 
-    #echo "$(echo $image_tags | tr -d '\n' | tr -d ' ')"
-    echo "$(echo $image_tags | tr -d '\n')"
+    tr -d '\n' < "$image_tags_file"
     return
 }
 
