@@ -11,12 +11,6 @@ For all the lazier and automation-loving nerds, constantly updating Docker conta
 
 ---
 
-### ⚠️ Important Notice Concerning Update >= 2024.06.05-1
-
-Renamed the script file from `container_update.sh` to `dcu.sh` to prepare for simpler and more consistent directories and commands with version >= `2024.06.05-1`.
-
----
-
 <br>
 <br>
 
