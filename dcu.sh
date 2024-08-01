@@ -4,9 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.06.21-1
+# 2024.07.25-1
 #
 # ## Changelog
+# 2024.06.21-1, janseppenrade2: Issue: Fixed an issue where the Get-ContainerPropertyUnique function accidentally removed quotation marks in environment variables - This resulted in error bringing up the new container.
 # 2024.06.21-1, janseppenrade2: Issue: Fixed an issue occurring when the retrieved list of image tags was too large.
 # 2024.06.17-1, janseppenrade2: Issue: Caught an error that caused the script to enter an infinite loop if the executing user lacked the necessary permissions to create the log file. Added some more command line parameters. Optimized self-update.
 # 2024.06.10-1, janseppenrade2: Issue: Fixed a bug that occurred when a mount contained a backslash
@@ -1157,12 +1158,12 @@ Get-ContainerPropertyUnique() {
         for container_variable in "${container_variables_array[@]}"; do
             local container_variable_name=$(echo "$container_variable" | $cmd_cut -d= -f1 | $cmd_sed 's/^"\(.*\)/\1/')
             # local container_variable_value=$(echo "$container_variable" | $cmd_cut -d= -f2 | $cmd_sed 's/ *"$//') # In case the variable value has a '='-Sign in it, this causes an issue
-            local container_variable_value=$(echo "$container_variable" | $cmd_sed 's/^[^=]*=//' | $cmd_sed 's/ *"$//')
+            local container_variable_value=$(echo "$container_variable" | $cmd_sed 's/^[^=]*=//' | $cmd_sed 's/ *"$/"/')
             local container_variable_name_isUnique=true
             
             for image_variable in "${image_variables_array[@]}"; do
                 local image_variable_name=$(echo "$image_variable" | $cmd_cut -d= -f1 | $cmd_sed 's/^"\(.*\)/\1/')
-                local image_variable_value=$(echo "$image_variable" | $cmd_sed 's/^[^=]*=//' | $cmd_sed 's/ *"$//')
+                local image_variable_value=$(echo "$image_variable" | $cmd_sed 's/^[^=]*=//' | $cmd_sed 's/ *"$/"/')
 
                 if [ "$image_variable_name" == "$container_variable_name" ]; then
                     container_variable_name_isUnique=false
