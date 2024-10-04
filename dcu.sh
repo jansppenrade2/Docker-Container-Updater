@@ -212,8 +212,8 @@ Write-Log () {
         local line=$(printf "%0.s═" $(seq 1 $cols))
         message="${line_prefix}╔${line}"
     elif [[ "$message" == *"<print_line_top>"* ]]; then
-        local line=" ╔═════════════════════════════════════════════════════════════"
-        message=$(echo "$message" | $cmd_sed "s/<print_line_top>/$line/g")
+        local line="╔═════════════════════════════════════════════════════════════"
+        message=$(echo "$message" | "$cmd_sed" "s/<print_line_top>/$line/g")
     fi
 
     if [[ "$message" == *"<print_line_btn>"* ]] && [ -n "$cmd_tput" ] && [[ $($cmd_tput cols 2>/dev/null) =~ ^[0-9]+$ ]]; then
@@ -223,8 +223,8 @@ Write-Log () {
         local line=$(printf "%0.s═" $(seq 1 $cols))
         message="${line_prefix}╚${line}"
     elif [[ "$message" == *"<print_line_btn>"* ]]; then
-        local line=" ╚═════════════════════════════════════════════════════════════"
-        message=$(echo "$message" | $cmd_sed "s/<print_line_btn>/$line/g")
+        local line="╚═════════════════════════════════════════════════════════════"
+        message=$(echo "$message" | "$cmd_sed" "s/<print_line_btn>/$line/g")
     fi
 
     if [ "$level" = "DEBUG" ] && { [ "$logLevel" = "DEBUG" ]; }; then
@@ -2605,7 +2605,7 @@ Main() {
             updatePerformed=false
 
             Write-Log "INFO" "<print_line_top>"
-            Write-Log "INFO" " ║ PROCESSING CONTAINER $container_id"
+            Write-Log "INFO" "║ PROCESSING CONTAINER $container_id"
             Write-Log "INFO" "<print_line_btn>"
             Write-Log "INFO" "    Requesting container configuration by executing \"$cmd_docker container inspect "$container_id"\"..."
             container_config=$(echo "$($cmd_docker container inspect "$container_id")" | tr -d '\n') #json
