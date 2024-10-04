@@ -480,9 +480,9 @@ Validate-ConfigFile() {
 
     if ! [[ $(Read-INI "$configFile" "paths" "tput") =~ ^/.* ]]; then
         Write-INI "$configFile" "paths" "tput" "$(Get-Path tput)"
-        if ! [[ $(Read-INI "$configFile" "paths" "tput") =~ ^/.* ]]; then
-            Write-Log "WARNING" "      => Invalid value for \"[paths] tput\" (Expected: Type of \"path\")"
-        fi
+        # if ! [[ $(Read-INI "$configFile" "paths" "tput") =~ ^/.* ]]; then
+        #     Write-Log "WARNING" "      => Invalid value for \"[paths] tput\" (Expected: Type of \"path\")"
+        # fi
     fi
     if ! [[ $(Read-INI "$configFile" "paths" "tee") =~ ^/.* ]]; then
         Write-INI "$configFile" "paths" "tee" "$(Get-Path tee)"
@@ -2463,7 +2463,7 @@ Send-TelegramNotification() {
 
 Main() {
     Write-Log "INFO"  "<print_line_top>"
-    Write-Log "INFO"  " ║  GENERAL INFORMATION"
+    Write-Log "INFO"  "║  GENERAL INFORMATION"
     Write-Log "INFO"  "<print_line_btn>"
     Write-Log "INFO" "    Version:      $(Get-ScriptVersion)"
     [[ "$test_mode" == true  ]] && Write-Log "INFO" "    Test Mode:    Enabled"
@@ -3093,7 +3093,7 @@ Parse-Arguments() {
 
     if [ $param_dry_run ] || [ $param_run ] || [ $arguments_passed == false ]; then
         Write-Log "INFO"  "<print_line_top>"
-        Write-Log "INFO"  " ║  INITIALIZING"
+        Write-Log "INFO"  "║  INITIALIZING"
         Write-Log "INFO"  "<print_line_btn>"
     fi
 
