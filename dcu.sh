@@ -480,9 +480,9 @@ Validate-ConfigFile() {
 
     if ! [[ $(Read-INI "$configFile" "paths" "tput") =~ ^/.* ]]; then
         Write-INI "$configFile" "paths" "tput" "$(Get-Path tput)"
-        # if ! [[ $(Read-INI "$configFile" "paths" "tput") =~ ^/.* ]]; then
-        #     Write-Log "WARNING" "      => Invalid value for \"[paths] tput\" (Expected: Type of \"path\")"
-        # fi
+        if ! [[ $(Read-INI "$configFile" "paths" "tput") =~ ^/.* ]]; then
+            Write-Log "DEBUG"   "      => Invalid value for \"[paths] tput\" (Expected: Type of \"path\")"
+        fi
     fi
     if ! [[ $(Read-INI "$configFile" "paths" "tee") =~ ^/.* ]]; then
         Write-INI "$configFile" "paths" "tee" "$(Get-Path tee)"
@@ -684,7 +684,7 @@ Test-Prerequisites() {
             Write-Log "DEBUG" "      => Found \"$command\" installed in version \"$versionInstalled\""
         fi
     else
-        Write-Log "WARNING" "      => It seems there is no version of \"$command\" installed on your system"
+        Write-Log "DEBUG" "      => It seems there is no version of \"$command\" installed on your system"
     fi
     
     command="tee"
