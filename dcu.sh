@@ -4,9 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.07.25-1
+# 2024.10.04-1
 #
 # ## Changelog
+# 2024.10.04-1, janseppenrade2: Issue #27: Removed reliance on tput and added an alternative using stty. Also updated the logs with improved line symbols (”|” -> “║”, “=” -> “═”, “╔”)
 # 2024.07.25-1, janseppenrade2: Issue: Fixed an issue where the Get-ContainerPropertyUnique function accidentally removed quotation marks in environment variables - This resulted in error bringing up the new container.
 # 2024.06.21-1, janseppenrade2: Issue: Fixed an issue occurring when the retrieved list of image tags was too large.
 # 2024.06.17-1, janseppenrade2: Issue: Caught an error that caused the script to enter an infinite loop if the executing user lacked the necessary permissions to create the log file. Added some more command line parameters. Optimized self-update.
@@ -14,9 +15,10 @@
 # 2024.06.07-1, janseppenrade2: Added command line arguments
 # 2024.06.06-1, janseppenrade2: Issue: Fixed a bug that caused the accidentally interpretation of asterisks in container and image configurations.
 # 2024.06.05-1, janseppenrade2: Issue: Fixed a bug that prevented the addition of non-persistent mounts in the docker run command (introduced in the previous bugfix, version 2024.06.03-1). Added support for self-update. Renamed the script file from container_update.sh to dcu.sh to prepare for simpler and more consistent directories and commands.
-# 2024.06.03-1, janseppenrade2: Issue: Bind Mounts not taken over to new container after update #16
-# 2024.05.31-1, janseppenrade2: Issue: Version Recognition in some cases not working #13. Issue: Blocking rule not shown in update report (Mail only) #14
-# 2024.05.30-1, janseppenrade2: Issue: Digests not compared correctly #11
+# 2024.06.03-1, janseppenrade2: Issue #16: Bind Mounts not taken over to new container after update
+# 2024.05.31-1, janseppenrade2: Issue #14: Issue: Blocking rule not shown in update report (Mail only)
+# 2024.05.31-1, janseppenrade2: Issue #13: Version Recognition in some cases not working
+# 2024.05.30-1, janseppenrade2: Issue #11: Digests not compared correctly
 # 2024.05.29-1, janseppenrade2: Implemented functionality to retrieve and display the Docker host's information (hostname, IP address, and Docker version) in the reports when running the Docker Container Updater as a Docker container by passing this information via the environment variables `DCU_REPORT_REAL_HOSTNAME`, `DCU_REPORT_REAL_IP` and `DCU_REPORT_REAL_DOCKER_VERSION`.
 # 2024.05.28-2, janseppenrade2: Added support for container attribute "--tty". Prevented self update in case Docker Container Updater is running in a Docker Container.
 # 2024.05.27-3, janseppenrade2: Fixed a bug that caused notifications to be sent even when no action was taken. Additionally, fixed an issue with log file pruning that resulted in the removal of various spaces, which were important for maintaining readability in the log file.
@@ -79,9 +81,9 @@ End-Script() {
     if [ -z "$exitcode" ]; then
         exitcode=0
     fi
-    Write-Log "INFO"  "<print_line>"
-    Write-Log "INFO"  " | TEARDOWN"
-    Write-Log "INFO"  "<print_line>"
+    Write-Log "INFO"  "<print_line_top>"
+    Write-Log "INFO"  " ║  TEARDOWN"
+    Write-Log "INFO"  "<print_line_btn>"
 
     Prune-Log $(Read-INI "$configFile" "log" "retention")
 
@@ -175,18 +177,20 @@ Write-INI() {
     fi
 }
 
-Write-Log () {
+Write-Log() {
     local level="$1"
     local message="$2"
     local logLevel="$logLevel" && [ -z $logLevel ] && logLevel=$(Read-INI "$configFile" "log" "level" | tr '[:lower:]' '[:upper:]')
     local logFile=$(Read-INI "$configFile" "log" "filePath")
     local cmd_tput=$(Read-INI "$configFile" "paths" "tput") && [ -z $cmd_tput ]  && cmd_tput="tput"
+    local cmd_stty=$(Read-INI "$configFile" "paths" "stty") && [ -z $cmd_stty ]  && cmd_tput="stty"
     local cmd_sed=$(Read-INI "$configFile" "paths" "sed") && [ -z $cmd_sed ]  && cmd_sed="sed"
+    local cmd_tee=$(Read-INI "$configFile" "paths" "tee") && [ -z $cmd_tee ]  && cmd_tee="tee"
     local logFileFolder=$(dirname "$logFile")
 
     if [ -z "$logLevel" ] && test -f "$configFile"; then
         if [ -n "$logFile" ] && test -f "$logFile"; then
-            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] WARNING No log level configured. Using default of \"DEBUG\"" | tee -a "$logFile"
+            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] WARNING No log level configured. Using default of \"DEBUG\"" | $cmd_tee -a "$logFile"
         else
             echo "[$(date +%Y/%m/%d\ %H:%M:%S)] WARNING No log level configured. Using default of \"DEBUG\""
         fi
@@ -203,39 +207,62 @@ Write-Log () {
         logLevel="DEBUG"
     fi
 
-    if [[ "$message" == *"<print_line>"* ]] && [ -n "$cmd_tput" ] && [[ $($cmd_tput cols 2>/dev/null) =~ ^[0-9]+$ ]]; then
+    if [[ "$message" == *"<print_line_top>"* ]] && [ -n "$cmd_tput" ] && [[ $($cmd_tput cols 2>/dev/null) =~ ^[0-9]+$ ]]; then
         local leading_spaces=$(expr match "$message" ' *')
         local cols=$(( $($cmd_tput cols) - ( 35 + $leading_spaces ) ))
-        local line_prefix=$(printf "%-${leading_spaces}s" " ")
-        local line=$(printf "%0.s-" $(seq 1 $cols))
-        message="$line_prefix$line"
-    elif [[ "$message" == *"<print_line>"* ]]; then
-        local line="---------------------------------------------------------------------------------------------------------------------------"
-        message=$(echo "$message" | $cmd_sed "s/<print_line>/$line/g")
+        local line_prefix=$(printf "%-${leading_spaces}s" "")
+        local line=$(printf "%0.s═" $(seq 1 $cols))
+        message="${line_prefix}╔${line}"
+    elif [[ "$message" == *"<print_line_top>"* ]] && [ -n "$cmd_stty" ] && [[ $($cmd_stty size < /dev/tty | cut -d' ' -f2-) =~ ^[0-9]+$ ]]; then
+        local leading_spaces=$(expr match "$message" ' *')
+        local cols=$(( $($cmd_stty size < /dev/tty | cut -d' ' -f2-) - ( 35 + $leading_spaces ) ))
+        local line_prefix=$(printf "%-${leading_spaces}s" "")
+        local line=$(printf "%0.s═" $(seq 1 $cols))
+        message="${line_prefix}╔${line}"
+    elif [[ "$message" == *"<print_line_top>"* ]]; then
+        local line="╔═════════════════════════════════════════════════════════════"
+        message=$(echo "$message" | "$cmd_sed" "s/<print_line_top>/$line/g")
+    fi
+
+    if [[ "$message" == *"<print_line_btn>"* ]] && [ -n "$cmd_tput" ] && [[ $($cmd_tput cols 2>/dev/null) =~ ^[0-9]+$ ]]; then
+        local leading_spaces=$(expr match "$message" ' *')
+        local cols=$(( $($cmd_tput cols) - ( 35 + $leading_spaces ) ))
+        local line_prefix=$(printf "%-${leading_spaces}s" "")
+        local line=$(printf "%0.s═" $(seq 1 $cols))
+        message="${line_prefix}╚${line}"
+    elif [[ "$message" == *"<print_line_btn>"* ]] && [ -n "$cmd_stty" ] && [[ $($cmd_stty size < /dev/tty | cut -d' ' -f2-) =~ ^[0-9]+$ ]]; then
+        local leading_spaces=$(expr match "$message" ' *')
+        local cols=$(( $($cmd_stty size < /dev/tty | cut -d' ' -f2-) - ( 35 + $leading_spaces ) ))
+        local line_prefix=$(printf "%-${leading_spaces}s" "")
+        local line=$(printf "%0.s═" $(seq 1 $cols))
+        message="${line_prefix}╚${line}"
+    elif [[ "$message" == *"<print_line_btn>"* ]]; then
+        local line="╚═════════════════════════════════════════════════════════════"
+        message=$(echo "$message" | "$cmd_sed" "s/<print_line_btn>/$line/g")
     fi
 
     if [ "$level" = "DEBUG" ] && { [ "$logLevel" = "DEBUG" ]; }; then
         if [ -n "$logFile" ] && test -f "$logFile"; then
-            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level   $message" | tee -a "$logFile"
+            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level   $message" | $cmd_tee -a "$logFile"
         else
             echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level   $message"
         fi
     elif [ "$level" = "INFO" ] && { [ "$logLevel" = "DEBUG" ] || [ "$logLevel" = "INFO" ]; }; then
         if [ -n "$logFile" ] && test -f "$logFile"; then
-            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level    $message" | tee -a "$logFile"
+            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level    $message" | $cmd_tee -a "$logFile"
         else
             echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level    $message"
         fi
     elif [ "$level" = "WARNING" ] && { [ "$logLevel" = "DEBUG" ] || [ "$logLevel" = "INFO" ] || [ "$logLevel" = "WARNING" ]; }; then
         if [ -n "$logFile" ] && test -f "$logFile"; then
-            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level $message" | tee -a "$logFile"
+            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level $message" | $cmd_tee -a "$logFile"
         else
             echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level $message"
         fi
         ((stats_warnings_count++))
     elif [ "$level" = "ERROR" ] && { [ "$logLevel" = "DEBUG" ] || [ "$logLevel" = "INFO" ] || [ "$logLevel" = "WARNING" ] || [ "$logLevel" = "ERROR" ]; }; then
         if [ -n "$logFile" ] && test -f "$logFile"; then
-            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level   $message" | tee -a "$logFile"
+            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level   $message" | $cmd_tee -a "$logFile"
         else
             echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level   $message"
         fi
@@ -337,6 +364,8 @@ Validate-ConfigFile() {
         Write-To-ConfigFile ""
         Write-To-ConfigFile "[paths]"
         Write-To-ConfigFile "tput=$(Get-Path tput)"
+        Write-To-ConfigFile "stty=$(Get-Path stty)"
+        Write-To-ConfigFile "tee=$(Get-Path tee)"
         Write-To-ConfigFile "gawk=$(Get-Path gawk)"
         Write-To-ConfigFile "cut=$(Get-Path cut)"
         Write-To-ConfigFile "curl=$(Get-Path curl)"
@@ -467,7 +496,19 @@ Validate-ConfigFile() {
     if ! [[ $(Read-INI "$configFile" "paths" "tput") =~ ^/.* ]]; then
         Write-INI "$configFile" "paths" "tput" "$(Get-Path tput)"
         if ! [[ $(Read-INI "$configFile" "paths" "tput") =~ ^/.* ]]; then
-            Write-Log "WARNING" "      => Invalid value for \"[paths] tput\" (Expected: Type of \"path\")"
+            Write-Log "DEBUG"   "      => Invalid value for \"[paths] tput\" (Expected: Type of \"path\")"
+        fi
+    fi
+    if ! [[ $(Read-INI "$configFile" "paths" "stty") =~ ^/.* ]]; then
+        Write-INI "$configFile" "paths" "stty" "$(Get-Path stty)"
+        if ! [[ $(Read-INI "$configFile" "paths" "stty") =~ ^/.* ]]; then
+            Write-Log "DEBUG"   "      => Invalid value for \"[paths] stty\" (Expected: Type of \"path\")"
+        fi
+    fi
+    if ! [[ $(Read-INI "$configFile" "paths" "tee") =~ ^/.* ]]; then
+        Write-INI "$configFile" "paths" "tee" "$(Get-Path tee)"
+        if ! [[ $(Read-INI "$configFile" "paths" "tee") =~ ^/.* ]]; then
+            Write-Log "WARNING" "      => Invalid value for \"[paths] tee\" (Expected: Type of \"path\")"
         fi
     fi
     if ! [[ $(Read-INI "$configFile" "paths" "gawk") =~ ^/.* ]]; then
@@ -655,6 +696,32 @@ Test-Prerequisites() {
     # QNAP specific /
     
     command="tput"
+    if [ -n "$(Read-INI "$configFile" "paths" "$command")" ]; then
+        if ! [ -x "$(Read-INI "$configFile" "paths" "$command")" ]; then
+            Write-Log "ERROR" "      => Could not find \"$command\""
+            validationError=false
+        else
+            versionInstalled=$("$(Read-INI "$configFile" "paths" "$command")" -V 2>/dev/null | head -n 1)
+            Write-Log "DEBUG" "      => Found \"$command\" installed in version \"$versionInstalled\""
+        fi
+    else
+        Write-Log "DEBUG" "      => It seems there is no version of \"$command\" installed on your system"
+    fi
+
+    command="stty"
+    if [ -n "$(Read-INI "$configFile" "paths" "$command")" ]; then
+        if ! [ -x "$(Read-INI "$configFile" "paths" "$command")" ]; then
+            Write-Log "ERROR" "      => Could not find \"$command\""
+            validationError=false
+        else
+            versionInstalled=$("$(Read-INI "$configFile" "paths" "$command")" --version 2>/dev/null | head -n 1)
+            Write-Log "DEBUG" "      => Found \"$command\" installed in version \"$versionInstalled\""
+        fi
+    else
+        Write-Log "DEBUG" "      => It seems there is no version of \"$command\" installed on your system"
+    fi
+    
+    command="tee"
     if [ -n "$(Read-INI "$configFile" "paths" "$command")" ]; then
         if ! [ -x "$(Read-INI "$configFile" "paths" "$command")" ]; then
             Write-Log "ERROR" "      => Could not find \"$command\""
@@ -1891,9 +1958,9 @@ Perform-ImageUpdate() {
         chmod +x "$container_update_post_script" 2>/dev/null
     fi
 
-    Write-Log "INFO"  "    <print_line>"
-    Write-Log "INFO"  "    | UPDATE PROGRESS"
-    Write-Log "INFO"  "    <print_line>"
+    Write-Log "INFO"  "    <print_line_top>"
+    Write-Log "INFO"  "    ║ UPDATE PROGRESS"
+    Write-Log "INFO"  "    <print_line_btn>"
 
     [ "$test_mode" == false ] && [ "$update_type" == "digest" ] && Write-Log "INFO" "       Performing a $update_type update for $container_name ($image_name:$image_tag_old)..."
     [ "$test_mode" == true  ] && [ "$update_type" == "digest" ] && Write-Log "INFO" "       Simulating a $update_type update for $container_name ($image_name:$image_tag_old)..."
@@ -2429,9 +2496,9 @@ Send-TelegramNotification() {
 }
 
 Main() {
-    Write-Log "INFO"  "<print_line>"
-    Write-Log "INFO"  " | GENERAL INFORMATION"
-    Write-Log "INFO"  "<print_line>"
+    Write-Log "INFO"  "<print_line_top>"
+    Write-Log "INFO"  "║  GENERAL INFORMATION"
+    Write-Log "INFO"  "<print_line_btn>"
     Write-Log "INFO" "    Version:      $(Get-ScriptVersion)"
     [[ "$test_mode" == true  ]] && Write-Log "INFO" "    Test Mode:    Enabled"
     [[ "$test_mode" == false ]] && Write-Log "INFO" "    Test Mode:    Disabled"
@@ -2571,9 +2638,9 @@ Main() {
             updatePermit=false
             updatePerformed=false
 
-            Write-Log "INFO" "<print_line>"
-            Write-Log "INFO" " | PROCESSING CONTAINER $container_id"
-            Write-Log "INFO" "<print_line>"
+            Write-Log "INFO" "<print_line_top>"
+            Write-Log "INFO" "║ PROCESSING CONTAINER $container_id"
+            Write-Log "INFO" "<print_line_btn>"
             Write-Log "INFO" "    Requesting container configuration by executing \"$cmd_docker container inspect "$container_id"\"..."
             container_config=$(echo "$($cmd_docker container inspect "$container_id")" | tr -d '\n') #json
             container_image_id=$(Get-ContainerProperty "$container_config" container_image_id)
@@ -2661,9 +2728,9 @@ Main() {
                 image_update_available_digest=""
             fi
 
-            Write-Log "INFO"  "    <print_line>"
-            Write-Log "INFO"  "    | CONTAINER AND IMAGE DETAILS"
-            Write-Log "INFO"  "    <print_line>"
+            Write-Log "INFO"  "    <print_line_top>"
+            Write-Log "INFO"  "    ║ CONTAINER AND IMAGE DETAILS"
+            Write-Log "INFO"  "    <print_line_btn>"
             Write-Log "INFO"  "       Container Name:                                       $container_name"
             Write-Log "DEBUG" "       Container Hostname:                                   $container_hostname"
             Write-Log "DEBUG" "       Container Is Paused:                                  $container_state_paused"
@@ -2931,40 +2998,40 @@ Main() {
         done
 
         if [ "$test_mode" == false ]; then
-            Write-Log "INFO"  "<print_line>"
-            Write-Log "INFO"  " | PRUNING PROGRESS"
-            Write-Log "INFO"  "<print_line>"
+            Write-Log "INFO"  "<print_line_top>"
+            Write-Log "INFO"  " ║  PRUNING PROGRESS"
+            Write-Log "INFO"  "<print_line_btn>"
             Prune-ContainerBackups
             Prune-DockerImages
         fi
 
         if [ "$mail_notifications_enabled" == true ]; then
-            Write-Log "INFO" "<print_line>"
-            Write-Log "INFO" " | MAIL NOTIFICATIONS"
-            Write-Log "INFO" "<print_line>"
+            Write-Log "INFO" "<print_line_top>"
+            Write-Log "INFO" " ║ MAIL NOTIFICATIONS"
+            Write-Log "INFO" "<print_line_btn>"
             Send-MailNotification
         fi
 
         if [ "$telegram_notifications_enabled" == true ]; then
-            Write-Log "INFO" "<print_line>"
-            Write-Log "INFO" " | TELEGRAM NOTIFICATIONS"
-            Write-Log "INFO" "<print_line>"
+            Write-Log "INFO" "<print_line_top>"
+            Write-Log "INFO" " ║ TELEGRAM NOTIFICATIONS"
+            Write-Log "INFO" "<print_line_btn>"
             Telegram-SplitMessage "$(Telegram-GenerateMessage)"
         fi
 
         if [ "$self_update_helper_container_started" == true ]; then
-            Write-Log "INFO" "<print_line>"
-            Write-Log "INFO" " | SELF-UPDATE INITIATION"
-            Write-Log "INFO" "<print_line>"
+            Write-Log "INFO" "<print_line_top>"
+            Write-Log "INFO" " ║ SELF-UPDATE INITIATION"
+            Write-Log "INFO" "<print_line_top>"
             Write-Log "INFO" "    Setting update status flag in \"$self_update_helper_container_name:/opt/dcu/.main_update_process_completed\"..."
             { $cmd_docker exec $self_update_helper_container_name /bin/bash -c 'echo "true" > /opt/dcu/.main_update_process_completed' > /dev/null; result=$?; } || result=$?
             [ $result -eq 0 ] && Write-Log "DEBUG" "      => Succeeded"
             [ $result -ne 0 ] && Write-Log "ERROR" "      => Failed: $result"
         fi
     else
-        Write-Log "INFO"  "<print_line>"
-        Write-Log "INFO"  " | PROCESSING CONTAINERS"
-        Write-Log "INFO"  "<print_line>"
+        Write-Log "INFO"  "<print_line_top>"
+        Write-Log "INFO"  " ║  PROCESSING CONTAINERS"
+        Write-Log "INFO"  "<print_line_btn>"
         Write-Log "ERROR" "    No containers found by running command \"$cmd_docker ps -q $1\""
     fi
 }
@@ -3059,9 +3126,9 @@ Parse-Arguments() {
     done
 
     if [ $param_dry_run ] || [ $param_run ] || [ $arguments_passed == false ]; then
-        Write-Log "INFO"  "<print_line>"
-        Write-Log "INFO"  " | INITIALIZING"
-        Write-Log "INFO"  "<print_line>"
+        Write-Log "INFO"  "<print_line_top>"
+        Write-Log "INFO"  "║  INITIALIZING"
+        Write-Log "INFO"  "<print_line_btn>"
     fi
 
     if [ $param_force ]; then
