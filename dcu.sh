@@ -4,10 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.07.25-1
+# 2024.10.04-1
 #
 # ## Changelog
-# 2024.10.04-a, janseppenrade2: Issue: Removed reliance for tput and added alternative using stty #27
+# 2024.10.04-1, janseppenrade2: Issue #27: Removed reliance on tput and added an alternative using stty. Also updated the logs with improved line symbols (”|” -> “║”, “=” -> “═”, “╔”)
 # 2024.07.25-1, janseppenrade2: Issue: Fixed an issue where the Get-ContainerPropertyUnique function accidentally removed quotation marks in environment variables - This resulted in error bringing up the new container.
 # 2024.06.21-1, janseppenrade2: Issue: Fixed an issue occurring when the retrieved list of image tags was too large.
 # 2024.06.17-1, janseppenrade2: Issue: Caught an error that caused the script to enter an infinite loop if the executing user lacked the necessary permissions to create the log file. Added some more command line parameters. Optimized self-update.
@@ -15,9 +15,10 @@
 # 2024.06.07-1, janseppenrade2: Added command line arguments
 # 2024.06.06-1, janseppenrade2: Issue: Fixed a bug that caused the accidentally interpretation of asterisks in container and image configurations.
 # 2024.06.05-1, janseppenrade2: Issue: Fixed a bug that prevented the addition of non-persistent mounts in the docker run command (introduced in the previous bugfix, version 2024.06.03-1). Added support for self-update. Renamed the script file from container_update.sh to dcu.sh to prepare for simpler and more consistent directories and commands.
-# 2024.06.03-1, janseppenrade2: Issue: Bind Mounts not taken over to new container after update #16
-# 2024.05.31-1, janseppenrade2: Issue: Version Recognition in some cases not working #13. Issue: Blocking rule not shown in update report (Mail only) #14
-# 2024.05.30-1, janseppenrade2: Issue: Digests not compared correctly #11
+# 2024.06.03-1, janseppenrade2: Issue #16: Bind Mounts not taken over to new container after update
+# 2024.05.31-1, janseppenrade2: Issue #14: Issue: Blocking rule not shown in update report (Mail only)
+# 2024.05.31-1, janseppenrade2: Issue #13: Version Recognition in some cases not working
+# 2024.05.30-1, janseppenrade2: Issue #11: Digests not compared correctly
 # 2024.05.29-1, janseppenrade2: Implemented functionality to retrieve and display the Docker host's information (hostname, IP address, and Docker version) in the reports when running the Docker Container Updater as a Docker container by passing this information via the environment variables `DCU_REPORT_REAL_HOSTNAME`, `DCU_REPORT_REAL_IP` and `DCU_REPORT_REAL_DOCKER_VERSION`.
 # 2024.05.28-2, janseppenrade2: Added support for container attribute "--tty". Prevented self update in case Docker Container Updater is running in a Docker Container.
 # 2024.05.27-3, janseppenrade2: Fixed a bug that caused notifications to be sent even when no action was taken. Additionally, fixed an issue with log file pruning that resulted in the removal of various spaces, which were important for maintaining readability in the log file.
@@ -205,7 +206,7 @@ Write-Log() {
     if [ "$logLevel" != "DEBUG" ] && [ "$logLevel" != "INFO" ] && [ "$logLevel" != "WARNING" ] && [ "$logLevel" != "ERROR" ]; then
         logLevel="DEBUG"
     fi
-# stty size < /dev/tty | cut -d' ' -f2-
+
     if [[ "$message" == *"<print_line_top>"* ]] && [ -n "$cmd_tput" ] && [[ $($cmd_tput cols 2>/dev/null) =~ ^[0-9]+$ ]]; then
         local leading_spaces=$(expr match "$message" ' *')
         local cols=$(( $($cmd_tput cols) - ( 35 + $leading_spaces ) ))
