@@ -176,7 +176,7 @@ Write-INI() {
     fi
 }
 
-Write-Log () {
+Write-Log() {
     local level="$1"
     local message="$2"
     local logLevel="$logLevel" && [ -z $logLevel ] && logLevel=$(Read-INI "$configFile" "log" "level" | tr '[:lower:]' '[:upper:]')
@@ -229,7 +229,7 @@ Write-Log () {
         local line_prefix=$(printf "%-${leading_spaces}s" "")
         local line=$(printf "%0.s═" $(seq 1 $cols))
         message="${line_prefix}╚${line}"
-    elif [[ "$message" == *"<print_line_top>"* ]] && [ -n "$cmd_stty" ] && [[ $($cmd_stty size < /dev/tty | cut -d' ' -f2-) =~ ^[0-9]+$ ]]; then
+    elif [[ "$message" == *"<print_line_btn>"* ]] && [ -n "$cmd_stty" ] && [[ $($cmd_stty size < /dev/tty | cut -d' ' -f2-) =~ ^[0-9]+$ ]]; then
         local leading_spaces=$(expr match "$message" ' *')
         local cols=$(( $($cmd_stty size < /dev/tty | cut -d' ' -f2-) - ( 35 + $leading_spaces ) ))
         local line_prefix=$(printf "%-${leading_spaces}s" "")
