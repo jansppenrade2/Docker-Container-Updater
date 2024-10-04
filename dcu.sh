@@ -7,6 +7,7 @@
 # 2024.07.25-1
 #
 # ## Changelog
+# 2024.10.04-a, janseppenrade2: Issue: Added support for synology systems #27
 # 2024.07.25-1, janseppenrade2: Issue: Fixed an issue where the Get-ContainerPropertyUnique function accidentally removed quotation marks in environment variables - This resulted in error bringing up the new container.
 # 2024.06.21-1, janseppenrade2: Issue: Fixed an issue occurring when the retrieved list of image tags was too large.
 # 2024.06.17-1, janseppenrade2: Issue: Caught an error that caused the script to enter an infinite loop if the executing user lacked the necessary permissions to create the log file. Added some more command line parameters. Optimized self-update.
@@ -79,9 +80,9 @@ End-Script() {
     if [ -z "$exitcode" ]; then
         exitcode=0
     fi
-    Write-Log "INFO"  "<print_line>"
+    Write-Log "INFO"  "<print_line_top>"
     Write-Log "INFO"  " | TEARDOWN"
-    Write-Log "INFO"  "<print_line>"
+    Write-Log "INFO"  "<print_line_btn>"
 
     Prune-Log $(Read-INI "$configFile" "log" "retention")
 
@@ -203,15 +204,26 @@ Write-Log () {
         logLevel="DEBUG"
     fi
 
-    if [[ "$message" == *"<print_line>"* ]] && [ -n "$cmd_tput" ] && [[ $($cmd_tput cols 2>/dev/null) =~ ^[0-9]+$ ]]; then
+    if [[ "$message" == *"<print_line_top>"* ]] && [ -n "$cmd_tput" ] && [[ $($cmd_tput cols 2>/dev/null) =~ ^[0-9]+$ ]]; then
         local leading_spaces=$(expr match "$message" ' *')
         local cols=$(( $($cmd_tput cols) - ( 35 + $leading_spaces ) ))
-        local line_prefix=$(printf "%-${leading_spaces}s" " ")
-        local line=$(printf "%0.s-" $(seq 1 $cols))
-        message="$line_prefix$line"
-    elif [[ "$message" == *"<print_line>"* ]]; then
-        local line="---------------------------------------------------------------------------------------------------------------------------"
-        message=$(echo "$message" | $cmd_sed "s/<print_line>/$line/g")
+        local line_prefix=$(printf "%-${leading_spaces}s" "")
+        local line=$(printf "%0.s═" $(seq 1 $cols))
+        message="${line_prefix}╔${line}"
+    elif [[ "$message" == *"<print_line_top>"* ]]; then
+        local line="╔══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════"
+        message=$(echo "$message" | $cmd_sed "s/<print_line_btn>/$line/g")
+    fi
+
+    if [[ "$message" == *"<print_line_btn>"* ]] && [ -n "$cmd_tput" ] && [[ $($cmd_tput cols 2>/dev/null) =~ ^[0-9]+$ ]]; then
+        local leading_spaces=$(expr match "$message" ' *')
+        local cols=$(( $($cmd_tput cols) - ( 35 + $leading_spaces ) ))
+        local line_prefix=$(printf "%-${leading_spaces}s" "")
+        local line=$(printf "%0.s═" $(seq 1 $cols))
+        message="${line_prefix}╚${line}"
+    elif [[ "$message" == *"<print_line_btn>"* ]]; then
+        local line="╚══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════"
+        message=$(echo "$message" | $cmd_sed "s/<print_line_btn>/$line/g")
     fi
 
     if [ "$level" = "DEBUG" ] && { [ "$logLevel" = "DEBUG" ]; }; then
@@ -1891,9 +1903,9 @@ Perform-ImageUpdate() {
         chmod +x "$container_update_post_script" 2>/dev/null
     fi
 
-    Write-Log "INFO"  "    <print_line>"
+    Write-Log "INFO"  "    <print_line_top>"
     Write-Log "INFO"  "    | UPDATE PROGRESS"
-    Write-Log "INFO"  "    <print_line>"
+    Write-Log "INFO"  "    <print_line_btn>"
 
     [ "$test_mode" == false ] && [ "$update_type" == "digest" ] && Write-Log "INFO" "       Performing a $update_type update for $container_name ($image_name:$image_tag_old)..."
     [ "$test_mode" == true  ] && [ "$update_type" == "digest" ] && Write-Log "INFO" "       Simulating a $update_type update for $container_name ($image_name:$image_tag_old)..."
@@ -2429,9 +2441,9 @@ Send-TelegramNotification() {
 }
 
 Main() {
-    Write-Log "INFO"  "<print_line>"
+    Write-Log "INFO"  "<print_line_top>"
     Write-Log "INFO"  " | GENERAL INFORMATION"
-    Write-Log "INFO"  "<print_line>"
+    Write-Log "INFO"  "<print_line_btn>"
     Write-Log "INFO" "    Version:      $(Get-ScriptVersion)"
     [[ "$test_mode" == true  ]] && Write-Log "INFO" "    Test Mode:    Enabled"
     [[ "$test_mode" == false ]] && Write-Log "INFO" "    Test Mode:    Disabled"
@@ -2571,9 +2583,9 @@ Main() {
             updatePermit=false
             updatePerformed=false
 
-            Write-Log "INFO" "<print_line>"
+            Write-Log "INFO" "<print_line_top>"
             Write-Log "INFO" " | PROCESSING CONTAINER $container_id"
-            Write-Log "INFO" "<print_line>"
+            Write-Log "INFO" "<print_line_btn>"
             Write-Log "INFO" "    Requesting container configuration by executing \"$cmd_docker container inspect "$container_id"\"..."
             container_config=$(echo "$($cmd_docker container inspect "$container_id")" | tr -d '\n') #json
             container_image_id=$(Get-ContainerProperty "$container_config" container_image_id)
@@ -2661,9 +2673,9 @@ Main() {
                 image_update_available_digest=""
             fi
 
-            Write-Log "INFO"  "    <print_line>"
+            Write-Log "INFO"  "    <print_line_top>"
             Write-Log "INFO"  "    | CONTAINER AND IMAGE DETAILS"
-            Write-Log "INFO"  "    <print_line>"
+            Write-Log "INFO"  "    <print_line_btn>"
             Write-Log "INFO"  "       Container Name:                                       $container_name"
             Write-Log "DEBUG" "       Container Hostname:                                   $container_hostname"
             Write-Log "DEBUG" "       Container Is Paused:                                  $container_state_paused"
@@ -2931,40 +2943,40 @@ Main() {
         done
 
         if [ "$test_mode" == false ]; then
-            Write-Log "INFO"  "<print_line>"
+            Write-Log "INFO"  "<print_line_top>"
             Write-Log "INFO"  " | PRUNING PROGRESS"
-            Write-Log "INFO"  "<print_line>"
+            Write-Log "INFO"  "<print_line_btn>"
             Prune-ContainerBackups
             Prune-DockerImages
         fi
 
         if [ "$mail_notifications_enabled" == true ]; then
-            Write-Log "INFO" "<print_line>"
+            Write-Log "INFO" "<print_line_top>"
             Write-Log "INFO" " | MAIL NOTIFICATIONS"
-            Write-Log "INFO" "<print_line>"
+            Write-Log "INFO" "<print_line_btn>"
             Send-MailNotification
         fi
 
         if [ "$telegram_notifications_enabled" == true ]; then
-            Write-Log "INFO" "<print_line>"
+            Write-Log "INFO" "<print_line_top>"
             Write-Log "INFO" " | TELEGRAM NOTIFICATIONS"
-            Write-Log "INFO" "<print_line>"
+            Write-Log "INFO" "<print_line_btn>"
             Telegram-SplitMessage "$(Telegram-GenerateMessage)"
         fi
 
         if [ "$self_update_helper_container_started" == true ]; then
-            Write-Log "INFO" "<print_line>"
+            Write-Log "INFO" "<print_line_top>"
             Write-Log "INFO" " | SELF-UPDATE INITIATION"
-            Write-Log "INFO" "<print_line>"
+            Write-Log "INFO" "<print_line_top>"
             Write-Log "INFO" "    Setting update status flag in \"$self_update_helper_container_name:/opt/dcu/.main_update_process_completed\"..."
             { $cmd_docker exec $self_update_helper_container_name /bin/bash -c 'echo "true" > /opt/dcu/.main_update_process_completed' > /dev/null; result=$?; } || result=$?
             [ $result -eq 0 ] && Write-Log "DEBUG" "      => Succeeded"
             [ $result -ne 0 ] && Write-Log "ERROR" "      => Failed: $result"
         fi
     else
-        Write-Log "INFO"  "<print_line>"
+        Write-Log "INFO"  "<print_line_top>"
         Write-Log "INFO"  " | PROCESSING CONTAINERS"
-        Write-Log "INFO"  "<print_line>"
+        Write-Log "INFO"  "<print_line_btn>"
         Write-Log "ERROR" "    No containers found by running command \"$cmd_docker ps -q $1\""
     fi
 }
@@ -3059,9 +3071,9 @@ Parse-Arguments() {
     done
 
     if [ $param_dry_run ] || [ $param_run ] || [ $arguments_passed == false ]; then
-        Write-Log "INFO"  "<print_line>"
+        Write-Log "INFO"  "<print_line_top>"
         Write-Log "INFO"  " | INITIALIZING"
-        Write-Log "INFO"  "<print_line>"
+        Write-Log "INFO"  "<print_line_btn>"
     fi
 
     if [ $param_force ]; then
