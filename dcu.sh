@@ -211,7 +211,7 @@ Write-Log () {
         local line=$(printf "%0.s═" $(seq 1 $cols))
         message="${line_prefix}╔${line}"
     elif [[ "$message" == *"<print_line_top>"* ]]; then
-        local line="╔══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════"
+        local line="╔═════════════════════════════════════════════════════════════"
         message=$(echo "$message" | $cmd_sed "s/<print_line_top>/$line/g")
     fi
 
@@ -222,7 +222,7 @@ Write-Log () {
         local line=$(printf "%0.s═" $(seq 1 $cols))
         message="${line_prefix}╚${line}"
     elif [[ "$message" == *"<print_line_btn>"* ]]; then
-        local line="╚══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════"
+        local line="╚═════════════════════════════════════════════════════════════"
         message=$(echo "$message" | $cmd_sed "s/<print_line_btn>/$line/g")
     fi
 
