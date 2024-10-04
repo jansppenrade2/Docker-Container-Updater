@@ -81,7 +81,7 @@ End-Script() {
         exitcode=0
     fi
     Write-Log "INFO"  "<print_line_top>"
-    Write-Log "INFO"  " | TEARDOWN"
+    Write-Log "INFO"  " ║  TEARDOWN"
     Write-Log "INFO"  "<print_line_btn>"
 
     Prune-Log $(Read-INI "$configFile" "log" "retention")
@@ -2442,7 +2442,7 @@ Send-TelegramNotification() {
 
 Main() {
     Write-Log "INFO"  "<print_line_top>"
-    Write-Log "INFO"  " | GENERAL INFORMATION"
+    Write-Log "INFO"  " ║  GENERAL INFORMATION"
     Write-Log "INFO"  "<print_line_btn>"
     Write-Log "INFO" "    Version:      $(Get-ScriptVersion)"
     [[ "$test_mode" == true  ]] && Write-Log "INFO" "    Test Mode:    Enabled"
@@ -2584,7 +2584,7 @@ Main() {
             updatePerformed=false
 
             Write-Log "INFO" "<print_line_top>"
-            Write-Log "INFO" " | PROCESSING CONTAINER $container_id"
+            Write-Log "INFO" " ║ PROCESSING CONTAINER $container_id"
             Write-Log "INFO" "<print_line_btn>"
             Write-Log "INFO" "    Requesting container configuration by executing \"$cmd_docker container inspect "$container_id"\"..."
             container_config=$(echo "$($cmd_docker container inspect "$container_id")" | tr -d '\n') #json
@@ -2944,7 +2944,7 @@ Main() {
 
         if [ "$test_mode" == false ]; then
             Write-Log "INFO"  "<print_line_top>"
-            Write-Log "INFO"  " | PRUNING PROGRESS"
+            Write-Log "INFO"  " ║  PRUNING PROGRESS"
             Write-Log "INFO"  "<print_line_btn>"
             Prune-ContainerBackups
             Prune-DockerImages
@@ -2952,21 +2952,21 @@ Main() {
 
         if [ "$mail_notifications_enabled" == true ]; then
             Write-Log "INFO" "<print_line_top>"
-            Write-Log "INFO" " | MAIL NOTIFICATIONS"
+            Write-Log "INFO" " ║ MAIL NOTIFICATIONS"
             Write-Log "INFO" "<print_line_btn>"
             Send-MailNotification
         fi
 
         if [ "$telegram_notifications_enabled" == true ]; then
             Write-Log "INFO" "<print_line_top>"
-            Write-Log "INFO" " | TELEGRAM NOTIFICATIONS"
+            Write-Log "INFO" " ║ TELEGRAM NOTIFICATIONS"
             Write-Log "INFO" "<print_line_btn>"
             Telegram-SplitMessage "$(Telegram-GenerateMessage)"
         fi
 
         if [ "$self_update_helper_container_started" == true ]; then
             Write-Log "INFO" "<print_line_top>"
-            Write-Log "INFO" " | SELF-UPDATE INITIATION"
+            Write-Log "INFO" " ║ SELF-UPDATE INITIATION"
             Write-Log "INFO" "<print_line_top>"
             Write-Log "INFO" "    Setting update status flag in \"$self_update_helper_container_name:/opt/dcu/.main_update_process_completed\"..."
             { $cmd_docker exec $self_update_helper_container_name /bin/bash -c 'echo "true" > /opt/dcu/.main_update_process_completed' > /dev/null; result=$?; } || result=$?
@@ -2975,7 +2975,7 @@ Main() {
         fi
     else
         Write-Log "INFO"  "<print_line_top>"
-        Write-Log "INFO"  " | PROCESSING CONTAINERS"
+        Write-Log "INFO"  " ║  PROCESSING CONTAINERS"
         Write-Log "INFO"  "<print_line_btn>"
         Write-Log "ERROR" "    No containers found by running command \"$cmd_docker ps -q $1\""
     fi
@@ -3072,7 +3072,7 @@ Parse-Arguments() {
 
     if [ $param_dry_run ] || [ $param_run ] || [ $arguments_passed == false ]; then
         Write-Log "INFO"  "<print_line_top>"
-        Write-Log "INFO"  " | INITIALIZING"
+        Write-Log "INFO"  " ║  INITIALIZING"
         Write-Log "INFO"  "<print_line_btn>"
     fi
 
