@@ -212,7 +212,7 @@ Write-Log () {
         message="${line_prefix}╔${line}"
     elif [[ "$message" == *"<print_line_top>"* ]]; then
         local line="╔══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════"
-        message=$(echo "$message" | $cmd_sed "s/<print_line_btn>/$line/g")
+        message=$(echo "$message" | $cmd_sed "s/<print_line_top>/$line/g")
     fi
 
     if [[ "$message" == *"<print_line_btn>"* ]] && [ -n "$cmd_tput" ] && [[ $($cmd_tput cols 2>/dev/null) =~ ^[0-9]+$ ]]; then
@@ -1904,7 +1904,7 @@ Perform-ImageUpdate() {
     fi
 
     Write-Log "INFO"  "    <print_line_top>"
-    Write-Log "INFO"  "    | UPDATE PROGRESS"
+    Write-Log "INFO"  "    ║ UPDATE PROGRESS"
     Write-Log "INFO"  "    <print_line_btn>"
 
     [ "$test_mode" == false ] && [ "$update_type" == "digest" ] && Write-Log "INFO" "       Performing a $update_type update for $container_name ($image_name:$image_tag_old)..."
@@ -2674,7 +2674,7 @@ Main() {
             fi
 
             Write-Log "INFO"  "    <print_line_top>"
-            Write-Log "INFO"  "    | CONTAINER AND IMAGE DETAILS"
+            Write-Log "INFO"  "    ║ CONTAINER AND IMAGE DETAILS"
             Write-Log "INFO"  "    <print_line_btn>"
             Write-Log "INFO"  "       Container Name:                                       $container_name"
             Write-Log "DEBUG" "       Container Hostname:                                   $container_hostname"
