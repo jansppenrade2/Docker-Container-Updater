@@ -183,11 +183,12 @@ Write-Log () {
     local logFile=$(Read-INI "$configFile" "log" "filePath")
     local cmd_tput=$(Read-INI "$configFile" "paths" "tput") && [ -z $cmd_tput ]  && cmd_tput="tput"
     local cmd_sed=$(Read-INI "$configFile" "paths" "sed") && [ -z $cmd_sed ]  && cmd_sed="sed"
+    local cmd_tee=$(Read-INI "$configFile" "paths" "tee") && [ -z $cmd_tee ]  && cmd_tee="tee"
     local logFileFolder=$(dirname "$logFile")
 
     if [ -z "$logLevel" ] && test -f "$configFile"; then
         if [ -n "$logFile" ] && test -f "$logFile"; then
-            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] WARNING No log level configured. Using default of \"DEBUG\"" | tee -a "$logFile"
+            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] WARNING No log level configured. Using default of \"DEBUG\"" | $cmd_tee -a "$logFile"
         else
             echo "[$(date +%Y/%m/%d\ %H:%M:%S)] WARNING No log level configured. Using default of \"DEBUG\""
         fi
@@ -211,7 +212,7 @@ Write-Log () {
         local line=$(printf "%0.s═" $(seq 1 $cols))
         message="${line_prefix}╔${line}"
     elif [[ "$message" == *"<print_line_top>"* ]]; then
-        local line="╔═════════════════════════════════════════════════════════════"
+        local line=" ╔═════════════════════════════════════════════════════════════"
         message=$(echo "$message" | $cmd_sed "s/<print_line_top>/$line/g")
     fi
 
@@ -222,32 +223,32 @@ Write-Log () {
         local line=$(printf "%0.s═" $(seq 1 $cols))
         message="${line_prefix}╚${line}"
     elif [[ "$message" == *"<print_line_btn>"* ]]; then
-        local line="╚═════════════════════════════════════════════════════════════"
+        local line=" ╚═════════════════════════════════════════════════════════════"
         message=$(echo "$message" | $cmd_sed "s/<print_line_btn>/$line/g")
     fi
 
     if [ "$level" = "DEBUG" ] && { [ "$logLevel" = "DEBUG" ]; }; then
         if [ -n "$logFile" ] && test -f "$logFile"; then
-            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level   $message" | tee -a "$logFile"
+            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level   $message" | $cmd_tee -a "$logFile"
         else
             echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level   $message"
         fi
     elif [ "$level" = "INFO" ] && { [ "$logLevel" = "DEBUG" ] || [ "$logLevel" = "INFO" ]; }; then
         if [ -n "$logFile" ] && test -f "$logFile"; then
-            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level    $message" | tee -a "$logFile"
+            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level    $message" | $cmd_tee -a "$logFile"
         else
             echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level    $message"
         fi
     elif [ "$level" = "WARNING" ] && { [ "$logLevel" = "DEBUG" ] || [ "$logLevel" = "INFO" ] || [ "$logLevel" = "WARNING" ]; }; then
         if [ -n "$logFile" ] && test -f "$logFile"; then
-            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level $message" | tee -a "$logFile"
+            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level $message" | $cmd_tee -a "$logFile"
         else
             echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level $message"
         fi
         ((stats_warnings_count++))
     elif [ "$level" = "ERROR" ] && { [ "$logLevel" = "DEBUG" ] || [ "$logLevel" = "INFO" ] || [ "$logLevel" = "WARNING" ] || [ "$logLevel" = "ERROR" ]; }; then
         if [ -n "$logFile" ] && test -f "$logFile"; then
-            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level   $message" | tee -a "$logFile"
+            echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level   $message" | $cmd_tee -a "$logFile"
         else
             echo "[$(date +%Y/%m/%d\ %H:%M:%S)] $level   $message"
         fi
@@ -349,6 +350,7 @@ Validate-ConfigFile() {
         Write-To-ConfigFile ""
         Write-To-ConfigFile "[paths]"
         Write-To-ConfigFile "tput=$(Get-Path tput)"
+        Write-To-ConfigFile "tee=$(Get-Path tee)"
         Write-To-ConfigFile "gawk=$(Get-Path gawk)"
         Write-To-ConfigFile "cut=$(Get-Path cut)"
         Write-To-ConfigFile "curl=$(Get-Path curl)"
@@ -480,6 +482,12 @@ Validate-ConfigFile() {
         Write-INI "$configFile" "paths" "tput" "$(Get-Path tput)"
         if ! [[ $(Read-INI "$configFile" "paths" "tput") =~ ^/.* ]]; then
             Write-Log "WARNING" "      => Invalid value for \"[paths] tput\" (Expected: Type of \"path\")"
+        fi
+    fi
+    if ! [[ $(Read-INI "$configFile" "paths" "tee") =~ ^/.* ]]; then
+        Write-INI "$configFile" "paths" "tee" "$(Get-Path tee)"
+        if ! [[ $(Read-INI "$configFile" "paths" "tee") =~ ^/.* ]]; then
+            Write-Log "WARNING" "      => Invalid value for \"[paths] tee\" (Expected: Type of \"path\")"
         fi
     fi
     if ! [[ $(Read-INI "$configFile" "paths" "gawk") =~ ^/.* ]]; then
@@ -667,6 +675,19 @@ Test-Prerequisites() {
     # QNAP specific /
     
     command="tput"
+    if [ -n "$(Read-INI "$configFile" "paths" "$command")" ]; then
+        if ! [ -x "$(Read-INI "$configFile" "paths" "$command")" ]; then
+            Write-Log "ERROR" "      => Could not find \"$command\""
+            validationError=false
+        else
+            versionInstalled=$("$(Read-INI "$configFile" "paths" "$command")" -V 2>/dev/null | head -n 1)
+            Write-Log "DEBUG" "      => Found \"$command\" installed in version \"$versionInstalled\""
+        fi
+    else
+        Write-Log "WARNING" "      => It seems there is no version of \"$command\" installed on your system"
+    fi
+    
+    command="tee"
     if [ -n "$(Read-INI "$configFile" "paths" "$command")" ]; then
         if ! [ -x "$(Read-INI "$configFile" "paths" "$command")" ]; then
             Write-Log "ERROR" "      => Could not find \"$command\""
