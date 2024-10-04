@@ -7,7 +7,7 @@
 # 2024.07.25-1
 #
 # ## Changelog
-# 2024.10.04-a, janseppenrade2: Issue: Added support for synology systems #27
+# 2024.10.04-a, janseppenrade2: Issue: Removed reliance for tput and added alternative using stty #27
 # 2024.07.25-1, janseppenrade2: Issue: Fixed an issue where the Get-ContainerPropertyUnique function accidentally removed quotation marks in environment variables - This resulted in error bringing up the new container.
 # 2024.06.21-1, janseppenrade2: Issue: Fixed an issue occurring when the retrieved list of image tags was too large.
 # 2024.06.17-1, janseppenrade2: Issue: Caught an error that caused the script to enter an infinite loop if the executing user lacked the necessary permissions to create the log file. Added some more command line parameters. Optimized self-update.
@@ -182,6 +182,7 @@ Write-Log () {
     local logLevel="$logLevel" && [ -z $logLevel ] && logLevel=$(Read-INI "$configFile" "log" "level" | tr '[:lower:]' '[:upper:]')
     local logFile=$(Read-INI "$configFile" "log" "filePath")
     local cmd_tput=$(Read-INI "$configFile" "paths" "tput") && [ -z $cmd_tput ]  && cmd_tput="tput"
+    local cmd_stty=$(Read-INI "$configFile" "paths" "stty") && [ -z $cmd_stty ]  && cmd_tput="stty"
     local cmd_sed=$(Read-INI "$configFile" "paths" "sed") && [ -z $cmd_sed ]  && cmd_sed="sed"
     local cmd_tee=$(Read-INI "$configFile" "paths" "tee") && [ -z $cmd_tee ]  && cmd_tee="tee"
     local logFileFolder=$(dirname "$logFile")
@@ -204,10 +205,16 @@ Write-Log () {
     if [ "$logLevel" != "DEBUG" ] && [ "$logLevel" != "INFO" ] && [ "$logLevel" != "WARNING" ] && [ "$logLevel" != "ERROR" ]; then
         logLevel="DEBUG"
     fi
-
+# stty size < /dev/tty | cut -d' ' -f2-
     if [[ "$message" == *"<print_line_top>"* ]] && [ -n "$cmd_tput" ] && [[ $($cmd_tput cols 2>/dev/null) =~ ^[0-9]+$ ]]; then
         local leading_spaces=$(expr match "$message" ' *')
         local cols=$(( $($cmd_tput cols) - ( 35 + $leading_spaces ) ))
+        local line_prefix=$(printf "%-${leading_spaces}s" "")
+        local line=$(printf "%0.s═" $(seq 1 $cols))
+        message="${line_prefix}╔${line}"
+    elif [[ "$message" == *"<print_line_top>"* ]] && [ -n "$cmd_stty" ] && [[ $($cmd_stty size < /dev/tty | cut -d' ' -f2-) =~ ^[0-9]+$ ]]; then
+        local leading_spaces=$(expr match "$message" ' *')
+        local cols=$(( $($cmd_stty size < /dev/tty | cut -d' ' -f2-) - ( 35 + $leading_spaces ) ))
         local line_prefix=$(printf "%-${leading_spaces}s" "")
         local line=$(printf "%0.s═" $(seq 1 $cols))
         message="${line_prefix}╔${line}"
@@ -219,6 +226,12 @@ Write-Log () {
     if [[ "$message" == *"<print_line_btn>"* ]] && [ -n "$cmd_tput" ] && [[ $($cmd_tput cols 2>/dev/null) =~ ^[0-9]+$ ]]; then
         local leading_spaces=$(expr match "$message" ' *')
         local cols=$(( $($cmd_tput cols) - ( 35 + $leading_spaces ) ))
+        local line_prefix=$(printf "%-${leading_spaces}s" "")
+        local line=$(printf "%0.s═" $(seq 1 $cols))
+        message="${line_prefix}╚${line}"
+    elif [[ "$message" == *"<print_line_top>"* ]] && [ -n "$cmd_stty" ] && [[ $($cmd_stty size < /dev/tty | cut -d' ' -f2-) =~ ^[0-9]+$ ]]; then
+        local leading_spaces=$(expr match "$message" ' *')
+        local cols=$(( $($cmd_stty size < /dev/tty | cut -d' ' -f2-) - ( 35 + $leading_spaces ) ))
         local line_prefix=$(printf "%-${leading_spaces}s" "")
         local line=$(printf "%0.s═" $(seq 1 $cols))
         message="${line_prefix}╚${line}"
@@ -350,6 +363,7 @@ Validate-ConfigFile() {
         Write-To-ConfigFile ""
         Write-To-ConfigFile "[paths]"
         Write-To-ConfigFile "tput=$(Get-Path tput)"
+        Write-To-ConfigFile "stty=$(Get-Path stty)"
         Write-To-ConfigFile "tee=$(Get-Path tee)"
         Write-To-ConfigFile "gawk=$(Get-Path gawk)"
         Write-To-ConfigFile "cut=$(Get-Path cut)"
@@ -482,6 +496,12 @@ Validate-ConfigFile() {
         Write-INI "$configFile" "paths" "tput" "$(Get-Path tput)"
         if ! [[ $(Read-INI "$configFile" "paths" "tput") =~ ^/.* ]]; then
             Write-Log "DEBUG"   "      => Invalid value for \"[paths] tput\" (Expected: Type of \"path\")"
+        fi
+    fi
+    if ! [[ $(Read-INI "$configFile" "paths" "stty") =~ ^/.* ]]; then
+        Write-INI "$configFile" "paths" "stty" "$(Get-Path stty)"
+        if ! [[ $(Read-INI "$configFile" "paths" "stty") =~ ^/.* ]]; then
+            Write-Log "DEBUG"   "      => Invalid value for \"[paths] stty\" (Expected: Type of \"path\")"
         fi
     fi
     if ! [[ $(Read-INI "$configFile" "paths" "tee") =~ ^/.* ]]; then
@@ -681,6 +701,19 @@ Test-Prerequisites() {
             validationError=false
         else
             versionInstalled=$("$(Read-INI "$configFile" "paths" "$command")" -V 2>/dev/null | head -n 1)
+            Write-Log "DEBUG" "      => Found \"$command\" installed in version \"$versionInstalled\""
+        fi
+    else
+        Write-Log "DEBUG" "      => It seems there is no version of \"$command\" installed on your system"
+    fi
+
+    command="stty"
+    if [ -n "$(Read-INI "$configFile" "paths" "$command")" ]; then
+        if ! [ -x "$(Read-INI "$configFile" "paths" "$command")" ]; then
+            Write-Log "ERROR" "      => Could not find \"$command\""
+            validationError=false
+        else
+            versionInstalled=$("$(Read-INI "$configFile" "paths" "$command")" --version 2>/dev/null | head -n 1)
             Write-Log "DEBUG" "      => Found \"$command\" installed in version \"$versionInstalled\""
         fi
     else
