@@ -1,0 +1,24 @@
+# Feature Request: Support for other image repositories: GitHub Container Repository (ghcr.io) #28
+
+
+## Docker Hub API
+IMAGE=homeassistant/home-assistant
+wget -q https://registry.hub.docker.com/v2/repositories/${IMAGE}/tags --no-check-certificate -O - 2>&1
+
+
+
+## Github API
+IMAGE=home-assistant/home-assistant # ghcr.io/home-assistant/home-assistant (wird so ermittelt)
+# get tags
+curl -H "Authorization: Bearer $(curl "https://ghcr.io/token?scope=repository:${IMAGE}:pull" | awk -F'"' '$0=$4')" "https://ghcr.io/v2/${IMAGE}/tags/list"
+
+# get manifest of the latest image
+curl  -H "Authorization: Bearer $(curl "https://ghcr.io/token?scope=repository:${IMAGE}:pull" | awk -F'"' '$0=$4')" "https://ghcr.io/v2/${IMAGE}/manifests/latest"
+
+
+
+Status:
+    - Get-ImageURL() ist so angepasst, dass es nun erkennt, ob es sich um ein Image von ghcr.io handelt und gibt die korrekte URL zurück
+    - Der Informationsgehalt und Aufbau der bereitgestellten Antwort von ghcr.io unterscheidet sich jedoch und muss anders behandelt werden. Eventl muss durch durch die einzelnen Tags iterriert werden, damit auch die digests ermittelt werden können?....
+    - Evtl. neben Get-DockerHubImageTags() eine neue Funktion Get-GitHubContainerRepositoryImageTags(), o.Ä.?
+    - Die default konfiguration muss noch angepasst werden und um "github_container_registry_api_url=https://registry.hub.docker.com/v2/repositories/" erweitert werden

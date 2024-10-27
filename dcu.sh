@@ -4,9 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.10.04-1
+# 2024.10.04-a
 #
 # ## Changelog
+# 2024.10.XX-X, janseppenrade2: Issue #28: Added support for GitHub Container Registry (ghcr.io), optimized log layout
 # 2024.10.04-1, janseppenrade2: Issue #27: Removed reliance on tput and added an alternative using stty. Also updated the logs with improved line symbols (”|” -> “║”, “=” -> “═”, “╔”)
 # 2024.07.25-1, janseppenrade2: Issue: Fixed an issue where the Get-ContainerPropertyUnique function accidentally removed quotation marks in environment variables - This resulted in error bringing up the new container.
 # 2024.06.21-1, janseppenrade2: Issue: Fixed an issue occurring when the retrieved list of image tags was too large.
@@ -82,7 +83,7 @@ End-Script() {
         exitcode=0
     fi
     Write-Log "INFO"  "<print_line_top>"
-    Write-Log "INFO"  " ║  TEARDOWN"
+    Write-Log "INFO"  "║  TEARDOWN"
     Write-Log "INFO"  "<print_line_btn>"
 
     Prune-Log $(Read-INI "$configFile" "log" "retention")
@@ -356,6 +357,7 @@ Validate-ConfigFile() {
         Write-To-ConfigFile "container_update_validation_time=${DCU_CONTAINER_UPDATE_VALIDATION_TIME:-"120"}"
         Write-To-ConfigFile "update_rules=${DCU_UPDATE_RULES:-"*[0.1.1-1,true]"}"
         Write-To-ConfigFile "docker_hub_api_url=${DCU_DOCKER_HUB_API_URL:-"https://registry.hub.docker.com/v2"}"
+        Write-To-ConfigFile "github_container_repository_api_url=${DCU_GITHUB_CONTAINER_REPOSITORY_API_URL:-"https://ghcr.io/v2"}"
         Write-To-ConfigFile "docker_hub_api_image_tags_page_size_limit=${DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT:-"100"}"
         Write-To-ConfigFile "docker_hub_api_image_tags_page_crawl_limit=${DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT:-"10"}"
         Write-To-ConfigFile "docker_hub_image_minimum_age=${DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE:-"21600"}"
@@ -469,6 +471,10 @@ Validate-ConfigFile() {
     local url_regex='^(https?|ftp|file)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]\.[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]$'
     if ! [[ "$(Read-INI "$configFile" "general" "docker_hub_api_url")" =~ $url_regex ]]; then
         Write-Log "ERROR" "      => Invalid value for \"[general] docker_hub_api_url\": \"$(Read-INI "$configFile" "general" "docker_hub_api_url")\" (Expected: Type of \"URL\")"
+        validationError=true
+    fi
+    if ! [[ "$(Read-INI "$configFile" "general" "github_container_repository_api_url")" =~ $url_regex ]]; then
+        Write-Log "ERROR" "      => Invalid value for \"[general] github_container_repository_api_url\": \"$(Read-INI "$configFile" "general" "github_container_repository_api_url")\" (Expected: Type of \"URL\")"
         validationError=true
     fi
     if ! [[ $(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_size_limit") =~ ^[0-9]+$ ]]; then
@@ -1653,11 +1659,15 @@ Get-UpdatePermit() {
     return
 }
 
-Get-DockerHubImageURL() {
-    local image_name=$1
+Get-ImageURL() {
+    local image_name="$1"
     local docker_hub_api_url=$(Read-INI "$configFile" "general" "docker_hub_api_url")
+    local ghcr_api_url=$(Read-INI "$configFile" "general" "github_container_registry_api_url")
 
-    if [[ $image_name == *'/'* ]]; then
+    if [[ $image_name == 'ghcr.io/'* ]]; then
+        image_name="${image_name#ghcr.io/}"
+        echo "${ghcr_api_url}/${image_name}"
+    elif [[ $image_name == *'/'* ]]; then
         echo "$docker_hub_api_url/repositories/${image_name}"
         return
     else
@@ -1678,7 +1688,7 @@ Get-DockerHubImageTags() {
     trap "rm -f $image_tags_file" EXIT
 
     for ((page=1; page<=$docker_hub_api_image_tags_page_crawl_limit; page++)); do
-        url="$(Get-DockerHubImageURL "$container_image_name")/tags?page_size=${docker_hub_api_image_tags_page_size_limit}&page=${page}"
+        url="$(Get-ImageURL "$container_image_name")/tags?page_size=${docker_hub_api_image_tags_page_size_limit}&page=${page}"
         response=$($cmd_wget -q "$url" --no-check-certificate -O - 2>&1)
         if [[ -z $response ]]; then
             break
@@ -1980,8 +1990,8 @@ Perform-ImageUpdate() {
         
         # Run self-update helper container
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "INFO"  "           Bringing up self-update helper container..."
-        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "DEBUG" "             => $cmd_docker run -d --rm --name="$container_name"_DCU_SelfUpdateHelper --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --env DCU_TEST_MODE=false --env DCU_UPDATE_RULES='*[0.0.0-0,false] $container_name[1.1.1-1,true]' --env DCU_MAIL_NOTIFICATIONS_ENABLED=\"$DCU_MAIL_NOTIFICATIONS_ENABLED\" --env DCU_MAIL_NOTIFICATION_MODE=\"$DCU_MAIL_NOTIFICATION_MODE\" --env DCU_MAIL_FROM=\"$DCU_MAIL_FROM\" --env DCU_MAIL_RECIPIENTS=\"$DCU_MAIL_RECIPIENTS\" --env DCU_MAIL_SUBJECT=\"$DCU_MAIL_SUBJECT\" --env DCU_MAIL_RELAYHOST=\"$DCU_MAIL_RELAYHOST\" --env DCU_TELEGRAM_NOTIFICATIONS_ENABLED=\"$DCU_TELEGRAM_NOTIFICATIONS_ENABLED\" --env DCU_TELEGRAM_RETRY_LIMIT=\"$DCU_TELEGRAM_RETRY_LIMIT\" --env DCU_TELEGRAM_RETRY_INTERVAL=\"$DCU_TELEGRAM_RETRY_INTERVAL\" --env DCU_TELEGRAM_CHAT_ID=\"$DCU_TELEGRAM_CHAT_ID\" --env DCU_TELEGRAM_BOT_TOKEN=\"$DCU_TELEGRAM_BOT_TOKEN\" --env DCU_REPORT_REAL_HOSTNAME=\"$DCU_REPORT_REAL_HOSTNAME\" --env DCU_REPORT_REAL_IP=\"$DCU_REPORT_REAL_IP\" --env DCU_REPORT_REAL_DOCKER_VERSION=\"$DCU_REPORT_REAL_DOCKER_VERSION\" --env DCU_DOCKER_HUB_API_URL=\"$DCU_DOCKER_HUB_API_URL\" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT=\"$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT\" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT=\"$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT\" --env DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE=\"$DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE\" --env DCU_CONTAINER_UPDATE_VALIDATION_TIME=\"$DCU_CONTAINER_UPDATE_VALIDATION_TIME\" --env DCU_LOG_LEVEL=\"DEBUG\" $image_name:$image_tag_new dcu --self-update --filter name=$container_name"
-        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && { $cmd_docker run -d --rm --name="${container_name}_DCU_SelfUpdateHelper" --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --env DCU_TEST_MODE=false --env DCU_UPDATE_RULES='*[0.0.0-0,false] '$container_name'[1.1.1-1,true]' --env DCU_MAIL_NOTIFICATIONS_ENABLED="$DCU_MAIL_NOTIFICATIONS_ENABLED" --env DCU_MAIL_NOTIFICATION_MODE="$DCU_MAIL_NOTIFICATION_MODE" --env DCU_MAIL_FROM="$DCU_MAIL_FROM" --env DCU_MAIL_RECIPIENTS="$DCU_MAIL_RECIPIENTS" --env DCU_MAIL_SUBJECT="$DCU_MAIL_SUBJECT" --env DCU_MAIL_RELAYHOST="$DCU_MAIL_RELAYHOST" --env DCU_TELEGRAM_NOTIFICATIONS_ENABLED="$DCU_TELEGRAM_NOTIFICATIONS_ENABLED" --env DCU_TELEGRAM_RETRY_LIMIT="$DCU_TELEGRAM_RETRY_LIMIT" --env DCU_TELEGRAM_RETRY_INTERVAL="$DCU_TELEGRAM_RETRY_INTERVAL" --env DCU_TELEGRAM_CHAT_ID="$DCU_TELEGRAM_CHAT_ID" --env DCU_TELEGRAM_BOT_TOKEN="$DCU_TELEGRAM_BOT_TOKEN" --env DCU_REPORT_REAL_HOSTNAME="$DCU_REPORT_REAL_HOSTNAME" --env DCU_REPORT_REAL_IP="$DCU_REPORT_REAL_IP" --env DCU_REPORT_REAL_DOCKER_VERSION="$DCU_REPORT_REAL_DOCKER_VERSION" --env DCU_DOCKER_HUB_API_URL="$DCU_DOCKER_HUB_API_URL" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT="$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT="$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT" --env DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE="$DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE" --env DCU_CONTAINER_UPDATE_VALIDATION_TIME="$DCU_CONTAINER_UPDATE_VALIDATION_TIME" --env DCU_LOG_LEVEL="DEBUG" $image_name:$image_tag_new dcu --self-update --filter name=$container_name > /dev/null; result=$?; } || result=$?
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "DEBUG" "             => $cmd_docker run -d --rm --name="$container_name"_DCU_SelfUpdateHelper --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --env DCU_TEST_MODE=false --env DCU_UPDATE_RULES='*[0.0.0-0,false] $container_name[1.1.1-1,true]' --env DCU_MAIL_NOTIFICATIONS_ENABLED=\"$DCU_MAIL_NOTIFICATIONS_ENABLED\" --env DCU_MAIL_NOTIFICATION_MODE=\"$DCU_MAIL_NOTIFICATION_MODE\" --env DCU_MAIL_FROM=\"$DCU_MAIL_FROM\" --env DCU_MAIL_RECIPIENTS=\"$DCU_MAIL_RECIPIENTS\" --env DCU_MAIL_SUBJECT=\"$DCU_MAIL_SUBJECT\" --env DCU_MAIL_RELAYHOST=\"$DCU_MAIL_RELAYHOST\" --env DCU_TELEGRAM_NOTIFICATIONS_ENABLED=\"$DCU_TELEGRAM_NOTIFICATIONS_ENABLED\" --env DCU_TELEGRAM_RETRY_LIMIT=\"$DCU_TELEGRAM_RETRY_LIMIT\" --env DCU_TELEGRAM_RETRY_INTERVAL=\"$DCU_TELEGRAM_RETRY_INTERVAL\" --env DCU_TELEGRAM_CHAT_ID=\"$DCU_TELEGRAM_CHAT_ID\" --env DCU_TELEGRAM_BOT_TOKEN=\"$DCU_TELEGRAM_BOT_TOKEN\" --env DCU_REPORT_REAL_HOSTNAME=\"$DCU_REPORT_REAL_HOSTNAME\" --env DCU_REPORT_REAL_IP=\"$DCU_REPORT_REAL_IP\" --env DCU_REPORT_REAL_DOCKER_VERSION=\"$DCU_REPORT_REAL_DOCKER_VERSION\" --env DCU_DOCKER_HUB_API_URL=\"$DCU_DOCKER_HUB_API_URL\" --env DCU_GITHUB_CONTAINER_REPOSITORY_API_URL=\"$DCU_GITHUB_CONTAINER_REPOSITORY_API_URL\" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT=\"$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT\" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT=\"$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT\" --env DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE=\"$DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE\" --env DCU_CONTAINER_UPDATE_VALIDATION_TIME=\"$DCU_CONTAINER_UPDATE_VALIDATION_TIME\" --env DCU_LOG_LEVEL=\"DEBUG\" $image_name:$image_tag_new dcu --self-update --filter name=$container_name"
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && { $cmd_docker run -d --rm --name="${container_name}_DCU_SelfUpdateHelper" --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --env DCU_TEST_MODE=false --env DCU_UPDATE_RULES='*[0.0.0-0,false] '$container_name'[1.1.1-1,true]' --env DCU_MAIL_NOTIFICATIONS_ENABLED="$DCU_MAIL_NOTIFICATIONS_ENABLED" --env DCU_MAIL_NOTIFICATION_MODE="$DCU_MAIL_NOTIFICATION_MODE" --env DCU_MAIL_FROM="$DCU_MAIL_FROM" --env DCU_MAIL_RECIPIENTS="$DCU_MAIL_RECIPIENTS" --env DCU_MAIL_SUBJECT="$DCU_MAIL_SUBJECT" --env DCU_MAIL_RELAYHOST="$DCU_MAIL_RELAYHOST" --env DCU_TELEGRAM_NOTIFICATIONS_ENABLED="$DCU_TELEGRAM_NOTIFICATIONS_ENABLED" --env DCU_TELEGRAM_RETRY_LIMIT="$DCU_TELEGRAM_RETRY_LIMIT" --env DCU_TELEGRAM_RETRY_INTERVAL="$DCU_TELEGRAM_RETRY_INTERVAL" --env DCU_TELEGRAM_CHAT_ID="$DCU_TELEGRAM_CHAT_ID" --env DCU_TELEGRAM_BOT_TOKEN="$DCU_TELEGRAM_BOT_TOKEN" --env DCU_REPORT_REAL_HOSTNAME="$DCU_REPORT_REAL_HOSTNAME" --env DCU_REPORT_REAL_IP="$DCU_REPORT_REAL_IP" --env DCU_REPORT_REAL_DOCKER_VERSION="$DCU_REPORT_REAL_DOCKER_VERSION" --env DCU_DOCKER_HUB_API_URL="$DCU_DOCKER_HUB_API_URL" --env DCU_GITHUB_CONTAINER_REPOSITORY_API_URL=\"$DCU_GITHUB_CONTAINER_REPOSITORY_API_URL\" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT="$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT="$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT" --env DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE="$DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE" --env DCU_CONTAINER_UPDATE_VALIDATION_TIME="$DCU_CONTAINER_UPDATE_VALIDATION_TIME" --env DCU_LOG_LEVEL="DEBUG" $image_name:$image_tag_new dcu --self-update --filter name=$container_name > /dev/null; result=$?; } || result=$?
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ $result -eq 0 ] && new_container_started_successfully=true  && Write-Log "DEBUG" "             => Self-update helper container started successfully"
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ $result -ne 0 ] && new_container_started_successfully=false && Write-Log "ERROR" "             => Failed to start self-update helper container: $result"
         [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && self_update_helper_container_started=true && self_update_helper_container_name="${container_name}_DCU_SelfUpdateHelper"
@@ -2683,7 +2693,7 @@ Main() {
             effective_update_rule=$(Get-EffectiveUpdateRule "$container_name")
             container_labels_unique=$(Get-ContainerPropertyUnique "$container_labels" "$image_labels" "unique_labels")
             container_envs_unique=$(Get-ContainerPropertyUnique "$container_envs" "$image_envs" "unique_envs")
-            docker_hub_image_url=$(Get-DockerHubImageURL "$container_image_name")
+            docker_hub_image_url=$(Get-ImageURL "$container_image_name")
             docker_hub_image_tag_names_filter=$(New-DockerHubImageTagFilter "$container_image_tag")
             
             # To be able to report available and outstanding updates for containers/images, this if-statement ist commented out 
@@ -2999,7 +3009,7 @@ Main() {
 
         if [ "$test_mode" == false ]; then
             Write-Log "INFO"  "<print_line_top>"
-            Write-Log "INFO"  " ║  PRUNING PROGRESS"
+            Write-Log "INFO"  "║  PRUNING PROGRESS"
             Write-Log "INFO"  "<print_line_btn>"
             Prune-ContainerBackups
             Prune-DockerImages
@@ -3007,21 +3017,21 @@ Main() {
 
         if [ "$mail_notifications_enabled" == true ]; then
             Write-Log "INFO" "<print_line_top>"
-            Write-Log "INFO" " ║ MAIL NOTIFICATIONS"
+            Write-Log "INFO" "║ MAIL NOTIFICATIONS"
             Write-Log "INFO" "<print_line_btn>"
             Send-MailNotification
         fi
 
         if [ "$telegram_notifications_enabled" == true ]; then
             Write-Log "INFO" "<print_line_top>"
-            Write-Log "INFO" " ║ TELEGRAM NOTIFICATIONS"
+            Write-Log "INFO" "║ TELEGRAM NOTIFICATIONS"
             Write-Log "INFO" "<print_line_btn>"
             Telegram-SplitMessage "$(Telegram-GenerateMessage)"
         fi
 
         if [ "$self_update_helper_container_started" == true ]; then
             Write-Log "INFO" "<print_line_top>"
-            Write-Log "INFO" " ║ SELF-UPDATE INITIATION"
+            Write-Log "INFO" "║ SELF-UPDATE INITIATION"
             Write-Log "INFO" "<print_line_top>"
             Write-Log "INFO" "    Setting update status flag in \"$self_update_helper_container_name:/opt/dcu/.main_update_process_completed\"..."
             { $cmd_docker exec $self_update_helper_container_name /bin/bash -c 'echo "true" > /opt/dcu/.main_update_process_completed' > /dev/null; result=$?; } || result=$?
@@ -3030,7 +3040,7 @@ Main() {
         fi
     else
         Write-Log "INFO"  "<print_line_top>"
-        Write-Log "INFO"  " ║  PROCESSING CONTAINERS"
+        Write-Log "INFO"  "║  PROCESSING CONTAINERS"
         Write-Log "INFO"  "<print_line_btn>"
         Write-Log "ERROR" "    No containers found by running command \"$cmd_docker ps -q $1\""
     fi
