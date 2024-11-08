@@ -1711,26 +1711,32 @@ Get-DockerHubImageTags() {
     local image_name=$1
     local docker_hub_api_image_tags_page_size_limit=$(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_size_limit")
     local docker_hub_api_image_tags_page_crawl_limit=$(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_crawl_limit")
-    local github_api_image_tags_page_size_limit=1000
-    local github_api_image_tags_page_crawl_limit=10
+    local github_container_repository_api_image_tags_page_size_limit=$(Read-INI "$configFile" "general" "github_container_repository_api_image_tags_page_size_limit")
+    local github_container_repository_api_image_tags_page_crawl_limit=$(Read-INI "$configFile" "general" "github_container_repository_api_image_tags_page_crawl_limit")
+    local cmd_awk=$(Read-INI "$configFile" "paths" "gawk")
+    local cmd_curl=$(Read-INI "$configFile" "paths" "curl")
+    local cmd_grep=$(Read-INI "$configFile" "paths" "grep")
+    local cmd_jq=$(Read-INI "$configFile" "paths" "jq")
+    local cmd_sed=$(Read-INI "$configFile" "paths" "sed")
+    local cmd_wget=$(Read-INI "$configFile" "paths" "wget")
     local url=""
     local image_tags=""
-    local cmd_wget=wget
     local image_tags_file="$(mktemp)"
 
     trap "rm -f $image_tags_file" EXIT
 
     if [[ $image_name == 'ghcr.io/'* ]]; then
         local page=0
-        local auth_token=$(curl -s "https://ghcr.io/token?scope=repository:${image_name}:pull" | awk -F'"' '$0=$4')
-        local image_tags_url="https://ghcr.io/v2/${image_name}/tags/list?n=$github_api_image_tags_page_size_limit"
+        local auth_token=$($cmd_curl -s "https://ghcr.io/token?scope=repository:${image_name}:pull" | $cmd_awk -F'"' '$0=$4')
+        local image_tags_url="https://ghcr.io/v2/${image_name}/tags/list?n=$github_container_repository_api_image_tags_page_size_limit"
 
-        while [[ -n "$image_tags_url" ]] && (( page < github_api_image_tags_page_crawl_limit )); do
+        while [[ -n "$image_tags_url" ]] && (( page < github_container_repository_api_image_tags_page_crawl_limit )); do
             page=$((page + 1))
-            response=$(curl -s -D - --insecure -H "Authorization: Bearer $auth_token" "$image_tags_url")
-            docker_image_tags+=$(echo "$response" | awk '/^\{/ {json=1} json {print}' | jq -r '.tags[]'; printf '\n')
-            image_tags_url=$(echo "$response" | grep -oi 'link:.*rel="next"' | sed -n 's/.*<\(.*\)>.*$/\1/p')
-
+            response=$($cmd_curl -s -D - --insecure -H "Authorization: Bearer $auth_token" "$image_tags_url")
+            docker_image_tags+=$(echo "$response" | $cmd_awk '/^\{/ {json=1} json {print}' | $cmd_jq -r '.tags[]'; printf '\n')
+            image_tags_url=$(echo "$response" | $cmd_grep -oi 'link:.*rel="next"' | $cmd_sed -n 's/.*<\(.*\)>.*$/\1/p')
+            
+            #Write-Log "WARNING" "$image_tags_url"
             if [[ -n "$image_tags_url" ]]; then
                 image_tags_url="https://ghcr.io${image_tags_url}"
             fi
@@ -1739,16 +1745,20 @@ Get-DockerHubImageTags() {
         # Prepare entries in $image_tags_file
         echo '{"count": 0, "next": null, "previous": null, "results": [' >> "$image_tags_file"
 
-        # Query manifest for each docker_image_tag
-        while IFS= read -r docker_image_tag; do
-            #echo "Retriving manifest for image tag $docker_image_tag" #debug
-            #manifest_response=$(curl -s -H "Authorization: Bearer $auth_token" "https://ghcr.io/v2/${image_name}/manifests/${docker_image_tag}")
+        # In eine Array-Variable umwandeln, um die Schleife zu optimieren
+        docker_image_tags_array=($docker_image_tags)
+        total_tags=${#docker_image_tags_array[@]}
 
-            # Extract required fields from manifest and format in Docker Hub XML format
+        # Iteriere über die Tags und prüfe, ob es sich um das letzte Element handelt
+        for ((i = 0; i < total_tags; i++)); do
+            docker_image_tag="${docker_image_tags_array[i]}"
             echo '{"images": [' >> "$image_tags_file"
-            #echo "$manifest_response" | jq -c '.manifests[] | {architecture: .platform.architecture, variant: .platform.variant, digest: .digest, os: .platform.os, size: .size}' >> "$image_tags_file"
-            echo "], \"name\": \"${docker_image_tag}\" }," >> "$image_tags_file"
-        done <<< "$docker_image_tags"
+            echo "], \"name\": \"${docker_image_tag}\" }" >> "$image_tags_file"
+            # Nur ein Komma hinzufügen, wenn es nicht das letzte Element ist
+            if (( i < total_tags - 1 )); then
+                echo "," >> "$image_tags_file"
+            fi
+        done
 
         # Complete the JSON structure
         echo ']}' >> "$image_tags_file"
@@ -1768,7 +1778,7 @@ Get-DockerHubImageTags() {
     return
 }
 
-Get-DockerHubImageTags() {
+Get-DockerHubImageTags-old() {
     local image_name=$1
     local docker_hub_api_image_tags_page_size_limit=$(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_size_limit")
     local docker_hub_api_image_tags_page_crawl_limit=$(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_crawl_limit")
@@ -2802,7 +2812,7 @@ Main() {
                 Write-Log "INFO"  "    Extracting a list of available image tag names..."
                 docker_hub_image_tag_digest=$(Get-DockerHubImageTagProperty "$docker_hub_image_tags" "$container_image_tag" "docker_hub_image_tag_digest")
                 docker_hub_image_tag_last_updated=$(Get-DockerHubImageTagProperty "$docker_hub_image_tags" "$container_image_tag" "docker_hub_image_tag_last_updated")
-                docker_hub_image_tag_age=$(( $(date +%s) - $($cmd_date -d "$docker_hub_image_tag_last_updated" +%s) ))
+                [ -n "$docker_hub_image_tag_last_updated" ] && docker_hub_image_tag_age=$(( $(date +%s) - $($cmd_date -d "$docker_hub_image_tag_last_updated" +%s) ))
                 docker_hub_image_tag_names=$(Get-DockerHubImageTagNames "$docker_hub_image_tags")
                 image_updates_available_all=$(Get-AvailableUpdates "all" "$docker_hub_image_tag_names" "$docker_hub_image_tag_names_filter" "$container_image_tag")
                 [ -n "$docker_hub_image_tag_digest" ] && image_update_available_digest=$(Get-AvailableUpdates "digest" "$image_repoDigests" "$docker_hub_image_tag_digest")
@@ -2876,7 +2886,7 @@ Main() {
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tags (json):                         $docker_hub_image_tags"
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Digest:                              $docker_hub_image_tag_digest"
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Last Updated:                        $docker_hub_image_tag_last_updated"
-            [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Age:                                 $docker_hub_image_tag_age Seconds"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Age:                                 $docker_hub_image_tag_age${docker_hub_image_tag_age:+ Seconds}"
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tag Filter:                          $docker_hub_image_tag_names_filter"
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tag Names:                           $docker_hub_image_tag_names"
             [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "       Update Overview:"
@@ -2915,7 +2925,7 @@ Main() {
             if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ "$image_update_available_digest" == true ]; then
                 updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$container_image_tag")
                 if [ "$updatePermit" == true ]; then
-                    if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                    if { [[ -n "$docker_hub_image_tag_age" ]] && [ "$docker_hub_image_tag_age" -gt "$(Read-INI "$configFile" "general" "docker_hub_image_minimum_age")" ]; } || [ -z "$docker_hub_image_tag_age" ]; then
                         if [ "$updatePerformed" == false ]; then
                             [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$container_image_tag"
                             #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
@@ -2946,7 +2956,7 @@ Main() {
             if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_build_next" ] && [ -n "$image_update_available_build_latest" ]; then
                 updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_build_next" "$image_update_available_build_latest")
                 if [ "$updatePermit" == true ]; then
-                    if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                    if { [[ -n "$docker_hub_image_tag_age" ]] && [ "$docker_hub_image_tag_age" -gt "$(Read-INI "$configFile" "general" "docker_hub_image_minimum_age")" ]; } || [ -z "$docker_hub_image_tag_age" ]; then
                         if [ "$updatePerformed" == false ]; then
                             [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_build_next"
                             #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
@@ -2985,7 +2995,7 @@ Main() {
             if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_patch_next" ] && [ -n "$image_update_available_patch_latest" ]; then
                 updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_patch_next" "$image_update_available_patch_latest")
                 if [ "$updatePermit" == true ]; then
-                    if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                    if { [[ -n "$docker_hub_image_tag_age" ]] && [ "$docker_hub_image_tag_age" -gt "$(Read-INI "$configFile" "general" "docker_hub_image_minimum_age")" ]; } || [ -z "$docker_hub_image_tag_age" ]; then
                         if [ "$updatePerformed" == false ]; then
                             [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_patch_next"
                             #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
@@ -3024,7 +3034,7 @@ Main() {
             if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_minor_next" ] && [ -n "$image_update_available_minor_latest" ]; then
                 updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_minor_next" "$image_update_available_minor_latest")
                 if [ "$updatePermit" == true ]; then
-                    if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                    if { [[ -n "$docker_hub_image_tag_age" ]] && [ "$docker_hub_image_tag_age" -gt "$(Read-INI "$configFile" "general" "docker_hub_image_minimum_age")" ]; } || [ -z "$docker_hub_image_tag_age" ]; then
                         if [ "$updatePerformed" == false ]; then
                             [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_minor_next"
                             #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
@@ -3063,7 +3073,7 @@ Main() {
             if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_major_next" ] && [ -n "$image_update_available_major_latest" ]; then
                 updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_major_next" "$image_update_available_major_latest")
                 if [ "$updatePermit" == true ]; then
-                    if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                    if { [[ -n "$docker_hub_image_tag_age" ]] && [ "$docker_hub_image_tag_age" -gt "$(Read-INI "$configFile" "general" "docker_hub_image_minimum_age")" ]; } || [ -z "$docker_hub_image_tag_age" ]; then
                         if [ "$updatePerformed" == false ]; then
                             [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_major_next"
                             #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
