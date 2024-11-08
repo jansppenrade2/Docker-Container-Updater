@@ -4,10 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.11.08-a
+# 2024.11.08-1
 #
 # ## Changelog
-# 2024.10.XX-X, janseppenrade2: Issue #28: Added support for GitHub Container Registry (ghcr.io), optimized log layout
+# 2024.11.08-1, janseppenrade2: Issue #28: Added support for GitHub Container Registry (ghcr.io). IMPORTANT: Digest updates and MINIMUM AGE filtering for images on ghcr.io are currently not supported—additional development is needed. Optimized log layout. Fixed an issue when executing "dcu --version" before a config was created.
 # 2024.10.04-1, janseppenrade2: Issue #27: Removed reliance on tput and added an alternative using stty. Also updated the logs with improved line symbols (”|” -> “║”, “=” -> “═”, “╔”)
 # 2024.07.25-1, janseppenrade2: Issue: Fixed an issue where the Get-ContainerPropertyUnique function accidentally removed quotation marks in environment variables - This resulted in error bringing up the new container.
 # 2024.06.21-1, janseppenrade2: Issue: Fixed an issue occurring when the retrieved list of image tags was too large.
@@ -929,9 +929,10 @@ Test-Prerequisites() {
 }
 
 Get-ScriptVersion() {
-    local cmd_cut=$(echo "$(Read-INI "$configFile" "paths" "cut")" || echo "cut")
-    local cmd_sed=$(echo "$(Read-INI "$configFile" "paths" "sed")" || echo "sed")
-    local cmd_grep=$(echo "$(Read-INI "$configFile" "paths" "grep")" || echo "grep")
+    local cmd_cut=$(Read-INI "$configFile" "paths" "cut" 2>/dev/null || echo "cut")
+    local cmd_sed=$(Read-INI "$configFile" "paths" "sed" 2>/dev/null || echo "sed")
+    local cmd_grep=$(Read-INI "$configFile" "paths" "grep" 2>/dev/null || echo "grep")
+
     local version_line=$(head -n 10 "$0" | $cmd_grep -n "# ## Version" | $cmd_cut -d: -f1)
     local next_line=0
 
