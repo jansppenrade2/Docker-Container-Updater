@@ -3,17 +3,22 @@
 
 ## Docker Hub API
 IMAGE=homeassistant/home-assistant
-wget -q https://registry.hub.docker.com/v2/repositories/${IMAGE}/tags --no-check-certificate -O - 2>&1
+wget -q https://registry.hub.docker.com/v2/repositories/${IMAGE}/tags?page_size=100&page=100 --no-check-certificate -O - 2>&1
 
 
 
 ## Github API
 IMAGE=home-assistant/home-assistant # ghcr.io/home-assistant/home-assistant (wird so ermittelt)
+IMAGE=ghcr.io/immich-app/immich-machine-learning
 # get tags
 curl -H "Authorization: Bearer $(curl "https://ghcr.io/token?scope=repository:${IMAGE}:pull" | awk -F'"' '$0=$4')" "https://ghcr.io/v2/${IMAGE}/tags/list"
 
 # get manifest of the latest image
 curl  -H "Authorization: Bearer $(curl "https://ghcr.io/token?scope=repository:${IMAGE}:pull" | awk -F'"' '$0=$4')" "https://ghcr.io/v2/${IMAGE}/manifests/latest"
+curl  -H "Authorization: Bearer $(curl "https://ghcr.io/token?scope=repository:${IMAGE}:pull" | awk -F'"' '$0=$4')" "https://ghcr.io/v2/${IMAGE}/manifests/993"
+
+curl  -H "Authorization: Bearer $(curl "https://ghcr.io/token?scope=repository:${IMAGE}:pull" | awk -F'"' '$0=$4')" -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.manifest.v1+json" "https://ghcr.io/v2/${IMAGE}/manifests/latest"
+curl  -H "Authorization: Bearer $(curl "https://ghcr.io/token?scope=repository:${IMAGE}:pull" | awk -F'"' '$0=$4')" -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.manifest.v1+json" "https://ghcr.io/v2/${IMAGE}/manifests/993"
 
 
 

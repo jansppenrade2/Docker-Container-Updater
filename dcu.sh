@@ -4,7 +4,7 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.10.04-a
+# 2024.11.08-a
 #
 # ## Changelog
 # 2024.10.XX-X, janseppenrade2: Issue #28: Added support for GitHub Container Registry (ghcr.io), optimized log layout
@@ -359,8 +359,11 @@ Validate-ConfigFile() {
         Write-To-ConfigFile "docker_hub_api_url=${DCU_DOCKER_HUB_API_URL:-"https://registry.hub.docker.com/v2"}"
         Write-To-ConfigFile "github_container_repository_api_url=${DCU_GITHUB_CONTAINER_REPOSITORY_API_URL:-"https://ghcr.io/v2"}"
         Write-To-ConfigFile "docker_hub_api_image_tags_page_size_limit=${DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT:-"100"}"
+        Write-To-ConfigFile "github_container_repository_api_image_tags_page_size_limit=${DCU_GITHUB_CONTAINER_REPOSITORY_API_IMAGE_TAGS_PAGE_SIZE_LIMIT:-"1000"}"
         Write-To-ConfigFile "docker_hub_api_image_tags_page_crawl_limit=${DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT:-"10"}"
+        Write-To-ConfigFile "github_container_repository_api_image_tags_page_crawl_limit=${DCU_GITHUB_CONTAINER_REPOSITORY_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT:-"10"}"
         Write-To-ConfigFile "docker_hub_image_minimum_age=${DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE:-"21600"}"
+        Write-To-ConfigFile "github_container_repository_image_minimum_age=${DCU_GITHUB_CONTAINER_REPOSITORY_IMAGE_MINIMUM_AGE:-"21600"}"
         Write-To-ConfigFile "pre_scripts_folder=${DCU_PRE_SCRIPTS_FOLDER:-"/usr/local/etc/container_update/pre-scripts"}"
         Write-To-ConfigFile "post_scripts_folder=${DCU_POST_SCRIPTS_FOLDER:-"/usr/local/etc/container_update/post-scripts"}"
         Write-To-ConfigFile ""
@@ -412,6 +415,13 @@ Validate-ConfigFile() {
             Write-INI "$configFile" "telegram" "bot_token" ""
             Write-INI "$configFile" "telegram" "chat_id" ""
             Write-INI "$configFile" "telegram" "notifications_enabled" "false"
+        fi
+
+        if [ -z "$(Read-INI "$configFile" "general" "github_container_repository_api_url")" ]; then
+            Write-INI "$configFile" "general" "github_container_repository_api_url" "https://ghcr.io/v2"
+            Write-INI "$configFile" "general" "github_container_repository_api_image_tags_page_size_limit" "1000"
+            Write-INI "$configFile" "general" "github_container_repository_api_image_tags_page_crawl_limit" "10"
+            Write-INI "$configFile" "general" "github_container_repository_image_minimum_age" "21600"
         fi
     fi
 
@@ -484,6 +494,13 @@ Validate-ConfigFile() {
         Write-Log "ERROR" "      => Invalid value for \"[general] docker_hub_api_image_tags_page_size_limit\" (Min.: 1, Max.: 100, Current: $(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_size_limit"))"
         validationError=true
     fi
+    if ! [[ $(Read-INI "$configFile" "general" "github_container_repository_api_image_tags_page_size_limit") =~ ^[0-9]+$ ]]; then
+        Write-Log "ERROR" "      => Invalid value for \"[general] github_container_repository_api_image_tags_page_size_limit\" (Expected: Type of \"integer\")"
+        validationError=true
+    elif (( $(Read-INI "$configFile" "general" "github_container_repository_api_image_tags_page_size_limit") <= 0 || $(Read-INI "$configFile" "general" "github_container_repository_api_image_tags_page_size_limit") > 1000 )); then
+        Write-Log "ERROR" "      => Invalid value for \"[general] github_container_repository_api_image_tags_page_size_limit\" (Min.: 1, Max.: 1000, Current: $(Read-INI "$configFile" "general" "github_container_repository_api_image_tags_page_size_limit"))"
+        validationError=true
+    fi
     if ! [[ $(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_crawl_limit") =~ ^[0-9]+$ ]]; then
         Write-Log "ERROR" "      => Invalid value for \"[general] docker_hub_api_image_tags_page_crawl_limit\" (Expected: Type of \"integer\")"
         validationError=true
@@ -491,11 +508,25 @@ Validate-ConfigFile() {
         Write-Log "ERROR" "      => Invalid value for \"[general] docker_hub_api_image_tags_page_crawl_limit\" (Min.: 1, Current: $(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_crawl_limit"))"
         validationError=true
     fi
+    if ! [[ $(Read-INI "$configFile" "general" "github_container_repository_api_image_tags_page_crawl_limit") =~ ^[0-9]+$ ]]; then
+        Write-Log "ERROR" "      => Invalid value for \"[general] github_container_repository_api_image_tags_page_crawl_limit\" (Expected: Type of \"integer\")"
+        validationError=true
+    elif (( $(Read-INI "$configFile" "general" "github_container_repository_api_image_tags_page_crawl_limit") <= 0 )); then
+        Write-Log "ERROR" "      => Invalid value for \"[general] github_container_repository_api_image_tags_page_crawl_limit\" (Min.: 1, Current: $(Read-INI "$configFile" "general" "github_container_repository_api_image_tags_page_crawl_limit"))"
+        validationError=true
+    fi
     if ! [[ $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") =~ ^[0-9]+$ ]]; then
         Write-Log "ERROR" "      => Invalid value for \"[general] docker_hub_image_minimum_age\" (Expected: Type of \"integer\")"
         validationError=true
     elif (( $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") <= 0 )); then
         Write-Log "ERROR" "      => Invalid value for \"[general] docker_hub_image_minimum_age\" (Min.: 1, Current: $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age"))"
+        validationError=true
+    fi
+    if ! [[ $(Read-INI "$configFile" "general" "github_container_repository_image_minimum_age") =~ ^[0-9]+$ ]]; then
+        Write-Log "ERROR" "      => Invalid value for \"[general] github_container_repository_image_minimum_age\" (Expected: Type of \"integer\")"
+        validationError=true
+    elif (( $(Read-INI "$configFile" "general" "github_container_repository_image_minimum_age") <= 0 )); then
+        Write-Log "ERROR" "      => Invalid value for \"[general] github_container_repository_image_minimum_age\" (Min.: 1, Current: $(Read-INI "$configFile" "general" "github_container_repository_image_minimum_age"))"
         validationError=true
     fi
 
@@ -1680,6 +1711,67 @@ Get-DockerHubImageTags() {
     local image_name=$1
     local docker_hub_api_image_tags_page_size_limit=$(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_size_limit")
     local docker_hub_api_image_tags_page_crawl_limit=$(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_crawl_limit")
+    local github_api_image_tags_page_size_limit=1000
+    local github_api_image_tags_page_crawl_limit=10
+    local url=""
+    local image_tags=""
+    local cmd_wget=wget
+    local image_tags_file="$(mktemp)"
+
+    trap "rm -f $image_tags_file" EXIT
+
+    if [[ $image_name == 'ghcr.io/'* ]]; then
+        local page=0
+        local auth_token=$(curl -s "https://ghcr.io/token?scope=repository:${image_name}:pull" | awk -F'"' '$0=$4')
+        local image_tags_url="https://ghcr.io/v2/${image_name}/tags/list?n=$github_api_image_tags_page_size_limit"
+
+        while [[ -n "$image_tags_url" ]] && (( page < github_api_image_tags_page_crawl_limit )); do
+            page=$((page + 1))
+            response=$(curl -s -D - --insecure -H "Authorization: Bearer $auth_token" "$image_tags_url")
+            docker_image_tags+=$(echo "$response" | awk '/^\{/ {json=1} json {print}' | jq -r '.tags[]'; printf '\n')
+            image_tags_url=$(echo "$response" | grep -oi 'link:.*rel="next"' | sed -n 's/.*<\(.*\)>.*$/\1/p')
+
+            if [[ -n "$image_tags_url" ]]; then
+                image_tags_url="https://ghcr.io${image_tags_url}"
+            fi
+        done
+
+        # Prepare entries in $image_tags_file
+        echo '{"count": 0, "next": null, "previous": null, "results": [' >> "$image_tags_file"
+
+        # Query manifest for each docker_image_tag
+        while IFS= read -r docker_image_tag; do
+            #echo "Retriving manifest for image tag $docker_image_tag" #debug
+            #manifest_response=$(curl -s -H "Authorization: Bearer $auth_token" "https://ghcr.io/v2/${image_name}/manifests/${docker_image_tag}")
+
+            # Extract required fields from manifest and format in Docker Hub XML format
+            echo '{"images": [' >> "$image_tags_file"
+            #echo "$manifest_response" | jq -c '.manifests[] | {architecture: .platform.architecture, variant: .platform.variant, digest: .digest, os: .platform.os, size: .size}' >> "$image_tags_file"
+            echo "], \"name\": \"${docker_image_tag}\" }," >> "$image_tags_file"
+        done <<< "$docker_image_tags"
+
+        # Complete the JSON structure
+        echo ']}' >> "$image_tags_file"
+    else
+        for ((page=1; page<=$docker_hub_api_image_tags_page_crawl_limit; page++)); do
+            url="$(Get-ImageURL "$image_name")/tags?page_size=${docker_hub_api_image_tags_page_size_limit}&page=${page}"
+            response=$($cmd_wget -q --no-check-certificate "$url" -O - 2>&1 )
+            if [[ -z $response ]]; then
+                break
+            else
+                echo "$response" >> "$image_tags_file"
+            fi
+        done
+    fi
+
+    tr -d '\n' < "$image_tags_file"
+    return
+}
+
+Get-DockerHubImageTags() {
+    local image_name=$1
+    local docker_hub_api_image_tags_page_size_limit=$(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_size_limit")
+    local docker_hub_api_image_tags_page_crawl_limit=$(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_crawl_limit")
     local url=""
     local image_tags=""
     local cmd_wget=$(Read-INI "$configFile" "paths" "wget")
@@ -1688,7 +1780,7 @@ Get-DockerHubImageTags() {
     trap "rm -f $image_tags_file" EXIT
 
     for ((page=1; page<=$docker_hub_api_image_tags_page_crawl_limit; page++)); do
-        url="$(Get-ImageURL "$container_image_name")/tags?page_size=${docker_hub_api_image_tags_page_size_limit}&page=${page}"
+        url="$(Get-ImageURL "$image_name")/tags?page_size=${docker_hub_api_image_tags_page_size_limit}&page=${page}"
         response=$($cmd_wget -q "$url" --no-check-certificate -O - 2>&1)
         if [[ -z $response ]]; then
             break
