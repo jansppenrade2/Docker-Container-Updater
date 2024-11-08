@@ -1737,7 +1737,6 @@ Get-DockerHubImageTags() {
             docker_image_tags+=$(echo "$response" | $cmd_awk '/^\{/ {json=1} json {print}' | $cmd_jq -r '.tags[]'; printf '\n')
             image_tags_url=$(echo "$response" | $cmd_grep -oi 'link:.*rel="next"' | $cmd_sed -n 's/.*<\(.*\)>.*$/\1/p')
             
-            #Write-Log "WARNING" "$image_tags_url"
             if [[ -n "$image_tags_url" ]]; then
                 image_tags_url="https://ghcr.io${image_tags_url}"
             fi
@@ -1746,16 +1745,19 @@ Get-DockerHubImageTags() {
         # Prepare entries in $image_tags_file
         echo '{"count": 0, "next": null, "previous": null, "results": [' >> "$image_tags_file"
 
-        # In eine Array-Variable umwandeln, um die Schleife zu optimieren
+        # Convert docker_image_tags into an array to optimize the loop
         docker_image_tags_array=($docker_image_tags)
         total_tags=${#docker_image_tags_array[@]}
 
-        # Iteriere über die Tags und prüfe, ob es sich um das letzte Element handelt
+        # Iterate through tags and check if it is the last element
         for ((i = 0; i < total_tags; i++)); do
             docker_image_tag="${docker_image_tags_array[i]}"
+            
+            # Start the JSON structure for each image tag
             echo '{"images": [' >> "$image_tags_file"
             echo "], \"name\": \"${docker_image_tag}\" }" >> "$image_tags_file"
-            # Nur ein Komma hinzufügen, wenn es nicht das letzte Element ist
+            
+            # Add a comma only if this is not the last element
             if (( i < total_tags - 1 )); then
                 echo "," >> "$image_tags_file"
             fi
