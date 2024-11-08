@@ -4,9 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.11.08-1
+# 2024.11.08-2
 #
 # ## Changelog
+# 2024.11.08-2, janseppenrade2: Hotfix: Self Update not possible
 # 2024.11.08-1, janseppenrade2: Issue #28: Added support for GitHub Container Registry (ghcr.io). IMPORTANT: Digest updates and MINIMUM AGE filtering for images on ghcr.io are currently not supported — additional development is needed. Optimized log layout. Fixed an issue when executing "dcu --version" before a config was created.
 # 2024.10.04-1, janseppenrade2: Issue #27: Removed reliance on tput and added an alternative using stty. Also updated the logs with improved line symbols (”|” -> “║”, “=” -> “═”, “╔”)
 # 2024.07.25-1, janseppenrade2: Issue: Fixed an issue where the Get-ContainerPropertyUnique function accidentally removed quotation marks in environment variables - This resulted in error bringing up the new container.
@@ -929,9 +930,9 @@ Test-Prerequisites() {
 }
 
 Get-ScriptVersion() {
-    local cmd_cut=$(Read-INI "$configFile" "paths" "cut" 2>/dev/null || echo "cut")
-    local cmd_sed=$(Read-INI "$configFile" "paths" "sed" 2>/dev/null || echo "sed")
-    local cmd_grep=$(Read-INI "$configFile" "paths" "grep" 2>/dev/null || echo "grep")
+    local cmd_cut=$(Read-INI "$configFile" "paths" "cut" 2>/dev/null); cmd_cut=${cmd_cut:-cut}
+    local cmd_sed=$(Read-INI "$configFile" "paths" "sed" 2>/dev/null); cmd_sed=${cmd_sed:-sed}
+    local cmd_grep=$(Read-INI "$configFile" "paths" "grep" 2>/dev/null); cmd_grep=${cmd_grep:-grep}
 
     local version_line=$(head -n 10 "$0" | $cmd_grep -n "# ## Version" | $cmd_cut -d: -f1)
     local next_line=0
@@ -1776,31 +1777,6 @@ Get-DockerHubImageTags() {
             fi
         done
     fi
-
-    tr -d '\n' < "$image_tags_file"
-    return
-}
-
-Get-DockerHubImageTags-old() {
-    local image_name=$1
-    local docker_hub_api_image_tags_page_size_limit=$(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_size_limit")
-    local docker_hub_api_image_tags_page_crawl_limit=$(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_crawl_limit")
-    local url=""
-    local image_tags=""
-    local cmd_wget=$(Read-INI "$configFile" "paths" "wget")
-    local image_tags_file="$(mktemp)"
-
-    trap "rm -f $image_tags_file" EXIT
-
-    for ((page=1; page<=$docker_hub_api_image_tags_page_crawl_limit; page++)); do
-        url="$(Get-ImageURL "$image_name")/tags?page_size=${docker_hub_api_image_tags_page_size_limit}&page=${page}"
-        response=$($cmd_wget -q "$url" --no-check-certificate -O - 2>&1)
-        if [[ -z $response ]]; then
-            break
-        else
-            echo "$response" >> "$image_tags_file"
-        fi
-    done
 
     tr -d '\n' < "$image_tags_file"
     return
