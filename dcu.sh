@@ -7,7 +7,7 @@
 # 2024.11.08-1
 #
 # ## Changelog
-# 2024.11.08-1, janseppenrade2: Issue #28: Added support for GitHub Container Registry (ghcr.io). IMPORTANT: Digest updates and MINIMUM AGE filtering for images on ghcr.io are currently not supported—additional development is needed. Optimized log layout. Fixed an issue when executing "dcu --version" before a config was created.
+# 2024.11.08-1, janseppenrade2: Issue #28: Added support for GitHub Container Registry (ghcr.io). IMPORTANT: Digest updates and MINIMUM AGE filtering for images on ghcr.io are currently not supported — additional development is needed. Optimized log layout. Fixed an issue when executing "dcu --version" before a config was created.
 # 2024.10.04-1, janseppenrade2: Issue #27: Removed reliance on tput and added an alternative using stty. Also updated the logs with improved line symbols (”|” -> “║”, “=” -> “═”, “╔”)
 # 2024.07.25-1, janseppenrade2: Issue: Fixed an issue where the Get-ContainerPropertyUnique function accidentally removed quotation marks in environment variables - This resulted in error bringing up the new container.
 # 2024.06.21-1, janseppenrade2: Issue: Fixed an issue occurring when the retrieved list of image tags was too large.
@@ -1752,7 +1752,7 @@ Get-DockerHubImageTags() {
         # Iterate through tags and check if it is the last element
         for ((i = 0; i < total_tags; i++)); do
             docker_image_tag="${docker_image_tags_array[i]}"
-            
+
             # Start the JSON structure for each image tag
             echo '{"images": [' >> "$image_tags_file"
             echo "], \"name\": \"${docker_image_tag}\" }" >> "$image_tags_file"
