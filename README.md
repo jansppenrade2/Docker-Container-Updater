@@ -240,7 +240,7 @@ You can customize these rules for each container by specifying different pattern
 > - All containers are allowed to apply only minor, patch, build, and digest updates.
 > - The container named `mycontainer` is allowed to apply major, build, and digest updates.
 > - The container named `another` is allowed to apply only patch and build updates.
-> - The container named `further` is allowed to apply build updates only when the latest release is two versions higher *(e.g., if Nextcloud releases version 29.0.0 and your Nextcloud is on version 27.0.0, an update to version 28.0.0 will be performed)*.
+> - The container named `further` is allowed to apply major updates only when the latest release is two versions higher *(e.g., if Nextcloud releases version 29.0.0 and your Nextcloud is on version 27.0.0, an update to version 28.0.0 will be performed)*.
 
 #### Precise Rule Examples
 
@@ -302,7 +302,7 @@ Options:
   --version    -v         Display the current version
   --debug                 Set log level to debug mode
 
-Usage: dcu [--dry-run|--run] [ -filter [options|--help] ]
+Usage: dcu [--dry-run|--run] [ --filter [options|--help] ]
 Options:
   --filter                Filter processed containers by the following conditions:
                             name=My_Container_Name
