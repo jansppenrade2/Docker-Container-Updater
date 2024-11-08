@@ -4,9 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.10.04-1
+# 2024.11.08-1
 #
 # ## Changelog
+# 2024.11.08-1, janseppenrade2: Issue #28: Added support for GitHub Container Registry (ghcr.io). IMPORTANT: Digest updates and MINIMUM AGE filtering for images on ghcr.io are currently not supported — additional development is needed. Optimized log layout. Fixed an issue when executing "dcu --version" before a config was created.
 # 2024.10.04-1, janseppenrade2: Issue #27: Removed reliance on tput and added an alternative using stty. Also updated the logs with improved line symbols (”|” -> “║”, “=” -> “═”, “╔”)
 # 2024.07.25-1, janseppenrade2: Issue: Fixed an issue where the Get-ContainerPropertyUnique function accidentally removed quotation marks in environment variables - This resulted in error bringing up the new container.
 # 2024.06.21-1, janseppenrade2: Issue: Fixed an issue occurring when the retrieved list of image tags was too large.
@@ -82,7 +83,7 @@ End-Script() {
         exitcode=0
     fi
     Write-Log "INFO"  "<print_line_top>"
-    Write-Log "INFO"  " ║  TEARDOWN"
+    Write-Log "INFO"  "║  TEARDOWN"
     Write-Log "INFO"  "<print_line_btn>"
 
     Prune-Log $(Read-INI "$configFile" "log" "retention")
@@ -356,9 +357,13 @@ Validate-ConfigFile() {
         Write-To-ConfigFile "container_update_validation_time=${DCU_CONTAINER_UPDATE_VALIDATION_TIME:-"120"}"
         Write-To-ConfigFile "update_rules=${DCU_UPDATE_RULES:-"*[0.1.1-1,true]"}"
         Write-To-ConfigFile "docker_hub_api_url=${DCU_DOCKER_HUB_API_URL:-"https://registry.hub.docker.com/v2"}"
+        Write-To-ConfigFile "github_container_repository_api_url=${DCU_GITHUB_CONTAINER_REPOSITORY_API_URL:-"https://ghcr.io/v2"}"
         Write-To-ConfigFile "docker_hub_api_image_tags_page_size_limit=${DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT:-"100"}"
+        Write-To-ConfigFile "github_container_repository_api_image_tags_page_size_limit=${DCU_GITHUB_CONTAINER_REPOSITORY_API_IMAGE_TAGS_PAGE_SIZE_LIMIT:-"1000"}"
         Write-To-ConfigFile "docker_hub_api_image_tags_page_crawl_limit=${DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT:-"10"}"
+        Write-To-ConfigFile "github_container_repository_api_image_tags_page_crawl_limit=${DCU_GITHUB_CONTAINER_REPOSITORY_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT:-"10"}"
         Write-To-ConfigFile "docker_hub_image_minimum_age=${DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE:-"21600"}"
+        Write-To-ConfigFile "github_container_repository_image_minimum_age=${DCU_GITHUB_CONTAINER_REPOSITORY_IMAGE_MINIMUM_AGE:-"21600"}"
         Write-To-ConfigFile "pre_scripts_folder=${DCU_PRE_SCRIPTS_FOLDER:-"/usr/local/etc/container_update/pre-scripts"}"
         Write-To-ConfigFile "post_scripts_folder=${DCU_POST_SCRIPTS_FOLDER:-"/usr/local/etc/container_update/post-scripts"}"
         Write-To-ConfigFile ""
@@ -410,6 +415,13 @@ Validate-ConfigFile() {
             Write-INI "$configFile" "telegram" "bot_token" ""
             Write-INI "$configFile" "telegram" "chat_id" ""
             Write-INI "$configFile" "telegram" "notifications_enabled" "false"
+        fi
+
+        if [ -z "$(Read-INI "$configFile" "general" "github_container_repository_api_url")" ]; then
+            Write-INI "$configFile" "general" "github_container_repository_api_url" "https://ghcr.io/v2"
+            Write-INI "$configFile" "general" "github_container_repository_api_image_tags_page_size_limit" "1000"
+            Write-INI "$configFile" "general" "github_container_repository_api_image_tags_page_crawl_limit" "10"
+            Write-INI "$configFile" "general" "github_container_repository_image_minimum_age" "21600"
         fi
     fi
 
@@ -471,11 +483,22 @@ Validate-ConfigFile() {
         Write-Log "ERROR" "      => Invalid value for \"[general] docker_hub_api_url\": \"$(Read-INI "$configFile" "general" "docker_hub_api_url")\" (Expected: Type of \"URL\")"
         validationError=true
     fi
+    if ! [[ "$(Read-INI "$configFile" "general" "github_container_repository_api_url")" =~ $url_regex ]]; then
+        Write-Log "ERROR" "      => Invalid value for \"[general] github_container_repository_api_url\": \"$(Read-INI "$configFile" "general" "github_container_repository_api_url")\" (Expected: Type of \"URL\")"
+        validationError=true
+    fi
     if ! [[ $(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_size_limit") =~ ^[0-9]+$ ]]; then
         Write-Log "ERROR" "      => Invalid value for \"[general] docker_hub_api_image_tags_page_size_limit\" (Expected: Type of \"integer\")"
         validationError=true
     elif (( $(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_size_limit") <= 0 || $(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_size_limit") > 100 )); then
         Write-Log "ERROR" "      => Invalid value for \"[general] docker_hub_api_image_tags_page_size_limit\" (Min.: 1, Max.: 100, Current: $(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_size_limit"))"
+        validationError=true
+    fi
+    if ! [[ $(Read-INI "$configFile" "general" "github_container_repository_api_image_tags_page_size_limit") =~ ^[0-9]+$ ]]; then
+        Write-Log "ERROR" "      => Invalid value for \"[general] github_container_repository_api_image_tags_page_size_limit\" (Expected: Type of \"integer\")"
+        validationError=true
+    elif (( $(Read-INI "$configFile" "general" "github_container_repository_api_image_tags_page_size_limit") <= 0 || $(Read-INI "$configFile" "general" "github_container_repository_api_image_tags_page_size_limit") > 1000 )); then
+        Write-Log "ERROR" "      => Invalid value for \"[general] github_container_repository_api_image_tags_page_size_limit\" (Min.: 1, Max.: 1000, Current: $(Read-INI "$configFile" "general" "github_container_repository_api_image_tags_page_size_limit"))"
         validationError=true
     fi
     if ! [[ $(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_crawl_limit") =~ ^[0-9]+$ ]]; then
@@ -485,11 +508,25 @@ Validate-ConfigFile() {
         Write-Log "ERROR" "      => Invalid value for \"[general] docker_hub_api_image_tags_page_crawl_limit\" (Min.: 1, Current: $(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_crawl_limit"))"
         validationError=true
     fi
+    if ! [[ $(Read-INI "$configFile" "general" "github_container_repository_api_image_tags_page_crawl_limit") =~ ^[0-9]+$ ]]; then
+        Write-Log "ERROR" "      => Invalid value for \"[general] github_container_repository_api_image_tags_page_crawl_limit\" (Expected: Type of \"integer\")"
+        validationError=true
+    elif (( $(Read-INI "$configFile" "general" "github_container_repository_api_image_tags_page_crawl_limit") <= 0 )); then
+        Write-Log "ERROR" "      => Invalid value for \"[general] github_container_repository_api_image_tags_page_crawl_limit\" (Min.: 1, Current: $(Read-INI "$configFile" "general" "github_container_repository_api_image_tags_page_crawl_limit"))"
+        validationError=true
+    fi
     if ! [[ $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") =~ ^[0-9]+$ ]]; then
         Write-Log "ERROR" "      => Invalid value for \"[general] docker_hub_image_minimum_age\" (Expected: Type of \"integer\")"
         validationError=true
     elif (( $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") <= 0 )); then
         Write-Log "ERROR" "      => Invalid value for \"[general] docker_hub_image_minimum_age\" (Min.: 1, Current: $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age"))"
+        validationError=true
+    fi
+    if ! [[ $(Read-INI "$configFile" "general" "github_container_repository_image_minimum_age") =~ ^[0-9]+$ ]]; then
+        Write-Log "ERROR" "      => Invalid value for \"[general] github_container_repository_image_minimum_age\" (Expected: Type of \"integer\")"
+        validationError=true
+    elif (( $(Read-INI "$configFile" "general" "github_container_repository_image_minimum_age") <= 0 )); then
+        Write-Log "ERROR" "      => Invalid value for \"[general] github_container_repository_image_minimum_age\" (Min.: 1, Current: $(Read-INI "$configFile" "general" "github_container_repository_image_minimum_age"))"
         validationError=true
     fi
 
@@ -892,9 +929,10 @@ Test-Prerequisites() {
 }
 
 Get-ScriptVersion() {
-    local cmd_cut=$(echo "$(Read-INI "$configFile" "paths" "cut")" || echo "cut")
-    local cmd_sed=$(echo "$(Read-INI "$configFile" "paths" "sed")" || echo "sed")
-    local cmd_grep=$(echo "$(Read-INI "$configFile" "paths" "grep")" || echo "grep")
+    local cmd_cut=$(Read-INI "$configFile" "paths" "cut" 2>/dev/null || echo "cut")
+    local cmd_sed=$(Read-INI "$configFile" "paths" "sed" 2>/dev/null || echo "sed")
+    local cmd_grep=$(Read-INI "$configFile" "paths" "grep" 2>/dev/null || echo "grep")
+
     local version_line=$(head -n 10 "$0" | $cmd_grep -n "# ## Version" | $cmd_cut -d: -f1)
     local next_line=0
 
@@ -1653,11 +1691,15 @@ Get-UpdatePermit() {
     return
 }
 
-Get-DockerHubImageURL() {
-    local image_name=$1
+Get-ImageURL() {
+    local image_name="$1"
     local docker_hub_api_url=$(Read-INI "$configFile" "general" "docker_hub_api_url")
+    local ghcr_api_url=$(Read-INI "$configFile" "general" "github_container_registry_api_url")
 
-    if [[ $image_name == *'/'* ]]; then
+    if [[ $image_name == 'ghcr.io/'* ]]; then
+        image_name="${image_name#ghcr.io/}"
+        echo "${ghcr_api_url}/${image_name}"
+    elif [[ $image_name == *'/'* ]]; then
         echo "$docker_hub_api_url/repositories/${image_name}"
         return
     else
@@ -1670,6 +1712,79 @@ Get-DockerHubImageTags() {
     local image_name=$1
     local docker_hub_api_image_tags_page_size_limit=$(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_size_limit")
     local docker_hub_api_image_tags_page_crawl_limit=$(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_crawl_limit")
+    local github_container_repository_api_image_tags_page_size_limit=$(Read-INI "$configFile" "general" "github_container_repository_api_image_tags_page_size_limit")
+    local github_container_repository_api_image_tags_page_crawl_limit=$(Read-INI "$configFile" "general" "github_container_repository_api_image_tags_page_crawl_limit")
+    local cmd_awk=$(Read-INI "$configFile" "paths" "gawk")
+    local cmd_curl=$(Read-INI "$configFile" "paths" "curl")
+    local cmd_grep=$(Read-INI "$configFile" "paths" "grep")
+    local cmd_jq=$(Read-INI "$configFile" "paths" "jq")
+    local cmd_sed=$(Read-INI "$configFile" "paths" "sed")
+    local cmd_wget=$(Read-INI "$configFile" "paths" "wget")
+    local url=""
+    local image_tags=""
+    local image_tags_file="$(mktemp)"
+
+    trap "rm -f $image_tags_file" EXIT
+
+    if [[ $image_name == 'ghcr.io/'* ]]; then
+        local page=0
+        local auth_token=$($cmd_curl -s "https://ghcr.io/token?scope=repository:${image_name}:pull" | $cmd_awk -F'"' '$0=$4')
+        local image_tags_url="https://ghcr.io/v2/${image_name}/tags/list?n=$github_container_repository_api_image_tags_page_size_limit"
+
+        while [[ -n "$image_tags_url" ]] && (( page < github_container_repository_api_image_tags_page_crawl_limit )); do
+            page=$((page + 1))
+            response=$($cmd_curl -s -D - --insecure -H "Authorization: Bearer $auth_token" "$image_tags_url")
+            docker_image_tags+=$(echo "$response" | $cmd_awk '/^\{/ {json=1} json {print}' | $cmd_jq -r '.tags[]'; printf '\n')
+            image_tags_url=$(echo "$response" | $cmd_grep -oi 'link:.*rel="next"' | $cmd_sed -n 's/.*<\(.*\)>.*$/\1/p')
+            
+            if [[ -n "$image_tags_url" ]]; then
+                image_tags_url="https://ghcr.io${image_tags_url}"
+            fi
+        done
+
+        # Prepare entries in $image_tags_file
+        echo '{"count": 0, "next": null, "previous": null, "results": [' >> "$image_tags_file"
+
+        # Convert docker_image_tags into an array to optimize the loop
+        docker_image_tags_array=($docker_image_tags)
+        total_tags=${#docker_image_tags_array[@]}
+
+        # Iterate through tags and check if it is the last element
+        for ((i = 0; i < total_tags; i++)); do
+            docker_image_tag="${docker_image_tags_array[i]}"
+
+            # Start the JSON structure for each image tag
+            echo '{"images": [' >> "$image_tags_file"
+            echo "], \"name\": \"${docker_image_tag}\" }" >> "$image_tags_file"
+            
+            # Add a comma only if this is not the last element
+            if (( i < total_tags - 1 )); then
+                echo "," >> "$image_tags_file"
+            fi
+        done
+
+        # Complete the JSON structure
+        echo ']}' >> "$image_tags_file"
+    else
+        for ((page=1; page<=$docker_hub_api_image_tags_page_crawl_limit; page++)); do
+            url="$(Get-ImageURL "$image_name")/tags?page_size=${docker_hub_api_image_tags_page_size_limit}&page=${page}"
+            response=$($cmd_wget -q --no-check-certificate "$url" -O - 2>&1 )
+            if [[ -z $response ]]; then
+                break
+            else
+                echo "$response" >> "$image_tags_file"
+            fi
+        done
+    fi
+
+    tr -d '\n' < "$image_tags_file"
+    return
+}
+
+Get-DockerHubImageTags-old() {
+    local image_name=$1
+    local docker_hub_api_image_tags_page_size_limit=$(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_size_limit")
+    local docker_hub_api_image_tags_page_crawl_limit=$(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_crawl_limit")
     local url=""
     local image_tags=""
     local cmd_wget=$(Read-INI "$configFile" "paths" "wget")
@@ -1678,7 +1793,7 @@ Get-DockerHubImageTags() {
     trap "rm -f $image_tags_file" EXIT
 
     for ((page=1; page<=$docker_hub_api_image_tags_page_crawl_limit; page++)); do
-        url="$(Get-DockerHubImageURL "$container_image_name")/tags?page_size=${docker_hub_api_image_tags_page_size_limit}&page=${page}"
+        url="$(Get-ImageURL "$image_name")/tags?page_size=${docker_hub_api_image_tags_page_size_limit}&page=${page}"
         response=$($cmd_wget -q "$url" --no-check-certificate -O - 2>&1)
         if [[ -z $response ]]; then
             break
@@ -1980,8 +2095,8 @@ Perform-ImageUpdate() {
         
         # Run self-update helper container
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "INFO"  "           Bringing up self-update helper container..."
-        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "DEBUG" "             => $cmd_docker run -d --rm --name="$container_name"_DCU_SelfUpdateHelper --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --env DCU_TEST_MODE=false --env DCU_UPDATE_RULES='*[0.0.0-0,false] $container_name[1.1.1-1,true]' --env DCU_MAIL_NOTIFICATIONS_ENABLED=\"$DCU_MAIL_NOTIFICATIONS_ENABLED\" --env DCU_MAIL_NOTIFICATION_MODE=\"$DCU_MAIL_NOTIFICATION_MODE\" --env DCU_MAIL_FROM=\"$DCU_MAIL_FROM\" --env DCU_MAIL_RECIPIENTS=\"$DCU_MAIL_RECIPIENTS\" --env DCU_MAIL_SUBJECT=\"$DCU_MAIL_SUBJECT\" --env DCU_MAIL_RELAYHOST=\"$DCU_MAIL_RELAYHOST\" --env DCU_TELEGRAM_NOTIFICATIONS_ENABLED=\"$DCU_TELEGRAM_NOTIFICATIONS_ENABLED\" --env DCU_TELEGRAM_RETRY_LIMIT=\"$DCU_TELEGRAM_RETRY_LIMIT\" --env DCU_TELEGRAM_RETRY_INTERVAL=\"$DCU_TELEGRAM_RETRY_INTERVAL\" --env DCU_TELEGRAM_CHAT_ID=\"$DCU_TELEGRAM_CHAT_ID\" --env DCU_TELEGRAM_BOT_TOKEN=\"$DCU_TELEGRAM_BOT_TOKEN\" --env DCU_REPORT_REAL_HOSTNAME=\"$DCU_REPORT_REAL_HOSTNAME\" --env DCU_REPORT_REAL_IP=\"$DCU_REPORT_REAL_IP\" --env DCU_REPORT_REAL_DOCKER_VERSION=\"$DCU_REPORT_REAL_DOCKER_VERSION\" --env DCU_DOCKER_HUB_API_URL=\"$DCU_DOCKER_HUB_API_URL\" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT=\"$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT\" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT=\"$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT\" --env DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE=\"$DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE\" --env DCU_CONTAINER_UPDATE_VALIDATION_TIME=\"$DCU_CONTAINER_UPDATE_VALIDATION_TIME\" --env DCU_LOG_LEVEL=\"DEBUG\" $image_name:$image_tag_new dcu --self-update --filter name=$container_name"
-        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && { $cmd_docker run -d --rm --name="${container_name}_DCU_SelfUpdateHelper" --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --env DCU_TEST_MODE=false --env DCU_UPDATE_RULES='*[0.0.0-0,false] '$container_name'[1.1.1-1,true]' --env DCU_MAIL_NOTIFICATIONS_ENABLED="$DCU_MAIL_NOTIFICATIONS_ENABLED" --env DCU_MAIL_NOTIFICATION_MODE="$DCU_MAIL_NOTIFICATION_MODE" --env DCU_MAIL_FROM="$DCU_MAIL_FROM" --env DCU_MAIL_RECIPIENTS="$DCU_MAIL_RECIPIENTS" --env DCU_MAIL_SUBJECT="$DCU_MAIL_SUBJECT" --env DCU_MAIL_RELAYHOST="$DCU_MAIL_RELAYHOST" --env DCU_TELEGRAM_NOTIFICATIONS_ENABLED="$DCU_TELEGRAM_NOTIFICATIONS_ENABLED" --env DCU_TELEGRAM_RETRY_LIMIT="$DCU_TELEGRAM_RETRY_LIMIT" --env DCU_TELEGRAM_RETRY_INTERVAL="$DCU_TELEGRAM_RETRY_INTERVAL" --env DCU_TELEGRAM_CHAT_ID="$DCU_TELEGRAM_CHAT_ID" --env DCU_TELEGRAM_BOT_TOKEN="$DCU_TELEGRAM_BOT_TOKEN" --env DCU_REPORT_REAL_HOSTNAME="$DCU_REPORT_REAL_HOSTNAME" --env DCU_REPORT_REAL_IP="$DCU_REPORT_REAL_IP" --env DCU_REPORT_REAL_DOCKER_VERSION="$DCU_REPORT_REAL_DOCKER_VERSION" --env DCU_DOCKER_HUB_API_URL="$DCU_DOCKER_HUB_API_URL" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT="$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT="$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT" --env DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE="$DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE" --env DCU_CONTAINER_UPDATE_VALIDATION_TIME="$DCU_CONTAINER_UPDATE_VALIDATION_TIME" --env DCU_LOG_LEVEL="DEBUG" $image_name:$image_tag_new dcu --self-update --filter name=$container_name > /dev/null; result=$?; } || result=$?
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && Write-Log "DEBUG" "             => $cmd_docker run -d --rm --name="$container_name"_DCU_SelfUpdateHelper --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --env DCU_TEST_MODE=false --env DCU_UPDATE_RULES='*[0.0.0-0,false] $container_name[1.1.1-1,true]' --env DCU_MAIL_NOTIFICATIONS_ENABLED=\"$DCU_MAIL_NOTIFICATIONS_ENABLED\" --env DCU_MAIL_NOTIFICATION_MODE=\"$DCU_MAIL_NOTIFICATION_MODE\" --env DCU_MAIL_FROM=\"$DCU_MAIL_FROM\" --env DCU_MAIL_RECIPIENTS=\"$DCU_MAIL_RECIPIENTS\" --env DCU_MAIL_SUBJECT=\"$DCU_MAIL_SUBJECT\" --env DCU_MAIL_RELAYHOST=\"$DCU_MAIL_RELAYHOST\" --env DCU_TELEGRAM_NOTIFICATIONS_ENABLED=\"$DCU_TELEGRAM_NOTIFICATIONS_ENABLED\" --env DCU_TELEGRAM_RETRY_LIMIT=\"$DCU_TELEGRAM_RETRY_LIMIT\" --env DCU_TELEGRAM_RETRY_INTERVAL=\"$DCU_TELEGRAM_RETRY_INTERVAL\" --env DCU_TELEGRAM_CHAT_ID=\"$DCU_TELEGRAM_CHAT_ID\" --env DCU_TELEGRAM_BOT_TOKEN=\"$DCU_TELEGRAM_BOT_TOKEN\" --env DCU_REPORT_REAL_HOSTNAME=\"$DCU_REPORT_REAL_HOSTNAME\" --env DCU_REPORT_REAL_IP=\"$DCU_REPORT_REAL_IP\" --env DCU_REPORT_REAL_DOCKER_VERSION=\"$DCU_REPORT_REAL_DOCKER_VERSION\" --env DCU_DOCKER_HUB_API_URL=\"$DCU_DOCKER_HUB_API_URL\" --env DCU_GITHUB_CONTAINER_REPOSITORY_API_URL=\"$DCU_GITHUB_CONTAINER_REPOSITORY_API_URL\" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT=\"$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT\" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT=\"$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT\" --env DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE=\"$DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE\" --env DCU_CONTAINER_UPDATE_VALIDATION_TIME=\"$DCU_CONTAINER_UPDATE_VALIDATION_TIME\" --env DCU_LOG_LEVEL=\"DEBUG\" $image_name:$image_tag_new dcu --self-update --filter name=$container_name"
+        [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && { $cmd_docker run -d --rm --name="${container_name}_DCU_SelfUpdateHelper" --privileged --tty --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock --env DCU_TEST_MODE=false --env DCU_UPDATE_RULES='*[0.0.0-0,false] '$container_name'[1.1.1-1,true]' --env DCU_MAIL_NOTIFICATIONS_ENABLED="$DCU_MAIL_NOTIFICATIONS_ENABLED" --env DCU_MAIL_NOTIFICATION_MODE="$DCU_MAIL_NOTIFICATION_MODE" --env DCU_MAIL_FROM="$DCU_MAIL_FROM" --env DCU_MAIL_RECIPIENTS="$DCU_MAIL_RECIPIENTS" --env DCU_MAIL_SUBJECT="$DCU_MAIL_SUBJECT" --env DCU_MAIL_RELAYHOST="$DCU_MAIL_RELAYHOST" --env DCU_TELEGRAM_NOTIFICATIONS_ENABLED="$DCU_TELEGRAM_NOTIFICATIONS_ENABLED" --env DCU_TELEGRAM_RETRY_LIMIT="$DCU_TELEGRAM_RETRY_LIMIT" --env DCU_TELEGRAM_RETRY_INTERVAL="$DCU_TELEGRAM_RETRY_INTERVAL" --env DCU_TELEGRAM_CHAT_ID="$DCU_TELEGRAM_CHAT_ID" --env DCU_TELEGRAM_BOT_TOKEN="$DCU_TELEGRAM_BOT_TOKEN" --env DCU_REPORT_REAL_HOSTNAME="$DCU_REPORT_REAL_HOSTNAME" --env DCU_REPORT_REAL_IP="$DCU_REPORT_REAL_IP" --env DCU_REPORT_REAL_DOCKER_VERSION="$DCU_REPORT_REAL_DOCKER_VERSION" --env DCU_DOCKER_HUB_API_URL="$DCU_DOCKER_HUB_API_URL" --env DCU_GITHUB_CONTAINER_REPOSITORY_API_URL=\"$DCU_GITHUB_CONTAINER_REPOSITORY_API_URL\" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT="$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT" --env DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT="$DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT" --env DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE="$DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE" --env DCU_CONTAINER_UPDATE_VALIDATION_TIME="$DCU_CONTAINER_UPDATE_VALIDATION_TIME" --env DCU_LOG_LEVEL="DEBUG" $image_name:$image_tag_new dcu --self-update --filter name=$container_name > /dev/null; result=$?; } || result=$?
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ $result -eq 0 ] && new_container_started_successfully=true  && Write-Log "DEBUG" "             => Self-update helper container started successfully"
         [ "$test_mode" == false ] && [ "$image_pulled_successfully" == true  ] && [ $result -ne 0 ] && new_container_started_successfully=false && Write-Log "ERROR" "             => Failed to start self-update helper container: $result"
         [ "$test_mode" == false ] && [ "$new_container_started_successfully" == true  ] && self_update_helper_container_started=true && self_update_helper_container_name="${container_name}_DCU_SelfUpdateHelper"
@@ -2683,7 +2798,7 @@ Main() {
             effective_update_rule=$(Get-EffectiveUpdateRule "$container_name")
             container_labels_unique=$(Get-ContainerPropertyUnique "$container_labels" "$image_labels" "unique_labels")
             container_envs_unique=$(Get-ContainerPropertyUnique "$container_envs" "$image_envs" "unique_envs")
-            docker_hub_image_url=$(Get-DockerHubImageURL "$container_image_name")
+            docker_hub_image_url=$(Get-ImageURL "$container_image_name")
             docker_hub_image_tag_names_filter=$(New-DockerHubImageTagFilter "$container_image_tag")
             
             # To be able to report available and outstanding updates for containers/images, this if-statement ist commented out 
@@ -2700,7 +2815,7 @@ Main() {
                 Write-Log "INFO"  "    Extracting a list of available image tag names..."
                 docker_hub_image_tag_digest=$(Get-DockerHubImageTagProperty "$docker_hub_image_tags" "$container_image_tag" "docker_hub_image_tag_digest")
                 docker_hub_image_tag_last_updated=$(Get-DockerHubImageTagProperty "$docker_hub_image_tags" "$container_image_tag" "docker_hub_image_tag_last_updated")
-                docker_hub_image_tag_age=$(( $(date +%s) - $($cmd_date -d "$docker_hub_image_tag_last_updated" +%s) ))
+                [ -n "$docker_hub_image_tag_last_updated" ] && docker_hub_image_tag_age=$(( $(date +%s) - $($cmd_date -d "$docker_hub_image_tag_last_updated" +%s) ))
                 docker_hub_image_tag_names=$(Get-DockerHubImageTagNames "$docker_hub_image_tags")
                 image_updates_available_all=$(Get-AvailableUpdates "all" "$docker_hub_image_tag_names" "$docker_hub_image_tag_names_filter" "$container_image_tag")
                 [ -n "$docker_hub_image_tag_digest" ] && image_update_available_digest=$(Get-AvailableUpdates "digest" "$image_repoDigests" "$docker_hub_image_tag_digest")
@@ -2774,7 +2889,7 @@ Main() {
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tags (json):                         $docker_hub_image_tags"
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Digest:                              $docker_hub_image_tag_digest"
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Last Updated:                        $docker_hub_image_tag_last_updated"
-            [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Age:                                 $docker_hub_image_tag_age Seconds"
+            [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Age:                                 $docker_hub_image_tag_age${docker_hub_image_tag_age:+ Seconds}"
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tag Filter:                          $docker_hub_image_tag_names_filter"
             [ -n "$docker_hub_image_tags" ] && Write-Log "DEBUG" "       Docker Hub Image Tag Names:                           $docker_hub_image_tag_names"
             [ -n "$docker_hub_image_tags" ] && Write-Log "INFO"  "       Update Overview:"
@@ -2813,7 +2928,7 @@ Main() {
             if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ "$image_update_available_digest" == true ]; then
                 updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$container_image_tag")
                 if [ "$updatePermit" == true ]; then
-                    if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                    if { [[ -n "$docker_hub_image_tag_age" ]] && [ "$docker_hub_image_tag_age" -gt "$(Read-INI "$configFile" "general" "docker_hub_image_minimum_age")" ]; } || [ -z "$docker_hub_image_tag_age" ]; then
                         if [ "$updatePerformed" == false ]; then
                             [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$container_image_tag"
                             #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
@@ -2844,7 +2959,7 @@ Main() {
             if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_build_next" ] && [ -n "$image_update_available_build_latest" ]; then
                 updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_build_next" "$image_update_available_build_latest")
                 if [ "$updatePermit" == true ]; then
-                    if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                    if { [[ -n "$docker_hub_image_tag_age" ]] && [ "$docker_hub_image_tag_age" -gt "$(Read-INI "$configFile" "general" "docker_hub_image_minimum_age")" ]; } || [ -z "$docker_hub_image_tag_age" ]; then
                         if [ "$updatePerformed" == false ]; then
                             [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_build_next"
                             #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
@@ -2883,7 +2998,7 @@ Main() {
             if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_patch_next" ] && [ -n "$image_update_available_patch_latest" ]; then
                 updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_patch_next" "$image_update_available_patch_latest")
                 if [ "$updatePermit" == true ]; then
-                    if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                    if { [[ -n "$docker_hub_image_tag_age" ]] && [ "$docker_hub_image_tag_age" -gt "$(Read-INI "$configFile" "general" "docker_hub_image_minimum_age")" ]; } || [ -z "$docker_hub_image_tag_age" ]; then
                         if [ "$updatePerformed" == false ]; then
                             [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_patch_next"
                             #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
@@ -2922,7 +3037,7 @@ Main() {
             if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_minor_next" ] && [ -n "$image_update_available_minor_latest" ]; then
                 updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_minor_next" "$image_update_available_minor_latest")
                 if [ "$updatePermit" == true ]; then
-                    if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                    if { [[ -n "$docker_hub_image_tag_age" ]] && [ "$docker_hub_image_tag_age" -gt "$(Read-INI "$configFile" "general" "docker_hub_image_minimum_age")" ]; } || [ -z "$docker_hub_image_tag_age" ]; then
                         if [ "$updatePerformed" == false ]; then
                             [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_minor_next"
                             #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
@@ -2961,7 +3076,7 @@ Main() {
             if [ -n "$container_name" ] && [ -n "$container_image_tag" ] && [ -n "$image_update_available_major_next" ] && [ -n "$image_update_available_major_latest" ]; then
                 updatePermit=$(Get-UpdatePermit "$container_name" "$container_image_tag" "$image_update_available_major_next" "$image_update_available_major_latest")
                 if [ "$updatePermit" == true ]; then
-                    if [ $docker_hub_image_tag_age -gt $(Read-INI "$configFile" "general" "docker_hub_image_minimum_age") ]; then
+                    if { [[ -n "$docker_hub_image_tag_age" ]] && [ "$docker_hub_image_tag_age" -gt "$(Read-INI "$configFile" "general" "docker_hub_image_minimum_age")" ]; } || [ -z "$docker_hub_image_tag_age" ]; then
                         if [ "$updatePerformed" == false ]; then
                             [ -n "$container_image_tag" ] &&    docker_run_cmd+=":$image_update_available_major_next"
                             #[ -n "$container_cmd" ] &&          docker_run_cmd+=" $container_cmd"
@@ -2999,7 +3114,7 @@ Main() {
 
         if [ "$test_mode" == false ]; then
             Write-Log "INFO"  "<print_line_top>"
-            Write-Log "INFO"  " ║  PRUNING PROGRESS"
+            Write-Log "INFO"  "║  PRUNING PROGRESS"
             Write-Log "INFO"  "<print_line_btn>"
             Prune-ContainerBackups
             Prune-DockerImages
@@ -3007,21 +3122,21 @@ Main() {
 
         if [ "$mail_notifications_enabled" == true ]; then
             Write-Log "INFO" "<print_line_top>"
-            Write-Log "INFO" " ║ MAIL NOTIFICATIONS"
+            Write-Log "INFO" "║ MAIL NOTIFICATIONS"
             Write-Log "INFO" "<print_line_btn>"
             Send-MailNotification
         fi
 
         if [ "$telegram_notifications_enabled" == true ]; then
             Write-Log "INFO" "<print_line_top>"
-            Write-Log "INFO" " ║ TELEGRAM NOTIFICATIONS"
+            Write-Log "INFO" "║ TELEGRAM NOTIFICATIONS"
             Write-Log "INFO" "<print_line_btn>"
             Telegram-SplitMessage "$(Telegram-GenerateMessage)"
         fi
 
         if [ "$self_update_helper_container_started" == true ]; then
             Write-Log "INFO" "<print_line_top>"
-            Write-Log "INFO" " ║ SELF-UPDATE INITIATION"
+            Write-Log "INFO" "║ SELF-UPDATE INITIATION"
             Write-Log "INFO" "<print_line_top>"
             Write-Log "INFO" "    Setting update status flag in \"$self_update_helper_container_name:/opt/dcu/.main_update_process_completed\"..."
             { $cmd_docker exec $self_update_helper_container_name /bin/bash -c 'echo "true" > /opt/dcu/.main_update_process_completed' > /dev/null; result=$?; } || result=$?
@@ -3030,7 +3145,7 @@ Main() {
         fi
     else
         Write-Log "INFO"  "<print_line_top>"
-        Write-Log "INFO"  " ║  PROCESSING CONTAINERS"
+        Write-Log "INFO"  "║  PROCESSING CONTAINERS"
         Write-Log "INFO"  "<print_line_btn>"
         Write-Log "ERROR" "    No containers found by running command \"$cmd_docker ps -q $1\""
     fi
