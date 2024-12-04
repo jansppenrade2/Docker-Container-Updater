@@ -4,9 +4,10 @@
 # Automatic Docker Container Updater Script
 #
 # ## Version
-# 2024.11.08-2
+# 2024.12.04-1
 #
 # ## Changelog
+# 2024.12.04-1, janseppenrade2: Issue #32: Leading zeros in version parts cause errors
 # 2024.11.08-2, janseppenrade2: Hotfix: Self Update not possible
 # 2024.11.08-1, janseppenrade2: Issue #28: Added support for GitHub Container Registry (ghcr.io). IMPORTANT: Digest updates and MINIMUM AGE filtering for images on ghcr.io are currently not supported — additional development is needed. Optimized log layout. Fixed an issue when executing "dcu --version" before a config was created.
 # 2024.10.04-1, janseppenrade2: Issue #27: Removed reliance on tput and added an alternative using stty. Also updated the logs with improved line symbols (”|” -> “║”, “=” -> “═”, “╔”)
@@ -1378,16 +1379,16 @@ Extract-VersionPart() {
     template=$(echo "$template" | $cmd_sed 's/^\.//;s/\.$//')
 
     if   [ -n "$template" ] && [ "$version" == "major" ]; then
-        echo "$(echo $template | $cmd_cut -d'.' -f1)"
+        echo "$((10#$(echo $template | $cmd_cut -d'.' -f1)))" # Remove leading zeros and extract the part before the first dot
         return
     elif [ -n "$template" ] && [ "$version" == "minor" ]; then
-        echo "$(echo $template | $cmd_cut -d'.' -f2)"
+        echo "$((10#$(echo $template | $cmd_cut -d'.' -f2)))" # Remove leading zeros and extract the part before the second dot
         return
     elif [ -n "$template" ] && [ "$version" == "patch" ]; then
-        echo "$(echo $template | $cmd_cut -d'.' -f3)"
+        echo "$((10#$(echo $template | $cmd_cut -d'.' -f3)))" # Remove leading zeros and extract the part before the third dot
         return
     elif [ -n "$template" ] && [ "$version" == "build" ]; then
-        echo "$(echo $template | $cmd_cut -d'.' -f4)"
+        echo "$((10#$(echo $template | $cmd_cut -d'.' -f4)))" # Remove leading zeros and extract the part before the fourth dot
         return
     # else
     #     Write-Log "ERROR" "Unknown version type requested: $version"
