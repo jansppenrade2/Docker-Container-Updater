@@ -490,6 +490,7 @@ Validate-ConfigFile() {
     # if ! [[ "$(Read-INI "$configFile" "general" "github_container_repository_api_url")" =~ $url_regex ]]; then
     if ! [[ "$(Read-INI "$configFile" "general" "github_container_repository_api_url" | sed 's/""//g')" =~ $url_regex ]]; then # Remove double quotes ("") from the output of Read-INI before comparing it with the regex pattern -> This is needed because of a broken self update mechanism in version 2024.11.08-2
         Write-Log "ERROR" "      => Invalid value for \"[general] github_container_repository_api_url\": \"$(Read-INI "$configFile" "general" "github_container_repository_api_url")\" (Expected: Type of \"URL\")"
+        Write-Log "ERROR" "      => Invalid value for \"[general] github_container_repository_api_url\": \"$(Read-INI "$configFile" "general" "github_container_repository_api_url")\" (Expected: Type of \"URL\")"
         validationError=true
     fi
     if ! [[ $(Read-INI "$configFile" "general" "docker_hub_api_image_tags_page_size_limit") =~ ^[0-9]+$ ]]; then
