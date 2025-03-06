@@ -363,7 +363,7 @@ Validate-ConfigFile() {
         Write-To-ConfigFile "update_rules=${DCU_UPDATE_RULES:-"*[0.1.1-1,true]"}"
         Write-To-ConfigFile "docker_hub_api_url=${DCU_DOCKER_HUB_API_URL:-"https://registry.hub.docker.com/v2"}"
         Write-To-ConfigFile "github_container_repository_api_url=${DCU_GITHUB_CONTAINER_REPOSITORY_API_URL:-"https://ghcr.io/v2"}"
-        Write-To-ConfigFile "docker_hub_api_image_tags_page_size_limit=${DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT:-"1000"}"
+        Write-To-ConfigFile "docker_hub_api_image_tags_page_size_limit=${DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT:-"100"}"
         Write-To-ConfigFile "github_container_repository_api_image_tags_page_size_limit=${DCU_GITHUB_CONTAINER_REPOSITORY_API_IMAGE_TAGS_PAGE_SIZE_LIMIT:-"1000"}"
         Write-To-ConfigFile "docker_hub_api_image_tags_page_crawl_limit=${DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT:-"10"}"
         Write-To-ConfigFile "github_container_repository_api_image_tags_page_crawl_limit=${DCU_GITHUB_CONTAINER_REPOSITORY_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT:-"1000"}"
