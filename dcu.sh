@@ -7,7 +7,7 @@
 # 2025.03.06-1
 #
 # ## Changelog
-# 2024.12.08-1, janseppenrade2: Issue: Increased default limits for ghcr.io
+# 2025.03.06-1, janseppenrade2: Issue: Increased default limits for ghcr.io
 # 2024.12.08-1, janseppenrade2: Issue #36: Self-Update still broken in some cases
 # 2024.12.06-1, janseppenrade2: Issue #35: Self-Update broken again
 # 2024.12.04-2, janseppenrade2: Issue #32: Leading zeros in version parts cause errors
